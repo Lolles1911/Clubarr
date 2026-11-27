@@ -8,7 +8,8 @@ See [SECURITY.md](../SECURITY.md).
 - **No open registration.** Accounts are only made by redeeming an
   invitation (or by an admin).
 - **Admins must use two-factor sign-in** (an authenticator app, with recovery
-  codes); members can turn it on in their profile.
+  codes) unless you turn that off (at setup, or Settings → Security; it is
+  logged). Members can turn it on in their profile.
 - Passwords: at least 10 characters with letters and digits (admins 12),
   stored with bcrypt. Sign-in, invitation lookups, sign-ups, password changes
   and Plex sign-in are rate limited per IP.

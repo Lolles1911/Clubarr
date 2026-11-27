@@ -11,6 +11,7 @@ use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\SimplePage;
 use Filament\Schemas\Components\Actions;
@@ -42,7 +43,7 @@ class Setup extends SimplePage
     {
         abort_if(app(SetupState::class)->isDone(), 404);
         app(SetupState::class)->token(); // made now, so it is in the log
-        $this->form->fill(['site_name' => 'Clubarr']);
+        $this->form->fill(['site_name' => 'Clubarr', 'require_2fa' => true]);
     }
 
     #[Unexposed]
@@ -63,6 +64,8 @@ class Setup extends SimplePage
             TextInput::make('password')->label(__('Password'))->password()->revealable()->required()
                 ->rule(Password::min(12)->letters()->numbers())->same('password_confirmation'),
             TextInput::make('password_confirmation')->label(__('Password again'))->password()->revealable()->required()->dehydrated(false),
+            Toggle::make('require_2fa')->label(__('Require two-factor sign-in for admins (recommended)'))->default(true)
+                ->helperText(__('With an authenticator app. You can change it later under Settings.')),
         ]);
     }
 
@@ -100,7 +103,7 @@ class Setup extends SimplePage
 
             return $user;
         });
-        app(SiteSettings::class)->set(['site_name' => $data['site_name']]);
+        app(SiteSettings::class)->set(['site_name' => $data['site_name'], 'admin_2fa_required' => ! empty($data['require_2fa']) ? '1' : '0']);
         $state->finish();
         Audit::log('setup.finished', $user, [], $user->id);
 

@@ -10,6 +10,7 @@ use App\Models\ServerAccount;
 use App\Models\User;
 use App\Notifications\AccessEnded;
 use App\Notifications\AccessEndingSoon;
+use App\Services\SiteSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -85,6 +86,15 @@ class AccessTest extends TestCase
 
         $this->artisan('clubarr:check-access');
         Notification::assertSentToTimes($soon, AccessEndingSoon::class, 1);
+    }
+
+    public function test_admin_two_factor_is_required_unless_turned_off(): void
+    {
+        $admin = User::where('email', 'admin@example.com')->sole();
+        $this->actingAs($admin)->get('/admin')->assertRedirectContains('/admin/multi-factor-authentication/set-up');
+
+        app(SiteSettings::class)->set(['admin_2fa_required' => '0']);
+        $this->actingAs($admin)->get('/admin')->assertOk();
     }
 
     public function test_disabled_members_cannot_sign_in(): void

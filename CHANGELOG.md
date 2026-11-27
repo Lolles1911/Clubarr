@@ -3,6 +3,22 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.1.1-beta (2026-11-28)
+
+- **Import user works.** The list of users on the server could not be loaded
+  ("The options could not be loaded"): Clubarr kept it in its cache as
+  objects, which Laravel's cache refuses to bring back. It is now kept as
+  plain values. Making a new member with an email in the same step also
+  failed, and works now; an email that already has an account is refused.
+  Checked for all four kinds of server: **Check**, **Import user** and
+  joining with an invitation are now tested for Jellyfin, Emby, Plex and
+  Silo, each with its own answers.
+- **Two-factor sign-in for admins can be turned off.** It is still on by
+  default: a choice in the setup ("Require two-factor sign-in for admins
+  (recommended)") and under **Settings → Security**. The change takes effect
+  at once, without a restart, and is written in the log. Admins who haven't
+  set it up are asked to on their next sign-in when it is turned on again.
+
 ## 0.1.0-beta (2026-11-27)
 
 The first beta: invitations, accounts and a member page for your Plex,

@@ -22,6 +22,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class MediaServersTable
 {
@@ -72,7 +73,9 @@ class MediaServersTable
                     ->options(fn () => User::query()->whereDoesntHave('serverAccounts', fn ($q) => $q->where('media_server_id', $record->id))->orderBy('name')->limit(500)->pluck('email', 'id')->all())
                     ->helperText(__('Or leave empty and make a new member below.')),
                 TextInput::make('name')->label(__('Name of the new member'))->maxLength(100)->required(fn (Get $get) => blank($get('member')))->hidden(fn (Get $get) => filled($get('member'))),
-                TextInput::make('email')->label(__('Email of the new member'))->email()->maxLength(190)->unique(User::class, 'email')
+                TextInput::make('email')->label(__('Email of the new member'))->email()->maxLength(190)
+                    // A plain rule: Filament's unique() would leave out the action's record (the server), not a user.
+                    ->rule(Rule::unique('users', 'email'))
                     ->required(fn (Get $get) => blank($get('member')))->hidden(fn (Get $get) => filled($get('member')))
                     ->helperText(__('They get a mail with a link to choose their password.')),
             ])
@@ -99,13 +102,15 @@ class MediaServersTable
     /** @return list<RemoteUser> users on the server that no member has, without administrators */
     private static function unlinkedUsers(MediaServer $server): array
     {
-        $users = Cache::remember('clubarr:remote-users:'.$server->id, 60, function () use ($server) {
+        // Cached as plain arrays: the cache does not bring objects back.
+        $rows = Cache::remember('clubarr:remote-users:'.$server->id, 60, function () use ($server) {
             try {
-                return $server->driver()->users();
+                return array_map(fn (RemoteUser $u) => $u->toArray(), $server->driver()->users());
             } catch (MediaServerException) {
                 return [];
             }
         });
+        $users = array_map(fn (array $row) => RemoteUser::fromArray($row), is_array($rows) ? array_filter($rows, 'is_array') : []);
         $linked = $server->accounts()->whereNotNull('remote_id')->pluck('remote_id')->all();
 
         return array_values(array_filter($users, fn (RemoteUser $u) => ! $u->isAdmin && $u->id !== '' && ! in_array($u->id, $linked, true)));

@@ -28,6 +28,8 @@ class SiteSettings
         'mail_from_address' => '',
         'mail_from_name' => '',
         'help_text' => '',
+        // Admins must use two-factor sign-in ('1') or may ('0').
+        'admin_2fa_required' => '1',
     ];
 
     private ?array $values = null;

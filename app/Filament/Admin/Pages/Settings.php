@@ -55,6 +55,7 @@ class Settings extends Page
     {
         $values = app(SiteSettings::class)->all() + SiteSettings::DEFAULTS;
         $values['mail_enabled'] = ($values['mail_enabled'] ?? '0') === '1';
+        $values['admin_2fa_required'] = ($values['admin_2fa_required'] ?? '1') !== '0';
         unset($values['mail_password']); // never sent to the browser
         $this->form->fill($values);
     }
@@ -68,6 +69,10 @@ class Settings extends Page
                 Select::make('locale')->label(__('Language'))->options(ApplySiteLocale::LOCALES)->required(),
                 Textarea::make('help_text')->label(__('Getting started text'))->rows(6)->maxLength(5000)->columnSpanFull()
                     ->helperText(__('Shown to members on their page: which apps to use, house rules, where to ask. Plain text.')),
+            ]),
+            Section::make(__('Security'))->schema([
+                Toggle::make('admin_2fa_required')->label(__('Require two-factor sign-in for admins'))
+                    ->helperText(__('Recommended. Admins can change members\' access and see server keys; with this on, a stolen password is not enough. Admins without it set up are asked to on their next sign-in.')),
             ]),
             Section::make(__('Mail'))->columns(2)->description(__('For welcome mails, password links and access reminders.'))->schema([
                 Toggle::make('mail_enabled')->label(__('Send mail'))->live()->columnSpanFull(),
@@ -99,11 +104,16 @@ class Settings extends Page
     {
         $data = $this->form->getState();
         $data['mail_enabled'] = ! empty($data['mail_enabled']) ? '1' : '0';
+        $was = app(SiteSettings::class)->get('admin_2fa_required');
+        $data['admin_2fa_required'] = ! empty($data['admin_2fa_required']) ? '1' : '0';
         if (blank($data['mail_password'] ?? null)) {
             unset($data['mail_password']);
         }
         app(SiteSettings::class)->set($data);
         Audit::log('settings.saved', null, ['keys' => array_keys($data)]);
+        if ($was !== $data['admin_2fa_required']) {
+            Audit::log($data['admin_2fa_required'] === '1' ? 'security.admin_2fa_required' : 'security.admin_2fa_optional');
+        }
         Notification::make()->title(__('Saved.'))->success()->send();
     }
 

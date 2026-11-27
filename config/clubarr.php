@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'version' => '0.1.0-beta',
+    'version' => '0.1.1-beta',
 
     // Seconds Clubarr waits for a media server.
     'http_timeout' => (int) env('CLUBARR_HTTP_TIMEOUT', 15),
