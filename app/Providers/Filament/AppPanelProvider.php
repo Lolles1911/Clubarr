@@ -1,0 +1,35 @@
+<?php
+
+namespace App\Providers\Filament;
+
+use App\Filament\App\Pages\Join;
+use App\Filament\App\Pages\MyAccess;
+use App\Filament\App\Pages\Setup;
+use Filament\Auth\Pages\EditProfile;
+use Filament\Panel;
+use Filament\PanelProvider;
+use Illuminate\Support\Facades\Route;
+
+/**
+ * The members' side, at the site's root: sign-in, My access, profile (with
+ * optional two-factor sign-in), plus the public join and setup pages. There
+ * is no open registration: accounts are made by redeeming an invitation.
+ */
+class AppPanelProvider extends PanelProvider
+{
+    public function panel(Panel $panel): Panel
+    {
+        return PanelDefaults::apply($panel)
+            ->default()
+            ->id('app')
+            ->path('')
+            ->profile(EditProfile::class, isSimple: false)
+            ->pages([MyAccess::class])
+            ->discoverPages(in: app_path('Filament/App/Pages'), for: 'App\Filament\App\Pages')
+            ->routes(function () {
+                Route::get('/join/{code?}', Join::class)->name('join')->where('code', '[A-Za-z0-9\-]{1,80}');
+                Route::get('/setup', Setup::class)->name('setup');
+            })
+            ->topNavigation();
+    }
+}

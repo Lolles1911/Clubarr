@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Clubarr</Name>
+  <Repository>ghcr.io/lolles1911/clubarr:beta</Repository>
+  <Registry>https://github.com/Lolles1911/clubarr/pkgs/container/clubarr</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/Lolles1911/clubarr/issues</Support>
+  <Project>https://github.com/Lolles1911/clubarr</Project>
+  <Overview>Invitations, accounts and a member page for your Plex, Jellyfin, Emby and Silo servers. Beta. After the first start, find the setup token in the container's log.</Overview>
+  <Category>MediaServer:Other Tools:</Category>
+  <WebUI>http://[IP]:[PORT:8080]/</WebUI>
+  <Icon>https://raw.githubusercontent.com/Lolles1911/clubarr/main/public/clubarr-icon.png</Icon>
+  <Config Name="Web UI" Target="8080" Default="8080" Mode="tcp" Description="Clubarr's web page" Type="Port" Display="always" Required="true">8080</Config>
+  <Config Name="Config" Target="/config" Default="/mnt/user/appdata/clubarr" Mode="rw" Description="Database, encryption key and setup token. Back it up." Type="Path" Display="always" Required="true">/mnt/user/appdata/clubarr</Config>
+  <Config Name="APP_URL" Target="APP_URL" Default="http://[IP]:8080" Mode="" Description="The address people open Clubarr on, e.g. https://club.example.com. Used in mails and invitation links." Type="Variable" Display="always" Required="true">http://[IP]:8080</Config>
+  <Config Name="TRUSTED_PROXIES" Target="TRUSTED_PROXIES" Default="" Mode="" Description="Behind a reverse proxy (SWAG, Nginx Proxy Manager, Traefik): its IP or network, e.g. 172.18.0.0/16." Type="Variable" Display="advanced" Required="false"></Config>
+  <Config Name="SESSION_SECURE_COOKIE" Target="SESSION_SECURE_COOKIE" Default="" Mode="" Description="true when Clubarr is only reached over https (recommended)." Type="Variable" Display="advanced" Required="false"></Config>
+  <Config Name="TZ" Target="TZ" Default="Europe/Copenhagen" Mode="" Description="Time zone" Type="Variable" Display="advanced" Required="false">Europe/Copenhagen</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID" Type="Variable" Display="advanced" Required="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID" Type="Variable" Display="advanced" Required="false">100</Config>
+</Container>

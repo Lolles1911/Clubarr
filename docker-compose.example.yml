@@ -1,0 +1,19 @@
+# Copy to docker-compose.yml, set APP_URL, then: docker compose up -d
+# The setup token is in the log: docker compose logs clubarr
+services:
+  clubarr:
+    image: ghcr.io/lolles1911/clubarr:beta
+    container_name: clubarr
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      APP_URL: "https://club.example.com"
+      TZ: "Europe/Copenhagen"
+      PUID: "1000"
+      PGID: "1000"
+      # Behind a reverse proxy, its IP or network:
+      # TRUSTED_PROXIES: "172.18.0.0/16"
+      # SESSION_SECURE_COOKIE: "true"
+    volumes:
+      - ./config:/config
