@@ -10,7 +10,7 @@ COPY . .
 RUN composer dump-autoload --no-dev --classmap-authoritative --no-interaction \
  && find vendor -type d -name .git -prune -exec rm -rf {} +
 
-FROM php:8.3-fpm-alpine3.20
+FROM php:8.4-fpm-alpine3.20
 
 ARG VERSION=dev
 LABEL org.opencontainers.image.title="Clubarr" \
