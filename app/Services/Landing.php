@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Maintenance;
 use App\Models\MediaServer;
 use Filament\Facades\Filament;
+use Illuminate\Support\Collection;
 use Throwable;
 
 /**
@@ -49,6 +50,7 @@ class Landing
     /** @return array{servers: list<array{name: string, state: string}>, maintenance: list<string>} */
     private function status(): array
     {
+        /** @var Collection<int, Maintenance> $upcoming */
         $upcoming = Maintenance::upcoming();
 
         return [

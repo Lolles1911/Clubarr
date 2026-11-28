@@ -85,7 +85,7 @@ class InvitationsTable
                     }),
                 Action::make('approve')->label(__('Approve'))->icon(Heroicon::OutlinedCheck)->color('success')->button()->size('sm')
                     ->visible(fn (Invitation $record) => $record->awaiting_approval && $record->revoked_at === null)
-                    ->modalDescription(fn (Invitation $record) => __(':name invites someone. Approved, the link works, and it is mailed if they gave an email.', ['name' => $record->creator?->name ?? '?']))
+                    ->modalDescription(fn (Invitation $record) => __(':name invites someone. Approved, the link works, and it is mailed if they gave an email.', ['name' => $record->creator->name ?? '?']))
                     ->requiresConfirmation()
                     ->action(function (Invitation $record) {
                         app(MemberInvites::class)->approve($record);

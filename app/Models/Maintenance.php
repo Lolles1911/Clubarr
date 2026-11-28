@@ -41,10 +41,14 @@ class Maintenance extends Model
         return $this->starts_at->isPast() && $this->ends_at->isFuture();
     }
 
-    /** Maintenance that is going on now, or starts in the next 14 days. @return Collection<int, self> */
+    /**
+     * Maintenance that is going on now, or starts in the next 14 days.
+     *
+     * @return Collection<int, Maintenance>
+     */
     public static function upcoming(): Collection
     {
-        return self::with('mediaServer')->where('ends_at', '>', now())->where('starts_at', '<', now()->addDays(14))->orderBy('starts_at')->limit(10)->get();
+        return self::query()->with('mediaServer')->where('ends_at', '>', now())->where('starts_at', '<', now()->addDays(14))->orderBy('starts_at')->limit(10)->get();
     }
 
     public static function activeFor(MediaServer $server): bool
