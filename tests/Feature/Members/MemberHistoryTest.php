@@ -44,9 +44,10 @@ class MemberHistoryTest extends TestCase
         $server = MediaServer::create(['type' => ServerType::Jellyfin, 'name' => 'Home', 'url' => 'http://jf.local', 'api_key' => 'k']);
         $anna = $this->member($server, 'j1');
         Http::fake([
+            'jf.local/Items/m1/Similar*' => Http::response(['Items' => [['Id' => 'm9', 'Name' => 'Arrival', 'Type' => 'Movie'], ['Id' => 'mx', 'Name' => 'Dune', 'Type' => 'Movie']]]),
             'jf.local/Users/j1/Items/Resume*' => Http::response(['Items' => [['Id' => 'e9', 'Type' => 'Episode', 'SeriesId' => 's1', 'SeriesName' => 'Severance', 'UserData' => ['PlayedPercentage' => 42.4]]]]),
             'jf.local/Users/j1/Items*' => Http::response(['Items' => [
-                ['Name' => 'Dune', 'Type' => 'Movie', 'RunTimeTicks' => 2 * 3600 * 10_000_000, 'UserData' => ['LastPlayedDate' => now()->subDays(2)->toIso8601String()]],
+                ['Id' => 'm1', 'Name' => 'Dune', 'Type' => 'Movie', 'RunTimeTicks' => 2 * 3600 * 10_000_000, 'UserData' => ['LastPlayedDate' => now()->subDays(2)->toIso8601String()]],
                 ['Name' => 'Pilot', 'Type' => 'Episode', 'SeriesName' => 'Severance', 'RunTimeTicks' => 3600 * 10_000_000, 'UserData' => ['LastPlayedDate' => now()->subDays(20)->toIso8601String()]],
             ]]),
         ]);
@@ -60,7 +61,9 @@ class MemberHistoryTest extends TestCase
         $this->assertSame([2.0, 3.0, 2, 'Dune'], [$stats['hours7'], $stats['hours30'], $stats['plays30'], $stats['top']]);
         $resume = app(MemberHistory::class)->resume($anna);
         $this->assertSame(['Severance', 42], [$resume[0]['title'], $resume[0]['percent']]);
-        Livewire::test(MyAccess::class)->assertSee('Watched, 7 days')->assertSee('Continue watching')->assertSee('Severance');
+        Livewire::test(MyAccess::class)->assertSee('Watched, 7 days')->assertSee('Continue watching')->assertSee('Severance')
+            ->assertSee('Because you watched Dune')->assertSee('Arrival');
+        $this->assertSame(['Arrival'], array_column(app(MemberHistory::class)->because($anna)['items'], 'title'));
         $this->assertTrue(MyStats::canAccess());
         $this->get('/my-stats')->assertOk()->assertSee('Dune');
     }

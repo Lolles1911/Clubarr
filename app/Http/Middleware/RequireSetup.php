@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Response;
 class RequireSetup
 {
     /** Paths that work before setup: the page itself, Livewire, assets, health. */
-    private const OPEN = ['setup', 'livewire*', 'up', 'css/*', 'js/*', 'fonts/*', 'favicon.ico', 'filament/*'];
+    private const OPEN = ['setup', 'livewire*', 'up', 'css/*', 'js/*', 'fonts/*', 'favicon.ico', 'filament/*', 'manifest.webmanifest', 'sw.js'];
 
     public function handle(Request $request, Closure $next): Response
     {

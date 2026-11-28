@@ -102,7 +102,7 @@
 .clubarr-hero-title { font-size: clamp(1.8rem, 5vw, 2.8rem) !important; letter-spacing: -.03em; }
 .clubarr-hero-bg { position: absolute; inset: 0; z-index: 0; background-size: cover; background-position: center 25%; opacity: .45; filter: blur(2px) saturate(1.2); transform: scale(1.06); }
 .clubarr-hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7,7,10,.92) 0%, rgba(7,7,10,.55) 55%, rgba(7,7,10,.15) 100%), linear-gradient(0deg, rgba(7,7,10,.85), transparent 60%); }
-.clubarr-hero > :not(.clubarr-hero-bg) { position: relative; z-index: 1; }
+.clubarr-hero > :not(.clubarr-hero-bg):not(.clubarr-hero-more) { position: relative; z-index: 1; }
 .clubarr-row-title { font-size: 1.25rem !important; letter-spacing: -.01em; }
 .clubarr-poster { flex-basis: clamp(7.5rem, 30vw, 11rem) !important; }
 .clubarr-poster img { border-radius: .8rem !important; transition: transform .2s ease, box-shadow .2s ease; box-shadow: 0 12px 30px -12px rgba(0,0,0,.8) !important; }

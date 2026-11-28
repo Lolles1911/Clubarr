@@ -15,6 +15,7 @@ use App\Services\MemberRequests;
 use App\Services\SelfService;
 use App\Services\SiteSettings;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
@@ -71,6 +72,8 @@ class CheckAccess extends Command
         // Discord roles follow access (also after changes made elsewhere).
         User::members()->whereNotNull('discord_id')->each(fn (User $user) => $discord->sync($user));
 
+        // For Checks: the scheduler runs.
+        Cache::forever('clubarr:heartbeat', now()->getTimestamp());
         $this->info('Access checked; '.$ended.' ended.');
 
         return self::SUCCESS;

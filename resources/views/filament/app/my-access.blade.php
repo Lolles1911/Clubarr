@@ -10,7 +10,7 @@
         .clubarr-hero-sub{opacity:.8;margin:.35rem 0 0;font-size:.95rem}
         .clubarr-hero-apps{display:flex;flex-wrap:wrap;gap:.6rem}
         .clubarr-hero{position:relative}
-        .clubarr-hero-more{position:absolute;top:.9rem;right:.9rem;z-index:2}
+        .clubarr-hero > .clubarr-hero-more{position:absolute;top:.9rem;right:.9rem;z-index:3}
         .clubarr-row-title{font-weight:700;font-size:1.1rem;margin:0 0 .6rem}
         .clubarr-row{display:flex;gap:.8rem;overflow-x:auto;padding-bottom:.5rem;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
         .clubarr-poster{flex:0 0 clamp(6.75rem,27vw,9.5rem);margin:0;scroll-snap-align:start}
@@ -101,8 +101,9 @@
         </div>
     @endif
 
-    @foreach (['new' => __('New on the server'), 'continue' => __('Continue watching'), 'popular' => __('Popular now')] as $row => $heading)
-        @php($items = $row === 'new' && $new !== [] ? $new : $rows[$row])
+    @php($because = $this->because())
+    @foreach (['new' => __('New on the server'), 'continue' => __('Continue watching'), 'because' => $because ? __('Because you watched :title', ['title' => $because['title']]) : '', 'popular' => __('Popular now')] as $row => $heading)
+        @php($items = $row === 'because' ? ($because['items'] ?? []) : ($row === 'new' && $new !== [] ? $new : $rows[$row]))
         @if ($items !== [] && $accounts->isNotEmpty())
             <section>
                 <h2 class="clubarr-row-title">{{ $heading }}</h2>

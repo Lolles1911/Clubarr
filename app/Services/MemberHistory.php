@@ -52,7 +52,7 @@ class MemberHistory
             RefreshMemberHistory::dispatch($user->id);
         }
 
-        return is_array($cached) ? $cached : ['plays' => [], 'resume' => []];
+        return is_array($cached) ? $cached + ['because' => null] : ['plays' => [], 'resume' => [], 'because' => null];
     }
 
     /** Fetches the member's history and "continue watching" from their Jellyfin/Emby users. */
@@ -77,7 +77,7 @@ class MemberHistory
                 // a server that does not answer just adds nothing
             }
         }
-        Cache::put('clubarr:member-history:'.$user->id, ['plays' => $plays, 'resume' => array_slice($resume, 0, 12)], 1800);
+        Cache::put('clubarr:member-history:'.$user->id, ['plays' => $plays, 'resume' => array_slice($resume, 0, 12), 'because' => $this->findBecause($user, $plays)], 1800);
         Cache::forget('clubarr:member-history-busy:'.$user->id);
     }
 
@@ -115,6 +115,50 @@ class MemberHistory
         $registered = app(NewOnServers::class)->registerRows($rows);
 
         return array_map(fn (array $out, array $row) => $out + ['percent' => (int) $row['percent']], $registered, $rows);
+    }
+
+    /**
+     * "Because you watched …": titles like the last one watched on Jellyfin/Emby, without ones already watched.
+     *
+     * @return array{title: string, items: list<array<string, mixed>>}|null
+     */
+    public function because(User $user): ?array
+    {
+        $because = $this->local($user)['because'] ?? null;
+        if (! is_array($because) || ($because['items'] ?? []) === []) {
+            return null;
+        }
+
+        return ['title' => (string) $because['title'], 'items' => app(NewOnServers::class)->registerRows($because['items'])];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $plays
+     * @return array{title: string, items: list<array<string, mixed>>}|null
+     */
+    private function findBecause(User $user, array $plays): ?array
+    {
+        $seen = array_map(fn ($p) => mb_strtolower((string) (($p['media_type'] ?? '') === 'episode' ? ($p['show_title'] ?? '') : ($p['media_title'] ?? ''))), $plays);
+        foreach ($this->localAccounts($user) as $account) {
+            $last = collect($plays)->first(fn ($p) => ($p['server_type'] ?? '') === $account->mediaServer->type->value && filled($p['item'] ?? null));
+            if ($last === null) {
+                continue;
+            }
+            try {
+                /** @var ReadsWatchHistory $driver */
+                $driver = $account->mediaServer->driver();
+                $items = collect($driver->similar((string) $account->remote_id, (string) $last['item'], 16))
+                    ->reject(fn (RecentItem $i) => in_array(mb_strtolower($i->title), $seen, true))->take(12)
+                    ->map(fn (RecentItem $i) => ['server_id' => $account->media_server_id, 'server' => $account->mediaServer->name, 'ref' => $i->ref, 'title' => $i->title, 'year' => $i->year])->values()->all();
+            } catch (Throwable) {
+                continue;
+            }
+            if ($items !== []) {
+                return ['title' => ($last['media_type'] ?? '') === 'episode' ? (string) $last['show_title'] : (string) $last['media_title'], 'items' => $items];
+            }
+        }
+
+        return null;
     }
 
     /** @return list<ServerAccount> the member's active users on Jellyfin/Emby */

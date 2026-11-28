@@ -170,6 +170,12 @@ class SiloDriver implements MediaServerDriver, ReadsWatchHistory, ShowsPosters, 
         return $plays;
     }
 
+    /** Silo has no "similar" in its API (yet): none. */
+    public function similar(string $remoteId, string $itemId, int $limit = 12): array
+    {
+        return [];
+    }
+
     /** From the history: what was left part-way (3 to 90 percent) and not finished since. */
     public function resume(string $remoteId, int $limit = 12): array
     {

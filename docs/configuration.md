@@ -133,6 +133,23 @@ must be reachable on https), and press **Register commands**. Members who
 linked Discord get /access, /stats and /password; anyone on your server gets
 /status. Answers are only shown to the one who asks.
 
+## Checks and status
+
+Admin → System → **Checks** lists what may be wrong or waiting, worst first.
+Settings → Members → "A public status page at /status" shows the servers,
+their uptime (checked every five minutes, kept 90 days) and planned
+maintenance, without anything about members.
+
+## When a link fails
+
+- An invitation that ended or was used up shows **Ask for a new link**. The
+  request is under Applications as "New link"; **Send a new link** mails a
+  new invitation like the old one (servers, libraries, limits).
+- A Silo user that was never finished: **Get a new link** on the member's
+  page, at once.
+- The password for watching is changed on the member's page ("New
+  password"); the sign-in page says so.
+
 ## Messages to members
 
 Admin → Messages → New message: a title and text, to all members or one

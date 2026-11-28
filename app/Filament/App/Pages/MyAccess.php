@@ -132,6 +132,17 @@ class MyAccess extends Dashboard
         }
     }
 
+    /** @return array{title: string, items: list<array<string, mixed>>}|null "Because you watched …" */
+    #[Unexposed]
+    public function because(): ?array
+    {
+        try {
+            return app(MemberHistory::class)->because($this->member());
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     /** @return list<array{title: string, detail: string, date: string, tmdb: ?string}> */
     #[Unexposed]
     public function comingSoon(): array
@@ -299,10 +310,10 @@ class MyAccess extends Dashboard
         $member = $this->member();
 
         return array_map(fn (Action $action) => $action->livewire($this), [
-            Action::make('myPage')->label(__('My page: account and settings'))->icon('heroicon-m-user-circle')->url(Filament::getPanel('app')->getProfileUrl()),
+            Action::make('myPage')->label(__('My page'))->icon('heroicon-m-user-circle')->url(Filament::getPanel('app')->getProfileUrl()),
             Action::make('myStats')->label(__('My statistics'))->icon('heroicon-m-chart-bar')->url(fn () => MyStats::getUrl(panel: 'app'))->visible(fn () => MyStats::canAccess()),
             Action::make('inviteFriend')->label(__('Invite a friend'))->icon('heroicon-m-user-plus')->url(fn () => InviteFriend::getUrl(panel: 'app'))->visible(fn () => MemberInvites::allowed($member)),
-            Action::make('serverPassword')->label(__('Forgot your password for watching?'))->icon('heroicon-m-key')->url('#servers')
+            Action::make('serverPassword')->label(__('Password for watching'))->icon('heroicon-m-key')->url('#servers')
                 ->visible(fn () => $this->accounts()->contains(fn (ServerAccount $a) => $this->canChangePassword($a))),
             $this->getAction('linkExisting', isMounting: false),
             Action::make('help')->label(__('Help'))->icon('heroicon-m-lifebuoy')->url(fn () => Help::getUrl(panel: 'app')),
