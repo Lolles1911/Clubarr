@@ -115,6 +115,7 @@ class Invitation extends Model
             $this->revoked_at !== null => __('This invitation has been withdrawn.'),
             $this->expires_at !== null && $this->expires_at->isPast() => __('This invitation has expired.'),
             $this->max_uses !== null && $this->uses >= $this->max_uses => __('This invitation has already been used.'),
+            $this->exists && $this->mediaServers->where('is_enabled', true)->isEmpty() => __('This invitation has no servers right now. Ask the person who invited you.'),
             default => null,
         };
     }
@@ -139,6 +140,7 @@ class Invitation extends Model
     public static function applyUsable(Builder $query): Builder
     {
         return $query->whereNull('revoked_at')->where('is_template', false)
+            ->whereHas('mediaServers', fn ($q) => $q->where('is_enabled', true))
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->where(fn ($q) => $q->whereNull('max_uses')->orWhereColumn('uses', '<', 'max_uses'));
     }

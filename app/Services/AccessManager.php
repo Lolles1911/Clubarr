@@ -145,6 +145,16 @@ class AccessManager
         return $failed;
     }
 
+    /** Removes one of the member's users from its server (and the record). Throws when the server refuses. */
+    public function removeOne(ServerAccount $account): void
+    {
+        if ($account->remote_id !== null) {
+            $account->mediaServer->driver()->delete($account->remote_id, (string) $account->remote_username);
+        }
+        Audit::log('account.removed', $account->user, ['server' => $account->mediaServer->name, 'remote_username' => $account->remote_username]);
+        $account->delete();
+    }
+
     /** Removes the member's users from the servers (and the records). Returns the servers that failed. */
     public function removeAll(User $user): array
     {

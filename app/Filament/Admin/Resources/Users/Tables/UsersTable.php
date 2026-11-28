@@ -11,6 +11,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -18,6 +19,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Throwable;
 
 class UsersTable
 {
@@ -83,6 +85,26 @@ class UsersTable
                             Notification::make()->title(__('Sent.'))->success()->send();
                         }),
                     EditAction::make(),
+                    Action::make('removeServer')->label(__('Remove from a server'))->icon(Heroicon::OutlinedServerStack)->color('danger')
+                        ->visible(fn (User $record) => $record->serverAccounts->isNotEmpty())
+                        ->modalDescription(__('Their user on that server is deleted (Plex: the share). Their Clubarr account and other servers stay.'))
+                        ->schema([
+                            Select::make('account')->label(__('Server'))->required()
+                                ->options(fn (User $record) => $record->serverAccounts->mapWithKeys(fn ($a) => [$a->id => $a->mediaServer->name.($a->remote_username ? ' · '.$a->remote_username : '')])->all()),
+                        ])
+                        ->action(function (User $record, array $data) {
+                            // Only one of this member's own accounts.
+                            $account = $record->serverAccounts()->with('mediaServer')->find($data['account']);
+                            if ($account === null) {
+                                return;
+                            }
+                            try {
+                                app(AccessManager::class)->removeOne($account);
+                                Notification::make()->title(__('Removed from :server.', ['server' => $account->mediaServer->name]))->success()->send();
+                            } catch (Throwable $e) {
+                                Notification::make()->title(__('Could not remove it'))->body(mb_substr($e->getMessage(), 0, 300))->danger()->send();
+                            }
+                        }),
                     Action::make('remove')->label(__('Remove'))->icon(Heroicon::OutlinedTrash)->color('danger')
                         ->visible(fn (User $record) => ! $record->is(Auth::user()))
                         ->requiresConfirmation()->modalDescription(__('Their users are removed from the servers (Plex: the share), and their Clubarr account is deleted. This can\'t be undone.'))

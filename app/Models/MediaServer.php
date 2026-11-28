@@ -82,6 +82,17 @@ class MediaServer extends Model
         return $this->public_url ?: $this->url;
     }
 
+    /** Where members watch: Plex opens this server's libraries in app.plex.tv; the others their address. */
+    public function watchUrl(): string
+    {
+        if ($this->type !== ServerType::Plex) {
+            return $this->openUrl();
+        }
+        $machine = (string) $this->setting('machine_id', '');
+
+        return preg_match('/^[A-Za-z0-9]{8,64}$/', $machine) ? 'https://app.plex.tv/desktop/#!/media/'.$machine.'/com.plexapp.plugins.library' : 'https://app.plex.tv';
+    }
+
     public function setting(string $key, mixed $default = null): mixed
     {
         return $this->settings[$key] ?? $default;

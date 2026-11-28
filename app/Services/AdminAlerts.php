@@ -19,6 +19,7 @@ class AdminAlerts
     public const EVENTS = [
         'member_joined' => ['invitation.redeemed'],
         'server_down' => ['server.down', 'server.up'],
+        'sync' => ['account.gone_on_server', 'server.sync_held'],
         'waitlist_joined' => ['waitlist.joined'],
         'stream_limit' => ['stream.limit'],
         'new_version' => ['clubarr.new_version'],
@@ -33,6 +34,7 @@ class AdminAlerts
         return [
             'member_joined' => __('New member (an invitation is used)'),
             'server_down' => __('A media server stops answering, and when it is back'),
+            'sync' => __('A user was deleted on a media server (and the access removed here)'),
             'waitlist_joined' => __('Someone joins the waiting list'),
             'stream_limit' => __('A stream is stopped for being over the limit'),
             'new_version' => __('A new Clubarr version is out'),
@@ -66,6 +68,8 @@ class AdminAlerts
             'invitation.redeemed' => __('New member: :name (:servers)', ['name' => User::find($actorId)->name ?? '?', 'servers' => implode(', ', (array) ($meta['servers'] ?? []))], $locale),
             'server.down' => __(':server does not answer: :error', ['server' => $subject?->getAttribute('name'), 'error' => (string) ($meta['error'] ?? '')], $locale),
             'server.up' => __(':server answers again.', ['server' => $subject?->getAttribute('name')], $locale),
+            'account.gone_on_server' => __(':name was deleted on :server; the access is removed in Clubarr.', ['name' => $subject?->getAttribute('name') ?? (string) ($meta['remote_username'] ?? '?'), 'server' => (string) ($meta['server'] ?? '?')], $locale),
+            'server.sync_held' => __(':server seems to miss :count users at once. Nothing was removed; check the server.', ['server' => $subject?->getAttribute('name'), 'count' => $meta['missing'] ?? '?'], $locale),
             'waitlist.joined' => __('On the waiting list: :name', ['name' => $subject instanceof WaitlistEntry ? ($subject->name ?: $subject->email) : '?'], $locale),
             'stream.limit' => __(':name was over :limit streams; Clubarr stopped ":title".', ['name' => $subject?->getAttribute('name'), 'limit' => $meta['limit'] ?? '?', 'title' => (string) ($meta['title'] ?? '')], $locale),
             'clubarr.new_version' => __('Clubarr :version is out (you have :current): :url', ['version' => $meta['version'] ?? '?', 'current' => config('clubarr.version'), 'url' => $meta['url'] ?? ''], $locale),

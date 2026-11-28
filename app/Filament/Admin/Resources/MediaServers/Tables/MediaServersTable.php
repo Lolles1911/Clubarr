@@ -31,7 +31,8 @@ class MediaServersTable
                 TextColumn::make('url')->visibleFrom('lg')->label(__('Address'))->limit(40)->color('gray'),
                 TextColumn::make('libraries_count')->visibleFrom('md')->counts('libraries')->label(__('Libraries')),
                 TextColumn::make('accounts_count')->counts('accounts')->label(__('Members'))
-                    ->formatStateUsing(fn (MediaServer $record, $state) => $record->capacity ? $state.' / '.$record->capacity : $state),
+                    ->formatStateUsing(fn (MediaServer $record, $state) => $record->capacity ? $state.' / '.$record->capacity : $state)
+                    ->description(fn (MediaServer $record) => (int) $record->setting('unlinked', 0) > 0 ? __(':count not in Clubarr', ['count' => (int) $record->setting('unlinked')]) : null),
                 IconColumn::make('is_enabled')->visibleFrom('sm')->label(__('In use'))->boolean(),
                 TextColumn::make('last_error')->visibleFrom('md')->label(__('Last check'))->wrap()
                     ->state(fn (MediaServer $record) => $record->last_checked_at === null ? '—' : ($record->last_error ?? __('OK, :time', ['time' => $record->last_checked_at->diffForHumans()])))
@@ -47,7 +48,9 @@ class MediaServersTable
                             $users = $sync->syncUsers($record);
                             Notification::make()->title(__('Synced.'))->success()
                                 ->body(__(':libraries libraries; :changed members updated.', ['libraries' => $libraries, 'changed' => $users['changed']])
-                                    .($users['missing'] > 0 ? ' '.__(':count members\' users are no longer on the server.', ['count' => $users['missing']]) : ''))
+                                    .($users['removed'] > 0 ? ' '.__(':count users were deleted on the server; their access is removed here.', ['count' => $users['removed']]) : '')
+                                    .($users['held'] ? ' '.__(':count users seem gone at once; nothing was removed. Check the server.', ['count' => $users['missing']]) : '')
+                                    .($users['unlinked'] > 0 ? ' '.__(':count users on the server are not in Clubarr (Import users).', ['count' => $users['unlinked']]) : ''))
                                 ->send();
                         } catch (MediaServerException $e) {
                             Notification::make()->title(__('Could not connect'))->body($e->getMessage())->danger()->send();

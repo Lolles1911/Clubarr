@@ -158,9 +158,11 @@ class InvitationFeaturesTest extends TestCase
         $waiting = new Invitation(['max_uses' => 1, 'expires_at' => now()->addDays(10)]);
         $waiting->assignCode();
         $waiting->forceFill(['sent_to' => 'late@example.com', 'sent_at' => now()->subDays(4), 'reminder_link' => 'http://x/join/ABC'])->save();
+        $waiting->mediaServers()->attach($this->server->id);
         $recent = new Invitation(['max_uses' => 1]);
         $recent->assignCode();
         $recent->forceFill(['sent_to' => 'new@example.com', 'sent_at' => now()->subDay(), 'reminder_link' => 'http://x/join/DEF'])->save();
+        $recent->mediaServers()->attach($this->server->id);
         $expired = new Invitation(['max_uses' => 1, 'expires_at' => now()->subDay()]);
         $expired->assignCode();
         $expired->forceFill(['sent_to' => 'gone@example.com', 'sent_at' => now()->subDays(9), 'reminder_link' => 'http://x/join/GHI'])->save();
@@ -188,6 +190,19 @@ class InvitationFeaturesTest extends TestCase
         $this->assertStringNotContainsString('<script>', $html);
         $this->assertStringContainsString('http://x/join/ABC', $html);
         $this->assertStringContainsString('Home (Jellyfin)', $html);
+    }
+
+    public function test_an_invitation_whose_servers_are_gone_or_off_cannot_be_used(): void
+    {
+        $invitation = new Invitation(['max_uses' => 1]);
+        $invitation->assignCode();
+        $invitation->save();
+        $invitation->mediaServers()->attach($this->server->id);
+        $this->assertNull($invitation->fresh()->problem());
+
+        $this->server->update(['is_enabled' => false]);
+        $this->assertNotNull($invitation->fresh()->problem());
+        $this->assertSame(0, Invitation::applyUsable(Invitation::query())->count());
     }
 
     public function test_invitation_page_posters_are_only_those_it_listed(): void
