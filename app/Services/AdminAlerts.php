@@ -57,7 +57,7 @@ class AdminAlerts
         $on = app(SiteSettings::class)->get('alerts_events');
         $on = $on === null ? array_keys(self::EVENTS) : array_filter(explode(',', $on));
 
-        return self::webhook() !== null && in_array($event, $on, true);
+        return AlertChannels::configured() !== [] && in_array($event, $on, true);
     }
 
     /** Called for every audit log line; most are not alerts. */
@@ -84,7 +84,9 @@ class AdminAlerts
             default => null,
         };
         if ($text !== null) {
-            SendAdminAlert::dispatch(app(SiteSettings::class)->get('site_name').': '.$text);
+            foreach (AlertChannels::configured() as $channel) {
+                SendAdminAlert::dispatch(app(SiteSettings::class)->get('site_name').': '.$text, $channel);
+            }
         }
     }
 }

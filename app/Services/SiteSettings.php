@@ -14,7 +14,8 @@ use Throwable;
  */
 class SiteSettings
 {
-    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token', 'alerts_webhook_url', 'oidc_client_secret', 'tautulli_api_key', 'sonarr_api_key', 'radarr_api_key'];
+    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token', 'alerts_webhook_url', 'oidc_client_secret', 'tautulli_api_key', 'sonarr_api_key', 'radarr_api_key',
+        'alerts_ntfy_url', 'alerts_ntfy_token', 'alerts_telegram_token', 'alerts_gotify_token', 'alerts_hook_url', 'alerts_hook_secret'];
 
     public const DEFAULTS = [
         'site_name' => 'Clubarr',
@@ -59,6 +60,15 @@ class SiteSettings
         // Alerts to the admins' Discord channel: the webhook (secret) and the events, comma separated.
         'alerts_webhook_url' => '',
         'alerts_events' => null,
+        // More places for admin alerts (see AlertChannels).
+        'alerts_ntfy_url' => '',
+        'alerts_ntfy_token' => '',
+        'alerts_telegram_token' => '',
+        'alerts_telegram_chat' => '',
+        'alerts_gotify_url' => '',
+        'alerts_gotify_token' => '',
+        'alerts_hook_url' => '',
+        'alerts_hook_secret' => '',
         // Invitations: the welcome text on the invitation page, a reminder
         // mail after this many days when unused (0 = off), and members
         // inviting friends (invitations a month; 0 = off) from a template.

@@ -8,9 +8,7 @@ use App\Integrations\Discord;
 use App\Integrations\Seerr;
 use App\Integrations\Tautulli;
 use App\Integrations\Tracearr;
-use App\Jobs\SendAdminAlert;
 use App\Models\Invitation;
-use App\Services\AdminAlerts;
 use App\Services\Audit;
 use App\Services\Backups;
 use App\Services\Branding;
@@ -23,7 +21,6 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
-use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -86,7 +83,6 @@ class Settings extends Page
         $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
         $values['oidc_members'] = ($values['oidc_members'] ?? '0') === '1';
         $values['login_alerts'] = ($values['login_alerts'] ?? '1') !== '0';
-        $values['alerts_events'] = ($values['alerts_events'] ?? null) === null ? array_keys(AdminAlerts::EVENTS) : array_values(array_filter(explode(',', (string) $values['alerts_events']), fn ($e) => isset(AdminAlerts::EVENTS[$e])));
         foreach (SiteSettings::SECRET as $secret) {
             unset($values[$secret]); // never sent to the browser
         }
@@ -223,24 +219,6 @@ class Settings extends Page
                             ->helperText(__('When access ends, users are paused. This deletes them on the servers (Plex: the share) after the days set; the Clubarr account stays. 0: never.')),
                     ]),
                 ]),
-                Tab::make(__('Notifications'))->key('alerts')->icon(Heroicon::OutlinedBellAlert)->schema([
-                    Section::make(__('Discord channel for admins'))
-                        ->description(__('Clubarr posts to a channel of your choice when something happens. In Discord: the channel → Edit channel → Integrations → Webhooks → New webhook → Copy webhook URL.'))->schema([
-                            TextInput::make('alerts_webhook_url')->label(__('Webhook URL'))->password()->revealable()->maxLength(300)->autocomplete('off')
-                                ->regex(AdminAlerts::WEBHOOK_PATTERN)->validationMessages(['regex' => __('That is not a Discord webhook URL (https://discord.com/api/webhooks/…).')])
-                                ->helperText(__('Stored encrypted; leave empty to keep it.')),
-                            CheckboxList::make('alerts_events')->label(__('Tell me when'))->options(AdminAlerts::labels())->columns(1)->bulkToggleable(),
-                        ])->footerActions([
-                            Action::make('testAlert')->label(__('Send a test message'))->color('gray')->icon('heroicon-m-paper-airplane')->action(fn () => $this->testAlert()),
-                            Action::make('forgetWebhook')->label(__('Remove the webhook'))->color('danger')->link()->requiresConfirmation()
-                                ->visible(fn () => AdminAlerts::webhook() !== null)
-                                ->action(function () {
-                                    app(SiteSettings::class)->set(['alerts_webhook_url' => '']);
-                                    Audit::log('settings.webhook_removed');
-                                    Notification::make()->title(__('Removed.'))->success()->send();
-                                }),
-                        ]),
-                ]),
                 Tab::make(__('Backup'))->key('backup')->icon(Heroicon::OutlinedArchiveBox)->schema(Backups::supported() ? [
                     Section::make(__('Download a backup'))
                         ->description(__('The database and the encryption key in one file, locked with a password you choose. Keep the file and the password apart; without the password nobody can read it, not even you.'))
@@ -307,8 +285,6 @@ class Settings extends Page
         $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
         $data['oidc_members'] = ! empty($data['oidc_members']) ? '1' : '0';
         $data['login_alerts'] = ! empty($data['login_alerts']) ? '1' : '0';
-        // "-" when none is chosen: empty would mean "not set yet", which is all.
-        $data['alerts_events'] = implode(',', array_intersect((array) ($data['alerts_events'] ?? []), array_keys(AdminAlerts::EVENTS))) ?: '-';
         foreach (SiteSettings::SECRET as $secret) {
             if (blank($data[$secret] ?? null)) {
                 unset($data[$secret]); // empty: keep the stored one
@@ -410,22 +386,6 @@ class Settings extends Page
 
                 return redirect()->to(Filament::getLoginUrl());
             });
-    }
-
-    protected function testAlert(): void
-    {
-        $this->save();
-        if (AdminAlerts::webhook() === null) {
-            Notification::make()->title(__('Add the webhook URL first.'))->warning()->send();
-
-            return;
-        }
-        try {
-            (new SendAdminAlert(__(':site: test from Clubarr. Notifications work.', ['site' => app(SiteSettings::class)->get('site_name')])))->handle();
-            Notification::make()->title(__('Sent. Look in the Discord channel.'))->success()->send();
-        } catch (Throwable) {
-            Notification::make()->title(__('Discord did not take the message. Check the webhook URL.'))->danger()->send();
-        }
     }
 
     protected function testMail(): void
