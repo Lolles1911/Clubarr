@@ -10,11 +10,15 @@ use App\Jobs\SendAdminAlert;
 use App\Models\Invitation;
 use App\Services\AdminAlerts;
 use App\Services\Audit;
+use App\Services\Backups;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -27,12 +31,15 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Number;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Throwable;
 
 /**
@@ -147,6 +154,28 @@ class Settings extends Page
                                 }),
                         ]),
                 ]),
+                Tab::make(__('Backup'))->key('backup')->icon(Heroicon::OutlinedArchiveBox)->schema(Backups::supported() ? [
+                    Section::make(__('Download a backup'))
+                        ->description(__('The database and the encryption key in one file, locked with a password you choose. Keep the file and the password apart; without the password nobody can read it, not even you.'))
+                        ->footerActions([$this->downloadBackupAction()]),
+                    Section::make(__('Automatic backups'))
+                        ->description(__('Every night Clubarr copies its database to :dir. The newest :keep are kept.', ['dir' => Backups::directory(), 'keep' => Backups::KEEP]))
+                        ->schema([Text::make(fn () => collect(Backups::list())->map(fn ($b) => $b['name'].' · '.Number::fileSize($b['size']).' · '.date('Y-m-d H:i', $b['time']))->implode(' | ') ?: __('None yet.'))])
+                        ->footerActions([
+                            Action::make('backupNow')->label(__('Make one now'))->color('gray')->icon('heroicon-m-plus')
+                                ->action(function () {
+                                    app(Backups::class)->automatic();
+                                    Audit::log('backup.made');
+                                    Notification::make()->title(__('Backup made.'))->success()->send();
+                                }),
+                            $this->restoreAction('restoreAutomatic'),
+                        ]),
+                    Section::make(__('Restore from a file'))
+                        ->description(__('Replaces everything in Clubarr with the backup. The current data is copied to the automatic backups first, and everyone is signed out.'))
+                        ->footerActions([$this->restoreAction('restoreFile')]),
+                ] : [
+                    Text::make(__('Backups here are for the built-in SQLite database. Back up your database with its own tools.')),
+                ]),
                 Tab::make(__('Waiting list'))->key('waitlist')->icon(Heroicon::OutlinedQueueList)->schema([
                     Select::make('waitlist_template_id')->label(__('Invitations copy'))
                         ->options(fn () => Invitation::where('from_waitlist', false)->latest()->limit(200)->get()->mapWithKeys(fn ($i) => [$i->id => ($i->label ?: $i->code_hint.'…').' · '.$i->mediaServers()->pluck('name')->implode(', ')])->all())
@@ -220,6 +249,61 @@ class Settings extends Page
         $result === null
             ? Notification::make()->title($name.': '.__('not set up'))->warning()->send()
             : Notification::make()->title($name.': '.__('OK').' ('.$result.')')->success()->send();
+    }
+
+    private function downloadBackupAction(): Action
+    {
+        return Action::make('downloadBackup')->label(__('Download a backup'))->icon('heroicon-m-arrow-down-tray')
+            ->modalDescription(__('Choose a password for the file. It is not saved anywhere: write it down.'))
+            ->schema([
+                TextInput::make('password')->label(__('Password for the file'))->password()->revealable()->required()->minLength(10)->maxLength(200)->same('password_confirmation'),
+                TextInput::make('password_confirmation')->label(__('Password again'))->password()->revealable()->required()->dehydrated(false),
+            ])
+            ->action(function (array $data) {
+                $file = app(Backups::class)->export((string) $data['password']);
+                Audit::log('backup.downloaded');
+
+                return response()->streamDownload(function () use ($file) {
+                    echo $file;
+                }, 'clubarr-backup-'.now()->format('Y-m-d').'.clubarr', ['Content-Type' => 'application/octet-stream']);
+            });
+    }
+
+    /** Restore from an automatic backup or an uploaded file; afterwards everyone, this admin too, signs in again. */
+    private function restoreAction(string $name): Action
+    {
+        $fromFile = $name === 'restoreFile';
+
+        return Action::make($name)->label($fromFile ? __('Restore from a file') : __('Restore one'))->color('danger')->icon('heroicon-m-arrow-uturn-left')
+            ->modalDescription(__('Everything in Clubarr is replaced by the backup. The current data is copied to the automatic backups first.'))
+            ->schema(array_merge($fromFile ? [
+                FileUpload::make('file')->label(__('Backup file (.clubarr)'))->required()->storeFiles(false)->maxSize(512000),
+                TextInput::make('password')->label(__('The file\'s password'))->password()->revealable()->required()->maxLength(200),
+            ] : [
+                Select::make('backup')->label(__('Backup'))->required()
+                    ->options(fn () => collect(Backups::list())->mapWithKeys(fn ($b) => [$b['name'] => $b['name'].' · '.date('Y-m-d H:i', $b['time'])])->all()),
+            ], [
+                Checkbox::make('understood')->label(__('I understand that everything is replaced, and that everyone is signed out.'))->accepted(),
+            ]))
+            ->action(function (array $data) use ($fromFile) {
+                $who = Auth::user()?->email;
+                try {
+                    $fromFile
+                        ? app(Backups::class)->restoreFile($data['file'] instanceof TemporaryUploadedFile ? (string) $data['file']->get() : '', (string) $data['password'])
+                        : app(Backups::class)->restoreAutomatic((string) $data['backup']);
+                } catch (\RuntimeException $e) {
+                    Notification::make()->title(__('Not restored'))->body($e->getMessage())->danger()->persistent()->send();
+
+                    return null;
+                }
+                // The signed-in user belongs to the old data: sign out (before logging, so no old ID is used).
+                Filament::auth()->logout();
+                Audit::log('backup.restored', null, ['by' => $who, 'from' => $fromFile ? 'file' : (string) $data['backup']]);
+                session()->invalidate();
+                session()->regenerateToken();
+
+                return redirect()->to(Filament::getLoginUrl());
+            });
     }
 
     protected function testAlert(): void

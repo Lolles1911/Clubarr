@@ -11,4 +11,7 @@ return [
 
     // Days before access ends that the member is told.
     'expiry_warning_days' => (int) env('CLUBARR_EXPIRY_WARNING_DAYS', 3),
+
+    // Where the nightly database copies go (default: "backups" next to the database).
+    'backup_path' => env('CLUBARR_BACKUP_PATH'),
 ];
