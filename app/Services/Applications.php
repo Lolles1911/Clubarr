@@ -81,6 +81,39 @@ class Applications
         Audit::log('access.requested', $request, ['name' => $request->name], null);
     }
 
+    /**
+     * Someone whose invitation ended or was used up asks for a new link. The
+     * same answer whether anything was stored or not; an admin approves.
+     */
+    public function askRenewal(Invitation $old, string $name, string $email, ?string $message): void
+    {
+        $email = mb_strtolower(trim($email));
+        if ($old->is_template || $old->revoked_at !== null || AccessRequest::where('renew_of', $old->id)->where('status', 'pending')->exists()) {
+            return;
+        }
+        $request = new AccessRequest(['name' => mb_substr(trim($name), 0, 100), 'email' => $email, 'message' => filled($message) ? mb_substr(trim((string) $message), 0, 1000) : null]);
+        $request->renew_of = $old->id;
+        $request->package = __('New link');
+        $request->save();
+        Audit::log('access.requested', $request, ['name' => $request->name, 'renewal' => true], null);
+    }
+
+    /** A new link for the same servers, libraries and limits as the old invitation; mailed to them. */
+    public function approveRenewal(AccessRequest $request): void
+    {
+        $old = $request->renewing;
+        if ($request->status !== 'pending' || $old === null) {
+            throw new RuntimeException(__('This application is already decided.'));
+        }
+        $maker = app(InvitationMaker::class);
+        [$settings, $pivot] = $maker->setupOf($old);
+        $by = Auth::user() instanceof User ? Auth::user() : null;
+        [$invitation, $code] = $maker->create(['label' => $old->label ?: $request->name, 'max_uses' => 1, 'expires_at' => now()->addDays(14)] + $settings, $pivot, $by);
+        $request->forceFill(['status' => 'approved', 'invitation_id' => $invitation->id, 'decided_by' => $by?->id, 'decided_at' => now()])->save();
+        Audit::log('access.approved', $request, ['name' => $request->name, 'renewal' => true]);
+        $maker->send($invitation, $code, $request->email, null, $by);
+    }
+
     public function approve(AccessRequest $request, Invitation $template): void
     {
         if ($request->status !== 'pending' || ! $template->is_template) {

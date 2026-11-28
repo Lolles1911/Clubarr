@@ -12,6 +12,7 @@ use App\Models\Invitation;
 use App\Models\MediaServer;
 use App\Models\User;
 use App\Models\WizardStep;
+use App\Services\Applications;
 use App\Services\ExistingUsers;
 use App\Services\InvitationProblem;
 use App\Services\NewOnServers;
@@ -24,6 +25,7 @@ use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
@@ -67,6 +69,10 @@ class Join extends SimplePage
     #[Locked]
     public ?string $problem = null;
 
+    /** An invitation that ended or was used up: the visitor may ask for a new link for it. */
+    #[Locked]
+    public ?int $renewableId = null;
+
     public bool $plexPending = false;
 
     /** @var array<string, mixed>|null */
@@ -84,6 +90,8 @@ class Join extends SimplePage
                 $invitation = Invitation::findByCode($code);
                 $this->problem = $invitation === null ? __('This invitation code is not valid.') : $invitation->problem();
                 $this->invitationId = $this->problem === null ? $invitation?->id : null;
+                $this->renewableId = $invitation !== null && $this->problem !== null && ! $invitation->is_template && $invitation->revoked_at === null && ! $invitation->awaiting_approval
+                    && (($invitation->expires_at?->isPast() ?? false) || ($invitation->max_uses !== null && $invitation->uses >= $invitation->max_uses)) ? $invitation->id : null;
             }
         }
         $this->form->fill();
@@ -226,16 +234,45 @@ class Join extends SimplePage
     {
         $invitation = $this->invitation();
         if ($invitation === null) {
-            return $schema->components([
+            return $schema->components(array_filter([
+                $this->renewableId !== null ? Actions::make([$this->askNewLinkAction()])->fullWidth() : null,
                 Form::make([EmbeddedSchema::make('form')])->id('form')->livewireSubmitHandler('findCode')
                     ->footer([Actions::make([Action::make('findCode')->label(__('Continue'))->submit('findCode')])->fullWidth()]),
-            ]);
+            ]));
         }
 
         return $schema->components(array_filter([
             Form::make([EmbeddedSchema::make('form')])->id('form')->livewireSubmitHandler('join'),
             ! Filament::auth()->check() ? Text::make(__('Already a member? Sign in first, then open the invitation link again.')) : null,
         ]));
+    }
+
+    /** "Ask for a new link": an admin approves, and a new link comes by mail. Same answer whatever happens. */
+    public function askNewLinkAction(): Action
+    {
+        return Action::make('askNewLink')->label(__('Ask for a new link'))->icon('heroicon-m-arrow-path')->size('lg')
+            ->visible(fn () => $this->renewableId !== null)
+            ->modalDescription(__('We get your request, and a new link comes to your mail when it is approved.'))
+            ->schema([
+                TextInput::make('name')->label(__('Your name'))->required()->maxLength(100),
+                TextInput::make('email')->label(__('Email'))->email()->required()->maxLength(190),
+                Textarea::make('message')->label(__('Anything to add? (optional)'))->rows(2)->maxLength(1000),
+            ])
+            ->action(function (array $data) {
+                try {
+                    $this->rateLimit(3, 3600, 'askNewLink');
+                } catch (TooManyRequestsException) {
+                    Notification::make()->title(__('Too many attempts. Try again later.'))->danger()->send();
+
+                    return;
+                }
+                $old = Invitation::find($this->renewableId);
+                if ($old !== null) {
+                    app(Applications::class)->askRenewal($old, (string) $data['name'], (string) $data['email'], $data['message'] ?? null);
+                }
+                $this->renewableId = null;
+                Notification::make()->title(__('Thanks! You get a mail when it is approved.'))->success()->persistent()->send();
+            });
     }
 
     public function findCode(): mixed

@@ -86,8 +86,20 @@ class AccessRequestResource extends Resource
                     }),
             ])
             ->recordActions([
+                Action::make('renew')->label(__('Send a new link'))->icon(Heroicon::OutlinedArrowPath)->color('success')->button()->size('sm')
+                    ->visible(fn (AccessRequest $r) => $r->status === 'pending' && $r->renew_of !== null)
+                    ->modalDescription(fn (AccessRequest $r) => __('A new invitation like ":label" (same servers, libraries and limits), mailed to them, valid 14 days.', ['label' => $r->renewing->label ?? $r->renewing?->code_hint]))
+                    ->requiresConfirmation()
+                    ->action(function (AccessRequest $r) {
+                        try {
+                            app(Applications::class)->approveRenewal($r);
+                            Notification::make()->title(__('Sent to :email.', ['email' => $r->email]))->success()->send();
+                        } catch (RuntimeException $e) {
+                            Notification::make()->title($e->getMessage())->danger()->send();
+                        }
+                    }),
                 Action::make('approve')->label(__('Invite'))->icon(Heroicon::OutlinedCheck)->color('success')->button()->size('sm')
-                    ->visible(fn (AccessRequest $r) => $r->status === 'pending')
+                    ->visible(fn (AccessRequest $r) => $r->status === 'pending' && $r->renew_of === null)
                     ->modalDescription(__('They get an invitation by mail (one person, valid 14 days) with the template\'s servers, libraries and limits.'))
                     ->fillForm(fn (AccessRequest $r) => ['template' => $r->template_id ?? app(SiteSettings::class)->get('apply_template_id')])
                     ->schema([

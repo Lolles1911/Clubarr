@@ -4,9 +4,12 @@ namespace App\Providers\Filament;
 
 use App\Filament\App\Pages\Apply;
 use App\Filament\App\Pages\ClaimAccount;
+use App\Filament\App\Pages\Help;
+use App\Filament\App\Pages\InviteFriend;
 use App\Filament\App\Pages\Join;
 use App\Filament\App\Pages\JoinWaitlist;
 use App\Filament\App\Pages\MyAccess;
+use App\Filament\App\Pages\MyStats;
 use App\Filament\App\Pages\Setup;
 use App\Filament\Pages\Auth\Profile;
 use App\Http\Controllers\DiscordLinkController;
@@ -14,8 +17,10 @@ use App\Http\Controllers\MediaImageController;
 use App\Http\Controllers\PlexReturnController;
 use App\Http\Controllers\SingleSignOnController;
 use App\Http\Middleware\ShowLandingPage;
+use App\Models\User;
 use App\Services\Applications;
 use App\Services\Branding;
+use App\Services\MemberInvites;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Navigation\NavigationItem;
@@ -38,8 +43,11 @@ class AppPanelProvider extends PanelProvider
             ->default()
             ->id('app')
             // On the sign-in page: the way to apply, when it is open.
-            ->renderHook(PanelsRenderHook::AUTH_LOGIN_FORM_AFTER, fn () => Applications::enabled()
-                ? new HtmlString('<p style="text-align:center;font-size:.875rem;margin-top:1rem;opacity:.8">'.e(__('No account yet?')).' <a href="'.e(route('filament.app.apply')).'" style="text-decoration:underline">'.e(__('Apply to join')).'</a></p>') : '')
+            ->renderHook(PanelsRenderHook::AUTH_LOGIN_FORM_AFTER, fn () => new HtmlString(
+                (Applications::enabled() ? '<p style="text-align:center;font-size:.875rem;margin-top:1rem;opacity:.8">'.e(__('No account yet?')).' <a href="'.e(route('filament.app.apply')).'" style="text-decoration:underline">'.e(__('Apply to join')).'</a></p>' : '')
+                // The password for watching is not the one for this page; say where to change it.
+                .'<details style="margin-top:1rem;font-size:.85rem;opacity:.85"><summary style="cursor:pointer;text-align:center">'.e(__('Forgot your password for watching?')).'</summary>'
+                .'<p style="margin-top:.5rem;line-height:1.5">'.e(__('Sign in here first, then press "New password" by the server on your page. Forgot this password too? Use "Forgot password?" above.')).'</p></details>'))
             ->path('')
             // The public front page at "/", for visitors, when it is on.
             ->middleware([ShowLandingPage::class])
@@ -54,6 +62,11 @@ class AppPanelProvider extends PanelProvider
             ])
             ->userMenuItems([
                 'profile' => fn (Action $action) => $action->label(__('My page')),
+                'stats' => Action::make('stats')->label(fn () => __('My statistics'))->icon('heroicon-o-chart-bar')->url(fn () => MyStats::getUrl(panel: 'app'))
+                    ->visible(fn () => MyStats::canAccess()),
+                'invite' => Action::make('invite')->label(fn () => __('Invite a friend'))->icon('heroicon-o-user-plus')->url(fn () => InviteFriend::getUrl(panel: 'app'))
+                    ->visible(fn () => ($u = auth()->user()) instanceof User && MemberInvites::allowed($u)),
+                'help' => Action::make('help')->label(fn () => __('Help'))->icon('heroicon-o-lifebuoy')->url(fn () => Help::getUrl(panel: 'app')),
                 'admin' => Action::make('admin')->label(fn () => __('Admin'))->icon('heroicon-o-shield-check')->url(fn () => url('/admin'))
                     ->visible(fn () => (bool) auth()->user()?->is_admin),
             ])
