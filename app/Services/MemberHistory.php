@@ -43,7 +43,7 @@ class MemberHistory
      * The Jellyfin/Emby history as last fetched. The page never waits for the
      * servers: when it is missing or old, a queued job fetches it.
      *
-     * @return array{plays: list<array<string, mixed>>, resume: list<array<string, mixed>>}
+     * @return array{plays: list<array<string, mixed>>, resume: list<array<string, mixed>>, because: array{title: string, items: list<array<string, mixed>>}|null}
      */
     private function local(User $user): array
     {

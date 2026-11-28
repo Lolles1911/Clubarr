@@ -27,10 +27,9 @@ class ServerCheck extends Model
     /** Percent of checks that answered over the last days, or null without checks. */
     public static function uptime(MediaServer $server, int $days): ?float
     {
-        $row = self::query()->where('media_server_id', $server->id)->where('checked_at', '>=', now()->subDays($days))
-            ->selectRaw('count(*) as n, sum(case when up then 1 else 0 end) as ok')->first();
-        $n = (int) ($row->n ?? 0);
+        $checks = self::query()->where('media_server_id', $server->id)->where('checked_at', '>=', now()->subDays($days));
+        $n = (clone $checks)->count();
 
-        return $n === 0 ? null : round(100 * (int) $row->ok / $n, 1);
+        return $n === 0 ? null : round(100 * $checks->where('up', true)->count() / $n, 1);
     }
 }
