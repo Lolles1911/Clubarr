@@ -5,12 +5,14 @@ namespace App\Filament\App\Pages;
 use App\MediaServers\Contracts\CreatesUsers;
 use App\MediaServers\Contracts\SharesWithPlexAccounts;
 use App\MediaServers\Contracts\UsesClaimLinks;
+use App\MediaServers\Contracts\VerifiesLogins;
 use App\MediaServers\Data\PlexIdentity;
 use App\MediaServers\MediaServerException;
 use App\Models\Invitation;
 use App\Models\MediaServer;
 use App\Models\User;
 use App\Models\WizardStep;
+use App\Services\ExistingUsers;
 use App\Services\InvitationProblem;
 use App\Services\NewOnServers;
 use App\Services\PlexLogin;
@@ -23,6 +25,7 @@ use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\SimplePage;
 use Filament\Schemas\Components\Actions;
@@ -30,6 +33,7 @@ use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
@@ -134,6 +138,10 @@ class Join extends SimplePage
         $needsUsername = $this->serversNeeding(CreatesUsers::class) !== [];
         $plex = $this->serversNeeding(SharesWithPlexAccounts::class) !== [];
         $signedIn = $this->plexIdentity();
+        // Jellyfin/Emby servers of the invitation where the visitor may sign in with a user they already have.
+        $linkable = app(SiteSettings::class)->get('link_existing') === '0' ? [] : array_values(array_map(fn (MediaServer $s) => $s->name, $this->serversNeeding(VerifiesLogins::class)));
+        // Jellyfin/Emby servers of the invitation where the visitor may sign in with a user they already have.
+        $linkable = app(SiteSettings::class)->get('link_existing') === '0' ? [] : array_values(array_map(fn (MediaServer $s) => $s->name, $this->serversNeeding(VerifiesLogins::class)));
 
         $account = array_values(array_filter([
             $plex ? Section::make(__('Plex'))->compact()
@@ -154,12 +162,24 @@ class Join extends SimplePage
             $guest ? TextInput::make('name')->label(__('Your name'))->required()->maxLength(100) : null,
             $guest ? TextInput::make('email')->label(__('Email'))->email()->required()->maxLength(190)
                 ->unique(User::class, 'email')->validationMessages(['unique' => __('An account with this email exists. Sign in first, then open the invitation link again.')]) : null,
+            $linkable ? Toggle::make('existing')->label(__('I already have a user on :servers', ['servers' => implode(', ', $linkable)]))->live()
+                ->helperText(__('Sign in with it below instead of making a new one. The password is only checked by the server, never kept.')) : null,
+            $linkable ? TextInput::make('existing_username')->label(__('Your user name there'))->required()->maxLength(100)->visible(fn (Get $get) => (bool) $get('existing')) : null,
+            $linkable ? TextInput::make('existing_password')->label(__('Your password there'))->password()->required()->maxLength(200)->visible(fn (Get $get) => (bool) $get('existing')) : null,
+            $linkable !== [] ? Toggle::make('existing')->label(__('I already have a user on :servers', ['servers' => implode(', ', $linkable)]))->live()
+                ->helperText(__('Sign in with it below instead of making a new one. The password is only checked by the server, never kept.')) : null,
+            $linkable !== [] ? TextInput::make('existing_username')->label(__('Your user name there'))->required()->maxLength(100)->visible(fn (Get $get) => (bool) $get('existing')) : null,
+            $linkable !== [] ? TextInput::make('existing_password')->label(__('Your password there'))->password()->required()->maxLength(200)->visible(fn (Get $get) => (bool) $get('existing')) : null,
             $needsUsername ? TextInput::make('username')->label(__('User name for watching'))->required()->minLength(3)->maxLength(32)
+                ->hidden(fn (Get $get) => (bool) $get('existing'))
+                ->hidden(fn (Get $get) => (bool) $get('existing') && count($linkable) === count($this->serversNeeding(CreatesUsers::class)))
                 ->regex('/^[A-Za-z0-9._-]+$/')->helperText(__('Letters, digits, dot, dash and underscore. You sign in to the apps with it.')) : null,
             $guest || $needsUsername ? TextInput::make('password')->label(__('Password'))->password()->revealable()->required()
+                ->hidden(fn (Get $get) => ! $guest && (bool) $get('existing'))
                 ->rule(Password::min(10)->letters()->numbers())->same('password_confirmation')
                 ->helperText($guest && $needsUsername ? __('For your account here and for watching.') : null) : null,
-            $guest || $needsUsername ? TextInput::make('password_confirmation')->label(__('Password again'))->password()->revealable()->required()->dehydrated(false) : null,
+            $guest || $needsUsername ? TextInput::make('password_confirmation')->label(__('Password again'))->password()->revealable()->required()->dehydrated(false)
+                ->hidden(fn (Get $get) => ! $guest && (bool) $get('existing')) : null,
         ]));
 
         // What is waiting, the admin's own steps (the wizard, "before"), then the account. (After joining: Get started.)
@@ -307,6 +327,17 @@ class Join extends SimplePage
                 : ['identity' => new PlexIdentity('', $typed, str_contains($typed, '@') ? $typed : null), 'token' => ''];
         }
         $existing = Filament::auth()->user();
+        // A user they already have on Jellyfin/Emby: checked with its own password, then linked instead of made.
+        $linked = [];
+        if (! empty($data['existing']) && app(SiteSettings::class)->get('link_existing') !== '0') {
+            foreach ($this->serversNeeding(VerifiesLogins::class) as $server) {
+                try {
+                    $linked[$server->id] = app(ExistingUsers::class)->verify($server, (string) ($data['existing_username'] ?? ''), (string) ($data['existing_password'] ?? ''));
+                } catch (\RuntimeException $e) {
+                    throw ValidationException::withMessages(['data.existing_password' => $e->getMessage()]);
+                }
+            }
+        }
 
         try {
             $user = app(Redeemer::class)->redeem(
@@ -316,6 +347,7 @@ class Join extends SimplePage
                 (string) ($data['username'] ?? ''),
                 $data['password'] ?? null,
                 $plex,
+                $linked,
             );
         } catch (InvitationProblem $e) {
             $this->fullNotice($e);

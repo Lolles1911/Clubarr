@@ -9,6 +9,7 @@ use App\MediaServers\Contracts\SharesWithPlexAccounts;
 use App\MediaServers\Contracts\UsesClaimLinks;
 use App\MediaServers\Data\Claim;
 use App\MediaServers\Data\PlexIdentity;
+use App\MediaServers\Data\RemoteUser;
 use App\MediaServers\MediaServerException;
 use App\Models\Invitation;
 use App\Models\MediaServer;
@@ -29,9 +30,10 @@ class AccessManager
      * again and the error is thrown.
      *
      * @param  array{identity: PlexIdentity, token: string}|null  $plex
+     * @param  array<int, RemoteUser>  $linked  server ID => a user they already have there
      * @return list<array{server: MediaServer, remote_id: ?string, username: ?string, status: AccountStatus, libraries: ?array, claim: ?Claim}>
      */
-    public function provision(User $user, Invitation $invitation, string $username, ?string $password, ?array $plex): array
+    public function provision(User $user, Invitation $invitation, string $username, ?string $password, ?array $plex, array $linked = []): array
     {
         $made = [];
         $have = $user->exists ? $user->serverAccounts()->pluck('media_server_id')->all() : [];
@@ -42,7 +44,16 @@ class AccessManager
                 }
                 $driver = $server->driver();
                 $libraries = $invitation->libraryIdsFor($server);
-                if ($driver instanceof CreatesUsers) {
+                if (isset($linked[$server->id])) {
+                    // A user they already have: checked again, then given the invitation's libraries. Never deleted on undo.
+                    $remote = $linked[$server->id];
+                    app(ExistingUsers::class)->checkFree($server, $remote);
+                    $driver->enable($remote->id, $remote->username, $libraries);
+                    if ($driver instanceof ChangesLibraries) {
+                        $driver->setLibraries($remote->id, $libraries);
+                    }
+                    $made[] = ['server' => $server, 'remote_id' => $remote->id, 'username' => $remote->username, 'status' => AccountStatus::Active, 'libraries' => $libraries, 'claim' => null, 'linked' => true];
+                } elseif ($driver instanceof CreatesUsers) {
                     if ($password === null) {
                         throw new MediaServerException(__('A password is needed for :server.', ['server' => $server->name]));
                     }
@@ -79,8 +90,8 @@ class AccessManager
     public function undo(array $made): void
     {
         foreach (array_reverse($made) as $row) {
-            if ($row['remote_id'] === null) {
-                continue; // a Silo link: nothing was made yet
+            if ($row['remote_id'] === null || ! empty($row['linked'])) {
+                continue; // a Silo link (nothing made yet), or a user they already had
             }
             try {
                 $row['server']->driver()->delete($row['remote_id'], (string) $row['username']);

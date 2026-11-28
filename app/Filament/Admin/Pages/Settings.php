@@ -80,6 +80,7 @@ class Settings extends Page
         $values['apply_enabled'] = ($values['apply_enabled'] ?? '0') === '1';
         $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
         $values['member_invites_approval'] = ($values['member_invites_approval'] ?? '0') === '1';
+        $values['link_existing'] = ($values['link_existing'] ?? '1') !== '0';
         foreach (['landing_enabled' => '0', 'landing_posters' => '0', 'landing_status' => '1'] as $key => $default) {
             $values[$key] = ($values[$key] ?? $default) === '1';
         }
@@ -163,6 +164,10 @@ class Settings extends Page
                         Textarea::make('invite_welcome')->label(__('Welcome text'))->rows(4)->maxLength(3000)
                             ->placeholder(__('e.g. "Welcome to our little cinema! Films and series for family and friends."'))
                             ->helperText(__('Shown on the first step of every invitation, above what they get. Plain text.')),
+                    ]),
+                    Section::make(__('Users they already have'))->schema([
+                        Toggle::make('link_existing')->label(__('Members may link a Jellyfin or Emby user they already have'))
+                            ->helperText(__('On their page and on an invitation: they sign in with that user\'s name and password, which only the server checks. Administrators of the server can never be linked. You can always link users yourself on a member.')),
                     ]),
                     Section::make(__('Reminders'))->schema([
                         TextInput::make('invite_reminder_days')->label(__('Remind after'))->numeric()->minValue(0)->maxValue(60)->suffix(__('days'))
@@ -269,6 +274,7 @@ class Settings extends Page
         $data['apply_enabled'] = ! empty($data['apply_enabled']) ? '1' : '0';
         $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
         $data['member_invites_approval'] = ! empty($data['member_invites_approval']) ? '1' : '0';
+        $data['link_existing'] = ! empty($data['link_existing']) ? '1' : '0';
         foreach (['landing_enabled', 'landing_posters', 'landing_status'] as $key) {
             $data[$key] = ! empty($data[$key]) ? '1' : '0';
         }

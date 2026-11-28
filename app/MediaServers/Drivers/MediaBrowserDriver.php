@@ -7,6 +7,7 @@ use App\MediaServers\Contracts\CreatesUsers;
 use App\MediaServers\Contracts\ListsRecentlyAdded;
 use App\MediaServers\Contracts\MediaServerDriver;
 use App\MediaServers\Contracts\ReadsWatchHistory;
+use App\MediaServers\Contracts\VerifiesLogins;
 use App\MediaServers\Data\LibraryData;
 use App\MediaServers\Data\RecentItem;
 use App\MediaServers\Data\RemoteUser;
@@ -20,7 +21,7 @@ use Throwable;
  * Jellyfin and Emby share most of their API (both come from Media Browser).
  * The differences are in the two drivers that extend this one.
  */
-abstract class MediaBrowserDriver implements ChangesLibraries, CreatesUsers, ListsRecentlyAdded, MediaServerDriver, ReadsWatchHistory
+abstract class MediaBrowserDriver implements ChangesLibraries, CreatesUsers, ListsRecentlyAdded, MediaServerDriver, ReadsWatchHistory, VerifiesLogins
 {
     protected ServerHttp $http;
 
@@ -79,6 +80,35 @@ abstract class MediaBrowserDriver implements ChangesLibraries, CreatesUsers, Lis
         usort($items, fn (RecentItem $a, RecentItem $b) => $b->addedAt <=> $a->addedAt);
 
         return array_slice($items, 0, $limit);
+    }
+
+    public function verifyLogin(string $username, string $password): ?RemoteUser
+    {
+        // Without the server's key: this is the member signing in, as an app would.
+        $client = 'MediaBrowser Client="Clubarr", Device="Clubarr", DeviceId="clubarr-link", Version="'.config('clubarr.version').'"';
+        $plain = new ServerHttp($this->server->url, ['Authorization' => $client], $this->server->name);
+        try {
+            $answer = $plain->json('POST', '/Users/AuthenticateByName', json: ['Username' => $username, 'Pw' => $password]);
+        } catch (MediaServerException $e) {
+            if (in_array($e->getCode(), [400, 401, 403, 404], true)) {
+                return null;
+            }
+
+            throw $e;
+        }
+        $user = is_array($answer['User'] ?? null) ? $answer['User'] : null;
+        if ($user === null || empty($user['Id'])) {
+            return null;
+        }
+        // Ends the session just made; the member signs in to their apps themselves.
+        try {
+            if (is_string($answer['AccessToken'] ?? null)) {
+                (new ServerHttp($this->server->url, ['Authorization' => $client.', Token="'.$answer['AccessToken'].'"', 'X-Emby-Token' => $answer['AccessToken']], $this->server->name))->send('POST', '/Sessions/Logout');
+            }
+        } catch (Throwable) {
+        }
+
+        return $this->remoteUser($user);
     }
 
     public function watched(string $remoteId, int $limit = 300): array

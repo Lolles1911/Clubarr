@@ -5,13 +5,16 @@ namespace App\Filament\App\Pages;
 use App\Enums\AccountStatus;
 use App\MediaServers\Contracts\CreatesUsers;
 use App\MediaServers\Contracts\UsesClaimLinks;
+use App\MediaServers\Contracts\VerifiesLogins;
 use App\Models\Announcement;
+use App\Models\MediaServer;
 use App\Models\ServerAccount;
 use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
 use App\Services\ComingSoon;
 use App\Services\DiscordSync;
+use App\Services\ExistingUsers;
 use App\Services\MemberHistory;
 use App\Services\MemberRequests;
 use App\Services\NewOnServers;
@@ -21,6 +24,7 @@ use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -198,6 +202,53 @@ class MyAccess extends Dashboard
                 } catch (Throwable $e) {
                     report($e);
                     Notification::make()->title(__('The password could not be changed right now. Please try again later.'))->danger()->send();
+                }
+            });
+    }
+
+    /** Jellyfin/Emby servers where the member has no user yet, and could link one they have (when the admin allows it). */
+    #[Unexposed]
+    public function linkableServers(): \Illuminate\Support\Collection
+    {
+        if (app(SiteSettings::class)->get('link_existing') === '0') {
+            return collect();
+        }
+
+        return MediaServer::where('is_enabled', true)->whereNotIn('id', $this->member()->serverAccounts()->pluck('media_server_id'))->orderBy('name')->get()
+            ->filter(fn (MediaServer $s) => $s->type->can(VerifiesLogins::class))->values();
+    }
+
+    public function linkExistingAction(): Action
+    {
+        return Action::make('linkExisting')->label(__('I already have a user on a server'))->icon('heroicon-m-link')->color('gray')->link()
+            ->visible(fn () => $this->linkableServers()->isNotEmpty())
+            ->modalDescription(__('Sign in with that user\'s name and password, and it is linked to your account here. The password is only checked by the server, never kept.'))
+            ->schema([
+                Select::make('server')->label(__('Server'))->required()->options(fn () => $this->linkableServers()->pluck('name', 'id')->all()),
+                TextInput::make('username')->label(__('User name on the server'))->required()->maxLength(100),
+                TextInput::make('password')->label(__('Password on the server'))->password()->required()->maxLength(200),
+            ])
+            ->action(function (array $data) {
+                try {
+                    $this->rateLimit(5, 3600, 'linkExisting');
+                } catch (TooManyRequestsException) {
+                    Notification::make()->title(__('That was a few times now. Please try again in an hour.'))->danger()->send();
+
+                    return;
+                }
+                $server = $this->linkableServers()->firstWhere('id', (int) $data['server']);
+                try {
+                    if ($server === null) {
+                        throw new \RuntimeException(__('Choose a server.'));
+                    }
+                    $existing = app(ExistingUsers::class);
+                    $existing->link($this->member(), $server, $existing->verify($server, (string) $data['username'], (string) $data['password']), 'member');
+                    Notification::make()->title(__('Linked. :server is on your page now.', ['server' => $server->name]))->success()->send();
+                } catch (\RuntimeException $e) {
+                    Notification::make()->title($e->getMessage())->danger()->send();
+                } catch (Throwable $e) {
+                    report($e);
+                    Notification::make()->title(__(':server did not answer. Please try again later.', ['server' => $server?->name]))->danger()->send();
                 }
             });
     }

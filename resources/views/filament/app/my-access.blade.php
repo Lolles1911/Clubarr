@@ -188,6 +188,7 @@
     @endif
 
     <div style="display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:flex-end;font-size:.85rem;opacity:.85">
+        {{ $this->linkExistingAction }}
         <x-filament::link :href="\Filament\Facades\Filament::getPanel('app')->getProfileUrl()" icon="heroicon-m-user-circle">{{ __('My page: account, numbers and settings') }}</x-filament::link>
     </div>
 

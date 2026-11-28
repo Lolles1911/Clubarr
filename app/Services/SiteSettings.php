@@ -102,6 +102,8 @@ class SiteSettings
         'apply_enabled' => '0',
         'apply_template_id' => '',
         'apply_questions' => '',
+        // Members may link a Jellyfin/Emby user they already have ('1') or not ('0').
+        'link_existing' => '1',
         // Single sign-on (OpenID Connect): on ('1'), the provider, the client, the button, and whether members may use it too.
         'oidc_enabled' => '0',
         'oidc_issuer' => '',

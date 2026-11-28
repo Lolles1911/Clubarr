@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\MediaServers\Data\PlexIdentity;
+use App\MediaServers\Data\RemoteUser;
 use App\Models\Invitation;
 use App\Models\User;
 use App\Notifications\InvitationUsed;
@@ -23,8 +24,9 @@ class Redeemer
     /**
      * @param  array{name: string, email: string, password: string}|null  $newAccount  null when $existing redeems
      * @param  array{identity: PlexIdentity, token: string}|null  $plex
+     * @param  array<int, RemoteUser>  $linked  server ID => a user the visitor already has there (checked with its password)
      */
-    public function redeem(Invitation $invitation, ?User $existing, ?array $newAccount, string $username, ?string $serverPassword, ?array $plex): User
+    public function redeem(Invitation $invitation, ?User $existing, ?array $newAccount, string $username, ?string $serverPassword, ?array $plex, array $linked = []): User
     {
         self::checkSeats($invitation, $existing);
         $this->reserve($invitation);
@@ -32,7 +34,7 @@ class Redeemer
 
         try {
             $invitation->load('mediaServers');
-            $made = $this->access->provision($user, $invitation, $username, $serverPassword, $plex);
+            $made = $this->access->provision($user, $invitation, $username, $serverPassword, $plex, $linked);
         } catch (Throwable $e) {
             $this->release($invitation);
 
