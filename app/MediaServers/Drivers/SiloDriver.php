@@ -3,23 +3,30 @@
 namespace App\MediaServers\Drivers;
 
 use App\MediaServers\Contracts\MediaServerDriver;
+use App\MediaServers\Contracts\ReadsWatchHistory;
+use App\MediaServers\Contracts\ShowsPosters;
 use App\MediaServers\Contracts\UsesClaimLinks;
 use App\MediaServers\Data\Claim;
 use App\MediaServers\Data\LibraryData;
+use App\MediaServers\Data\RecentItem;
 use App\MediaServers\Data\RemoteUser;
 use App\MediaServers\Data\ServerInfo;
 use App\MediaServers\MediaServerException;
 use App\MediaServers\ServerHttp;
 use App\Models\MediaServer;
+use Illuminate\Support\Facades\Http;
+use Throwable;
 
 /**
  * Silo (API v2): the member makes their own user on a one-time claim link.
  * Account changes use Silo's edit guard (ETag + If-Match), and Silo
  * administrators are never changed.
  */
-class SiloDriver implements MediaServerDriver, UsesClaimLinks
+class SiloDriver implements MediaServerDriver, ReadsWatchHistory, ShowsPosters, UsesClaimLinks
 {
     private ServerHttp $http;
+
+    private ?string $profileId = null;
 
     public function __construct(private MediaServer $server)
     {
@@ -130,6 +137,122 @@ class SiloDriver implements MediaServerDriver, UsesClaimLinks
     }
 
     /** @return list<array<string, mixed>> every item of a cursor-paged list */
+    /**
+     * Every play Silo recorded for the user (admin:monitor:read), newest
+     * first: real watching time where Silo measured it.
+     */
+    public function watched(string $remoteId, int $limit = 300): array
+    {
+        $plays = [];
+        foreach ($this->history($remoteId, $limit) as $play) {
+            $started = strtotime((string) ($play['started_at'] ?? '')) ?: 0;
+            if ($started === 0) {
+                continue;
+            }
+            $ended = strtotime((string) ($play['ended_at'] ?? '')) ?: $started;
+            $duration = (float) ($play['duration_seconds'] ?? 0);
+            $seconds = ! empty($play['measured']) && isset($play['played_seconds']) ? (float) $play['played_seconds'] : (float) ($play['watched_seconds'] ?? max(0, $ended - $started));
+            $seconds = $duration > 0 ? min($seconds, $duration) : $seconds;
+            $episode = ($play['media_type'] ?? '') === 'episode';
+            $plays[] = [
+                'started_at' => gmdate('Y-m-d\TH:i:s\Z', $started),
+                'duration_ms' => (int) round(1000 * max(0, $seconds)),
+                'media_type' => $episode ? 'episode' : (($play['media_type'] ?? '') === 'movie' ? 'movie' : 'other'),
+                'media_title' => (string) ($play['media_title'] ?? ''),
+                'show_title' => $episode ? (string) ($play['series_title'] ?? '') : null,
+                'platform' => trim((string) ($play['client_name'] ?? '')) ?: trim((string) ($play['device_platform'] ?? '')),
+                'percent_complete' => ! empty($play['completed']) ? 100 : ($duration > 0 ? (int) round(100 * min(1, (float) ($play['watched_seconds'] ?? 0) / $duration)) : 0),
+                'watched' => ! empty($play['completed']),
+                'item' => (string) ($play['media_item_id'] ?? ''),
+            ];
+        }
+
+        return $plays;
+    }
+
+    /** From the history: what was left part-way (3 to 90 percent) and not finished since. */
+    public function resume(string $remoteId, int $limit = 12): array
+    {
+        $seen = $items = [];
+        foreach ($this->watched($remoteId, 200) as $play) {
+            $title = $play['media_type'] === 'episode' ? (string) $play['show_title'] : $play['media_title'];
+            if ($title === '' || isset($seen[$title])) {
+                continue;
+            }
+            $seen[$title] = true;
+            if (! $play['watched'] && $play['percent_complete'] >= 3 && $play['percent_complete'] <= 90 && preg_match('/^[A-Za-z0-9_-]{1,64}$/', $play['item'])) {
+                $items[] = new RecentItem($play['item'], $title, null, $play['percent_complete']);
+            }
+            if (count($items) >= $limit) {
+                break;
+            }
+        }
+
+        return $items;
+    }
+
+    /**
+     * A catalog item's poster (a show's for an episode). Catalog reads act as
+     * the key owner's main profile; Silo's own signed image routes get the
+     * key, any other address (object storage) is fetched without it, and
+     * never with redirects.
+     */
+    public function poster(string $ref): ?array
+    {
+        if (! preg_match('/^[A-Za-z0-9_-]{1,64}$/', $ref) || ($profile = $this->profileId()) === '') {
+            return null;
+        }
+        $item = $this->http->json('GET', '/api/v2/catalog/items/'.$ref, ['image_size' => 'small'], headers: ['X-Profile-Id' => $profile]);
+        $url = (string) ($item['series_poster_url'] ?? '') ?: (string) ($item['poster_url'] ?? '');
+        try {
+            if (str_starts_with($url, '/') && ! str_starts_with($url, '//')) {
+                $response = $this->http->send('GET', $url, headers: ['Accept' => 'image/*']);
+            } elseif (preg_match('~^https://~i', $url)) {
+                $response = Http::timeout(10)->withoutRedirecting()->withHeaders(['Accept' => 'image/*'])->get($url);
+            } else {
+                return null;
+            }
+        } catch (Throwable) {
+            return null;
+        }
+        $type = strtolower(trim(explode(';', (string) $response->header('Content-Type'))[0]));
+
+        return $response->status() === 200 && in_array($type, ['image/jpeg', 'image/png', 'image/webp'], true) ? ['type' => $type, 'body' => $response->body()] : null;
+    }
+
+    /** @return list<array<string, mixed>> the user's plays, newest first, only theirs whatever the filter did */
+    private function history(string $remoteId, int $max): array
+    {
+        $plays = [];
+        $cursor = null;
+        do {
+            $page = $this->http->json('GET', '/api/v2/admin/playback-history', ['user_id' => $remoteId, 'limit' => min(200, max(1, $max - count($plays)))] + ($cursor !== null ? ['cursor' => $cursor] : []));
+            foreach ($page['items'] ?? [] as $play) {
+                if (is_array($play) && (string) ($play['user_id'] ?? '') === $remoteId) {
+                    $plays[] = $play;
+                }
+            }
+            $cursor = ! empty($page['page']['has_more']) ? ($page['page']['next_cursor'] ?? null) : null;
+        } while ($cursor !== null && count($plays) < $max);
+
+        return $plays;
+    }
+
+    /** The key owner's main profile without a PIN, which catalog reads act as; "" when there is none. */
+    private function profileId(): string
+    {
+        if ($this->profileId === null) {
+            $this->profileId = '';
+            foreach ($this->http->json('GET', '/api/v2/profiles')['items'] ?? [] as $profile) {
+                if (is_array($profile) && ! empty($profile['is_primary']) && empty($profile['has_pin'])) {
+                    $this->profileId = (string) ($profile['id'] ?? '');
+                }
+            }
+        }
+
+        return $this->profileId;
+    }
+
     private function pages(string $path): array
     {
         $items = [];
