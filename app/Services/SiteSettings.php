@@ -56,6 +56,13 @@ class SiteSettings
         'invite_reminder_days' => '3',
         'member_invites_per_month' => '0',
         'member_invite_template_id' => '',
+        // Automation: pause members who watched nothing for this many days (0 = off);
+        // delete server users this many days after access ended (0 = off).
+        'inactive_days' => '0',
+        'cleanup_days' => '0',
+        // Public "apply to join" page ('1' on), and the template an approved application's invitation copies.
+        'apply_enabled' => '0',
+        'apply_template_id' => '',
         // Ask GitHub once a day for a newer Clubarr ('1') or not ('0').
         'update_check' => '1',
     ];

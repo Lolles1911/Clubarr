@@ -8,6 +8,8 @@ use App\MediaServers\MediaServerException;
 use App\Models\Library;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
+use App\Models\User;
+use Illuminate\Support\Carbon;
 use Throwable;
 
 /** Checks a media server and reads its libraries into Clubarr. */
@@ -75,6 +77,9 @@ class ServerSync
 
                 continue;
             }
+            if ($user->lastSeen !== null && $account->user !== null) {
+                self::seen($account->user, $user->lastSeen);
+            }
             $status = $user->isDisabled ? AccountStatus::Disabled : AccountStatus::Active;
             if ($account->status !== $status || $account->remote_username !== $user->username) {
                 $account->update(['status' => $status, 'remote_username' => $user->username]);
@@ -99,6 +104,16 @@ class ServerSync
         MediaServer::whereKey($server->id)->update(['settings' => json_encode(array_merge($server->fresh()->settings ?? [], ['unlinked' => $unlinked]))]);
 
         return ['changed' => $changed, 'missing' => count($gone), 'removed' => $held ? 0 : count($gone), 'unlinked' => $unlinked, 'held' => $held];
+    }
+
+    /** Notes that a member watched (or signed in) at a time; a warning about being inactive is then void. */
+    public static function seen(User $member, int $at): void
+    {
+        if ($at > now()->getTimestamp() + 3600 || ($member->last_seen_at !== null && $member->last_seen_at->getTimestamp() >= $at)) {
+            return;
+        }
+        $member->forceFill(['last_seen_at' => Carbon::createFromTimestamp($at),
+            'inactive_warned_at' => $member->inactive_warned_at !== null && $member->inactive_warned_at->getTimestamp() < $at ? null : $member->inactive_warned_at])->saveQuietly();
     }
 
     /** A user deleted on the server: the access goes in Clubarr; a member left with none is paused. */

@@ -186,7 +186,8 @@ abstract class MediaBrowserDriver implements ChangesLibraries, CreatesUsers, Lis
     private function remoteUser(array $user): RemoteUser
     {
         return new RemoteUser((string) ($user['Id'] ?? ''), (string) ($user['Name'] ?? ''), null,
-            ! empty($user['Policy']['IsAdministrator']), ! empty($user['Policy']['IsDisabled']));
+            ! empty($user['Policy']['IsAdministrator']), ! empty($user['Policy']['IsDisabled']),
+            strtotime((string) ($user['LastActivityDate'] ?? '')) ?: null);
     }
 
     /** Reads why a new user could not be made; a taken name is told apart. */

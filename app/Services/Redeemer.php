@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Notifications\InvitationUsed;
 use App\Notifications\Welcome;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -68,6 +69,18 @@ class Redeemer
         $invitation->forceFill(['reminder_link' => null])->save();
         $this->tellCreator($invitation, $user);
         app(DiscordSync::class)->sync($user);
+        // Their own user in Overseerr/Jellyseerr right away (on the queue: Seerr can be slow).
+        if (app(Requests::class)->enabled()) {
+            $userId = $user->id;
+            dispatch(function () use ($userId) {
+                $member = User::find($userId);
+                try {
+                    $member && app(Requests::class)->seerrUser($member);
+                } catch (Throwable $e) {
+                    Log::info('Clubarr: no Seerr user yet for user '.$userId.': '.class_basename($e));
+                }
+            });
+        }
         if ($existing === null) {
             try {
                 $user->notify(new Welcome);

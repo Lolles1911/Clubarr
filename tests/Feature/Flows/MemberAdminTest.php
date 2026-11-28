@@ -5,6 +5,8 @@ namespace Tests\Feature\Flows;
 use App\Enums\AccountStatus;
 use App\Enums\ServerType;
 use App\Filament\Admin\Resources\Users\Pages\ListUsers;
+use App\Filament\Admin\Widgets\MembersChart;
+use App\Filament\Admin\Widgets\WatchingNow;
 use App\Models\Library;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
@@ -87,7 +89,7 @@ class MemberAdminTest extends TestCase
         Http::fake(['tr.local/api/v2/public/streams' => Http::response(['data' => [['username' => 'anna', 'media_title' => 'Dune', 'media_type' => 'movie', 'player' => 'Apple TV']]]),
             'tr.local/*' => Http::response(['data' => []])]);
 
-        Livewire::test(\App\Filament\Admin\Widgets\WatchingNow::class)->assertSee('Dune')->assertSee('Apple TV');
-        Livewire::test(\App\Filament\Admin\Widgets\MembersChart::class)->assertOk();
+        Livewire::test(WatchingNow::class)->assertSee('Dune')->assertSee('Apple TV');
+        Livewire::test(MembersChart::class)->assertOk();
     }
 }
