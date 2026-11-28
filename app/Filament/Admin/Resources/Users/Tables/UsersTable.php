@@ -32,12 +32,12 @@ class UsersTable
                 TextColumn::make('servers')->label(__('Servers'))->badge()
                     ->state(fn (User $record) => $record->serverAccounts->map(fn ($a) => $a->mediaServer->name)->all())
                     ->color(fn (User $record, string $state) => $record->serverAccounts->first(fn ($a) => $a->mediaServer->name === $state)?->status->color() ?? 'gray'),
-                TextColumn::make('access_expires_at')->label(__('Access ends'))->date('j M Y')->placeholder(__('No end'))->sortable()
+                TextColumn::make('access_expires_at')->visibleFrom('sm')->label(__('Access ends'))->date('j M Y')->placeholder(__('No end'))->sortable()
                     ->color(fn (User $record) => $record->hasAccessExpired() ? 'danger' : null),
-                TextColumn::make('role')->label(__('Role'))->badge()
+                TextColumn::make('role')->visibleFrom('md')->label(__('Role'))->badge()
                     ->state(fn (User $record) => $record->disabled_at ? __('Disabled') : ($record->is_admin ? __('Admin') : __('Member')))
                     ->color(fn (User $record) => $record->disabled_at ? 'danger' : ($record->is_admin ? 'primary' : 'gray')),
-                TextColumn::make('last_login_at')->label(__('Last sign-in'))->since()->placeholder('—')->sortable(),
+                TextColumn::make('last_login_at')->visibleFrom('md')->label(__('Last sign-in'))->since()->placeholder('—')->sortable(),
             ])
             ->filters([
                 TernaryFilter::make('is_admin')->label(__('Admins')),

@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'version' => '0.2.3-beta',
+    'version' => '0.3.0-beta',
 
     // Seconds Clubarr waits for a media server.
     'http_timeout' => (int) env('CLUBARR_HTTP_TIMEOUT', 15),
@@ -11,4 +11,7 @@ return [
 
     // Days before access ends that the member is told.
     'expiry_warning_days' => (int) env('CLUBARR_EXPIRY_WARNING_DAYS', 3),
+
+    // Where the nightly database copies go (default: "backups" next to the database).
+    'backup_path' => env('CLUBARR_BACKUP_PATH'),
 ];

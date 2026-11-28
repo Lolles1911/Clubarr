@@ -3,8 +3,10 @@
 namespace App\MediaServers\Drivers;
 
 use App\MediaServers\Contracts\CreatesUsers;
+use App\MediaServers\Contracts\ListsRecentlyAdded;
 use App\MediaServers\Contracts\MediaServerDriver;
 use App\MediaServers\Data\LibraryData;
+use App\MediaServers\Data\RecentItem;
 use App\MediaServers\Data\RemoteUser;
 use App\MediaServers\Data\ServerInfo;
 use App\MediaServers\MediaServerException;
@@ -16,7 +18,7 @@ use Throwable;
  * Jellyfin and Emby share most of their API (both come from Media Browser).
  * The differences are in the two drivers that extend this one.
  */
-abstract class MediaBrowserDriver implements CreatesUsers, MediaServerDriver
+abstract class MediaBrowserDriver implements CreatesUsers, ListsRecentlyAdded, MediaServerDriver
 {
     protected ServerHttp $http;
 
@@ -48,6 +50,44 @@ abstract class MediaBrowserDriver implements CreatesUsers, MediaServerDriver
     {
         return array_values(array_map(fn (array $folder) => new LibraryData($this->folderPolicyId($folder), (string) ($folder['Name'] ?? ''), $folder['CollectionType'] ?? null),
             array_filter($this->http->json('GET', '/Library/MediaFolders')['Items'] ?? [], 'is_array')));
+    }
+
+    public function recentlyAdded(?array $libraryIds, int $limit): array
+    {
+        $items = [];
+        $folders = array_filter($this->http->json('GET', '/Library/MediaFolders')['Items'] ?? [], 'is_array');
+        foreach (array_slice(array_values($folders), 0, 12) as $folder) {
+            if ($libraryIds !== null && ! in_array($this->folderPolicyId($folder), $libraryIds, true)) {
+                continue;
+            }
+            $found = $this->http->json('GET', '/Items', [
+                'ParentId' => (string) ($folder['Id'] ?? ''), 'Recursive' => 'true', 'IncludeItemTypes' => 'Movie,Episode',
+                'SortBy' => 'DateCreated', 'SortOrder' => 'Descending', 'Limit' => $limit * 2, 'Fields' => 'DateCreated,ProductionYear',
+            ])['Items'] ?? [];
+            foreach (array_filter($found, 'is_array') as $item) {
+                $episode = ($item['Type'] ?? '') === 'Episode';
+                $ref = (string) ($episode ? ($item['SeriesId'] ?? '') : ($item['Id'] ?? ''));
+                $title = (string) ($episode ? ($item['SeriesName'] ?? '') : ($item['Name'] ?? ''));
+                $added = strtotime((string) ($item['DateCreated'] ?? '')) ?: 0;
+                if ($ref !== '' && $title !== '' && preg_match('/^[A-Za-z0-9-]{1,64}$/', $ref) && $added > ($items[$ref]->addedAt ?? -1)) {
+                    $items[$ref] = new RecentItem($ref, $title, $episode ? null : (isset($item['ProductionYear']) ? (int) $item['ProductionYear'] : null), $added);
+                }
+            }
+        }
+        usort($items, fn (RecentItem $a, RecentItem $b) => $b->addedAt <=> $a->addedAt);
+
+        return array_slice($items, 0, $limit);
+    }
+
+    public function poster(string $ref): ?array
+    {
+        if (! preg_match('/^[A-Za-z0-9-]{1,64}$/', $ref)) {
+            return null;
+        }
+        $response = $this->http->send('GET', '/Items/'.$ref.'/Images/Primary', ['maxHeight' => 450, 'quality' => 85]);
+        $type = strtolower(trim(explode(';', (string) $response->header('Content-Type'))[0]));
+
+        return in_array($type, ['image/jpeg', 'image/png', 'image/webp'], true) ? ['type' => $type, 'body' => $response->body()] : null;
     }
 
     public function users(): array

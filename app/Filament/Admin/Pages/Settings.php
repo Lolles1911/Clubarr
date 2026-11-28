@@ -6,12 +6,21 @@ use App\Http\Middleware\ApplySiteLocale;
 use App\Integrations\Discord;
 use App\Integrations\Seerr;
 use App\Integrations\Tracearr;
+use App\Jobs\SendAdminAlert;
 use App\Models\Invitation;
+use App\Services\AdminAlerts;
 use App\Services\Audit;
+use App\Services\Backups;
+use App\Services\Branding;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
+use Filament\Forms\Components\Checkbox;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\ColorPicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -24,12 +33,15 @@ use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Number;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Throwable;
 
 /**
@@ -62,6 +74,8 @@ class Settings extends Page
         $values = app(SiteSettings::class)->all() + SiteSettings::DEFAULTS;
         $values['mail_enabled'] = ($values['mail_enabled'] ?? '0') === '1';
         $values['admin_2fa_required'] = ($values['admin_2fa_required'] ?? '1') !== '0';
+        $values['update_check'] = ($values['update_check'] ?? '1') !== '0';
+        $values['alerts_events'] = ($values['alerts_events'] ?? null) === null ? array_keys(AdminAlerts::EVENTS) : array_values(array_filter(explode(',', (string) $values['alerts_events']), fn ($e) => isset(AdminAlerts::EVENTS[$e])));
         foreach (SiteSettings::SECRET as $secret) {
             unset($values[$secret]); // never sent to the browser
         }
@@ -78,6 +92,19 @@ class Settings extends Page
                     Select::make('locale')->label(__('Language'))->options(ApplySiteLocale::LOCALES)->required(),
                     Textarea::make('help_text')->label(__('Getting started text'))->rows(6)->maxLength(5000)->columnSpanFull()
                         ->helperText(__('Shown to members on their page: which apps to use, house rules, where to ask. Plain text.')),
+                    ColorPicker::make('brand_color')->label(__('Accent colour'))->regex('/^#[0-9a-fA-F]{6}$/')
+                        ->helperText(__('Buttons and links, for admins and members. Empty: violet.')),
+                    FileUpload::make('logo')->label(__('Logo'))->image()->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])->maxSize(300)->storeFiles(false)
+                        ->helperText(__('PNG, JPEG or WebP, at most 300 KB; shown instead of the name. A wide logo about 4 times as wide as high looks best.'))
+                        ->hintAction(Action::make('removeLogo')->label(__('Remove the logo'))->color('danger')->requiresConfirmation()
+                            ->visible(fn () => Branding::logoUrl() !== null)
+                            ->action(function () {
+                                Branding::removeLogo();
+                                Audit::log('settings.logo_removed');
+                                $this->redirect(static::getUrl());
+                            })),
+                    Toggle::make('update_check')->label(__('Tell me when a new Clubarr is out'))->columnSpanFull()
+                        ->helperText(__('Once a day Clubarr reads the public list of releases on GitHub. Nothing about your Clubarr is sent.')),
                 ]),
                 Tab::make(__('Security'))->key('security')->icon(Heroicon::OutlinedShieldCheck)->schema([
                     Toggle::make('admin_2fa_required')->label(__('Require two-factor sign-in for admins'))
@@ -122,6 +149,46 @@ class Settings extends Page
                                 ->helperText(__('The bot\'s own role must be above it.')),
                         ])->footerActions([$this->testAction('Discord')]),
                 ]),
+                Tab::make(__('Notifications'))->key('alerts')->icon(Heroicon::OutlinedBellAlert)->schema([
+                    Section::make(__('Discord channel for admins'))
+                        ->description(__('Clubarr posts to a channel of your choice when something happens. In Discord: the channel → Edit channel → Integrations → Webhooks → New webhook → Copy webhook URL.'))->schema([
+                            TextInput::make('alerts_webhook_url')->label(__('Webhook URL'))->password()->revealable()->maxLength(300)->autocomplete('off')
+                                ->regex(AdminAlerts::WEBHOOK_PATTERN)->validationMessages(['regex' => __('That is not a Discord webhook URL (https://discord.com/api/webhooks/…).')])
+                                ->helperText(__('Stored encrypted; leave empty to keep it.')),
+                            CheckboxList::make('alerts_events')->label(__('Tell me when'))->options(AdminAlerts::labels())->columns(1)->bulkToggleable(),
+                        ])->footerActions([
+                            Action::make('testAlert')->label(__('Send a test message'))->color('gray')->icon('heroicon-m-paper-airplane')->action(fn () => $this->testAlert()),
+                            Action::make('forgetWebhook')->label(__('Remove the webhook'))->color('danger')->link()->requiresConfirmation()
+                                ->visible(fn () => AdminAlerts::webhook() !== null)
+                                ->action(function () {
+                                    app(SiteSettings::class)->set(['alerts_webhook_url' => '']);
+                                    Audit::log('settings.webhook_removed');
+                                    Notification::make()->title(__('Removed.'))->success()->send();
+                                }),
+                        ]),
+                ]),
+                Tab::make(__('Backup'))->key('backup')->icon(Heroicon::OutlinedArchiveBox)->schema(Backups::supported() ? [
+                    Section::make(__('Download a backup'))
+                        ->description(__('The database and the encryption key in one file, locked with a password you choose. Keep the file and the password apart; without the password nobody can read it, not even you.'))
+                        ->footerActions([$this->downloadBackupAction()]),
+                    Section::make(__('Automatic backups'))
+                        ->description(__('Every night Clubarr copies its database to :dir. The newest :keep are kept.', ['dir' => Backups::directory(), 'keep' => Backups::KEEP]))
+                        ->schema([Text::make(fn () => collect(Backups::list())->map(fn ($b) => $b['name'].' · '.Number::fileSize($b['size']).' · '.date('Y-m-d H:i', $b['time']))->implode(' | ') ?: __('None yet.'))])
+                        ->footerActions([
+                            Action::make('backupNow')->label(__('Make one now'))->color('gray')->icon('heroicon-m-plus')
+                                ->action(function () {
+                                    app(Backups::class)->automatic();
+                                    Audit::log('backup.made');
+                                    Notification::make()->title(__('Backup made.'))->success()->send();
+                                }),
+                            $this->restoreAction('restoreAutomatic'),
+                        ]),
+                    Section::make(__('Restore from a file'))
+                        ->description(__('Replaces everything in Clubarr with the backup. The current data is copied to the automatic backups first, and everyone is signed out.'))
+                        ->footerActions([$this->restoreAction('restoreFile')]),
+                ] : [
+                    Text::make(__('Backups here are for the built-in SQLite database. Back up your database with its own tools.')),
+                ]),
                 Tab::make(__('Waiting list'))->key('waitlist')->icon(Heroicon::OutlinedQueueList)->schema([
                     Select::make('waitlist_template_id')->label(__('Invitations copy'))
                         ->options(fn () => Invitation::where('from_waitlist', false)->latest()->limit(200)->get()->mapWithKeys(fn ($i) => [$i->id => ($i->label ?: $i->code_hint.'…').' · '.$i->mediaServers()->pluck('name')->implode(', ')])->all())
@@ -146,9 +213,24 @@ class Settings extends Page
     public function save(): void
     {
         $data = $this->form->getState();
+        $logo = $data['logo'] ?? null;
+        unset($data['logo']);
+        if ($logo instanceof TemporaryUploadedFile) {
+            try {
+                Branding::storeLogo((string) $logo->get());
+                Audit::log('settings.logo_changed');
+            } catch (\RuntimeException $e) {
+                Notification::make()->title($e->getMessage())->danger()->send();
+
+                return;
+            }
+        }
         $data['mail_enabled'] = ! empty($data['mail_enabled']) ? '1' : '0';
         $was = app(SiteSettings::class)->get('admin_2fa_required');
         $data['admin_2fa_required'] = ! empty($data['admin_2fa_required']) ? '1' : '0';
+        $data['update_check'] = ! empty($data['update_check']) ? '1' : '0';
+        // "-" when none is chosen: empty would mean "not set yet", which is all.
+        $data['alerts_events'] = implode(',', array_intersect((array) ($data['alerts_events'] ?? []), array_keys(AdminAlerts::EVENTS))) ?: '-';
         foreach (SiteSettings::SECRET as $secret) {
             if (blank($data[$secret] ?? null)) {
                 unset($data[$secret]); // empty: keep the stored one
@@ -192,6 +274,78 @@ class Settings extends Page
         $result === null
             ? Notification::make()->title($name.': '.__('not set up'))->warning()->send()
             : Notification::make()->title($name.': '.__('OK').' ('.$result.')')->success()->send();
+    }
+
+    private function downloadBackupAction(): Action
+    {
+        return Action::make('downloadBackup')->label(__('Download a backup'))->icon('heroicon-m-arrow-down-tray')
+            ->modalDescription(__('Choose a password for the file. It is not saved anywhere: write it down.'))
+            ->schema([
+                TextInput::make('password')->label(__('Password for the file'))->password()->revealable()->required()->minLength(10)->maxLength(200)->same('password_confirmation'),
+                TextInput::make('password_confirmation')->label(__('Password again'))->password()->revealable()->required()->dehydrated(false),
+            ])
+            ->action(function (array $data) {
+                $file = app(Backups::class)->export((string) $data['password']);
+                Audit::log('backup.downloaded');
+
+                return response()->streamDownload(function () use ($file) {
+                    echo $file;
+                }, 'clubarr-backup-'.now()->format('Y-m-d').'.clubarr', ['Content-Type' => 'application/octet-stream']);
+            });
+    }
+
+    /** Restore from an automatic backup or an uploaded file; afterwards everyone, this admin too, signs in again. */
+    private function restoreAction(string $name): Action
+    {
+        $fromFile = $name === 'restoreFile';
+
+        return Action::make($name)->label($fromFile ? __('Restore from a file') : __('Restore one'))->color('danger')->icon('heroicon-m-arrow-uturn-left')
+            ->visible(fn () => $fromFile || Backups::list() !== [])
+            ->modalDescription(__('Everything in Clubarr is replaced by the backup. The current data is copied to the automatic backups first.'))
+            ->schema(array_merge($fromFile ? [
+                FileUpload::make('file')->label(__('Backup file (.clubarr)'))->required()->storeFiles(false)->maxSize(512000),
+                TextInput::make('password')->label(__('The file\'s password'))->password()->revealable()->required()->maxLength(200),
+            ] : [
+                Select::make('backup')->label(__('Backup'))->required()
+                    ->options(fn () => collect(Backups::list())->mapWithKeys(fn ($b) => [$b['name'] => $b['name'].' · '.date('Y-m-d H:i', $b['time'])])->all()),
+            ], [
+                Checkbox::make('understood')->label(__('I understand that everything is replaced, and that everyone is signed out.'))->accepted(),
+            ]))
+            ->action(function (array $data) use ($fromFile) {
+                $who = Auth::user()?->email;
+                try {
+                    $fromFile
+                        ? app(Backups::class)->restoreFile($data['file'] instanceof TemporaryUploadedFile ? (string) $data['file']->get() : '', (string) $data['password'])
+                        : app(Backups::class)->restoreAutomatic((string) $data['backup']);
+                } catch (\RuntimeException $e) {
+                    Notification::make()->title(__('Not restored'))->body($e->getMessage())->danger()->persistent()->send();
+
+                    return null;
+                }
+                // The signed-in user belongs to the old data: sign out (before logging, so no old ID is used).
+                Filament::auth()->logout();
+                Audit::log('backup.restored', null, ['by' => $who, 'from' => $fromFile ? 'file' : (string) $data['backup']]);
+                session()->invalidate();
+                session()->regenerateToken();
+
+                return redirect()->to(Filament::getLoginUrl());
+            });
+    }
+
+    protected function testAlert(): void
+    {
+        $this->save();
+        if (AdminAlerts::webhook() === null) {
+            Notification::make()->title(__('Add the webhook URL first.'))->warning()->send();
+
+            return;
+        }
+        try {
+            (new SendAdminAlert(__(':site: test from Clubarr. Notifications work.', ['site' => app(SiteSettings::class)->get('site_name')])))->handle();
+            Notification::make()->title(__('Sent. Look in the Discord channel.'))->success()->send();
+        } catch (Throwable) {
+            Notification::make()->title(__('Discord did not take the message. Check the webhook URL.'))->danger()->send();
+        }
     }
 
     protected function testMail(): void

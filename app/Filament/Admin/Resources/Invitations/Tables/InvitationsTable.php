@@ -28,15 +28,15 @@ class InvitationsTable
             ->columns([
                 TextColumn::make('label')->label(__('Note'))->searchable()->placeholder('—')
                     ->description(fn (Invitation $record) => $record->code_hint.'…'),
-                TextColumn::make('mediaServers.name')->label(__('Servers'))->badge(),
+                TextColumn::make('mediaServers.name')->visibleFrom('sm')->label(__('Servers'))->badge(),
                 TextColumn::make('uses')->label(__('Used'))
                     ->state(fn (Invitation $record) => $record->uses.' / '.($record->max_uses ?? '∞')),
-                TextColumn::make('used_by')->label(__('Used by'))->badge()->color('gray')->placeholder('—')
+                TextColumn::make('used_by')->visibleFrom('md')->label(__('Used by'))->badge()->color('gray')->placeholder('—')
                     ->state(fn (Invitation $record) => $record->accounts->pluck('user.name')->filter()->unique()->values()->all())
                     ->url(fn (Invitation $record) => ($u = $record->accounts->first()?->user) ? UserResource::getUrl('edit', ['record' => $u]) : null),
-                TextColumn::make('access_days')->label(__('Access'))
+                TextColumn::make('access_days')->visibleFrom('md')->label(__('Access'))
                     ->state(fn (Invitation $record) => $record->access_days ? __(':days days', ['days' => $record->access_days]) : __('No end')),
-                TextColumn::make('expires_at')->label(__('Link valid until'))->dateTime('j M Y, H:i')->placeholder(__('No end'))->sortable(),
+                TextColumn::make('expires_at')->visibleFrom('lg')->label(__('Link valid until'))->dateTime('j M Y, H:i')->placeholder(__('No end'))->sortable(),
                 TextColumn::make('status')->label(__('Status'))->badge()
                     ->state(fn (Invitation $record) => $record->problem() === null ? __('Open') : ($record->revoked_at ? __('Withdrawn') : ($record->expires_at?->isPast() ? __('Expired') : __('Used up'))))
                     ->color(fn (Invitation $record) => $record->problem() === null ? 'success' : 'gray'),

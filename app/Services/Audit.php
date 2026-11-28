@@ -22,6 +22,7 @@ class Audit
                 'ip' => app()->runningInConsole() ? null : request()->ip(),
                 'meta' => $meta ?: null,
             ]);
+            AdminAlerts::fromAudit($action, $subject, $meta, $actorId ?? Auth::id());
         } catch (Throwable $e) {
             report($e);
         }

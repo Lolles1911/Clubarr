@@ -14,10 +14,12 @@ use Throwable;
  */
 class SiteSettings
 {
-    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token'];
+    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token', 'alerts_webhook_url'];
 
     public const DEFAULTS = [
         'site_name' => 'Clubarr',
+        // Accent colour (#rrggbb; empty = violet).
+        'brand_color' => '',
         'locale' => 'en',
         'mail_enabled' => '0',
         'mail_host' => '',
@@ -44,6 +46,11 @@ class SiteSettings
         'discord_role_id' => '',
         // Waiting list: the invitation its invitations copy ('' = off).
         'waitlist_template_id' => '',
+        // Alerts to the admins' Discord channel: the webhook (secret) and the events, comma separated.
+        'alerts_webhook_url' => '',
+        'alerts_events' => null,
+        // Ask GitHub once a day for a newer Clubarr ('1') or not ('0').
+        'update_check' => '1',
     ];
 
     private ?array $values = null;
@@ -81,7 +88,8 @@ class SiteSettings
             return $this->values;
         }
         try {
-            $raw = Cache::remember('clubarr:settings', 60, fn () => Setting::pluck('value', 'key')->all());
+            // Pictures ("blob_" keys) are read on their own (Branding), not with every setting.
+            $raw = Cache::remember('clubarr:settings', 60, fn () => Setting::where('key', 'not like', 'blob%')->pluck('value', 'key')->all());
         } catch (Throwable) {
             return []; // before the database exists
         }

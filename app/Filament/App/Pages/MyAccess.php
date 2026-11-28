@@ -5,11 +5,13 @@ namespace App\Filament\App\Pages;
 use App\Enums\AccountStatus;
 use App\MediaServers\Contracts\CreatesUsers;
 use App\MediaServers\Contracts\UsesClaimLinks;
+use App\Models\Announcement;
 use App\Models\ServerAccount;
 use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
 use App\Services\DiscordSync;
+use App\Services\NewOnServers;
 use App\Services\SiteSettings;
 use App\Services\Watching;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
@@ -99,6 +101,24 @@ class MyAccess extends Dashboard
         } catch (Throwable) {
             return ['continue' => [], 'popular' => [], 'new' => []];
         }
+    }
+
+    /** @return list<array{key: string, title: string, year: int|null, server: string}> */
+    #[Unexposed]
+    public function newOnServers(): array
+    {
+        try {
+            return app(NewOnServers::class)->forMember($this->member());
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /** Messages from the admins shown as a banner, for this member's servers. */
+    #[Unexposed]
+    public function banners(): Collection
+    {
+        return Announcement::bannersFor($this->member());
     }
 
     #[Unexposed]

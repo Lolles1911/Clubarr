@@ -88,7 +88,11 @@ class ServerSync
         if (! $server->exists) {
             return;
         }
+        $was = MediaServer::whereKey($server->id)->value('last_error');
         // A query, not save(): $server may hold unsaved changes (a new key being tried).
         MediaServer::whereKey($server->id)->update(['last_checked_at' => now(), 'last_error' => $error === null ? null : mb_substr($error, 0, 500)]);
+        if (($was === null) !== ($error === null)) {
+            Audit::log($error === null ? 'server.up' : 'server.down', $server, $error === null ? [] : ['error' => mb_substr($error, 0, 200)]);
+        }
     }
 }

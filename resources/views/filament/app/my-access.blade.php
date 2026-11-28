@@ -4,15 +4,53 @@
     $muted = 'opacity:.65';
 @endphp
 <x-filament-panels::page>
-    @if ($member->access_expires_at)
-        <x-filament::section :compact="true">
-            @if ($member->hasAccessExpired())
-                <p style="font-weight:600;color:rgb(var(--danger-500, 239 68 68))">{{ __('Your access ended on :date.', ['date' => $member->access_expires_at->translatedFormat(__('j F Y'))]) }}</p>
-            @else
-                <p>{{ __('Your access lasts until :date.', ['date' => $member->access_expires_at->translatedFormat(__('j F Y'))]) }}</p>
+    <style>
+        .clubarr-hero{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:1rem 2rem;padding:1.4rem 1.5rem;border-radius:1rem;background:linear-gradient(135deg,color-mix(in oklab,var(--primary-600) 30%,transparent),color-mix(in oklab,var(--primary-400) 8%,transparent));border:1px solid color-mix(in oklab,var(--primary-500) 35%,transparent)}
+        .clubarr-hero-title{font-size:clamp(1.4rem,4vw,2rem);font-weight:800;line-height:1.15;margin:0}
+        .clubarr-hero-sub{opacity:.8;margin:.35rem 0 0;font-size:.95rem}
+        .clubarr-hero-apps{display:flex;flex-wrap:wrap;gap:.6rem}
+        .clubarr-row-title{font-weight:700;font-size:1.1rem;margin:0 0 .6rem}
+        .clubarr-row{display:flex;gap:.8rem;overflow-x:auto;padding-bottom:.5rem;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+        .clubarr-poster{flex:0 0 clamp(6.75rem,27vw,9.5rem);margin:0;scroll-snap-align:start}
+        .clubarr-poster img{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:.65rem;background:rgba(127,127,127,.18);box-shadow:0 4px 14px rgba(0,0,0,.25)}
+        .clubarr-poster figcaption{font-size:.8rem;line-height:1.25;margin-top:.35rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+        .clubarr-poster figcaption span{opacity:.6}
+        .clubarr-progress{height:4px;border-radius:4px;background:rgba(127,127,127,.3);margin-top:.3rem}
+        .clubarr-progress div{height:100%;background:var(--primary-500);border-radius:4px}
+        @media (max-width:640px){.clubarr-hero{padding:1.1rem}.clubarr-hero-apps{width:100%}.clubarr-hero-apps>*{flex:1 1 100%;justify-content:center}}
+    </style>
+    @foreach ($this->banners() as $banner)
+        <div role="status" style="display:flex;gap:.75rem;align-items:flex-start;padding:.9rem 1.1rem;border-radius:.75rem;border:1px solid rgba(139,92,246,.45);background:rgba(139,92,246,.12)">
+            <x-filament::icon icon="heroicon-o-megaphone" style="width:1.25rem;height:1.25rem;flex:none;margin-top:.1rem;color:#8b5cf6" />
+            <div style="font-size:.92rem;line-height:1.5">
+                <div style="font-weight:700">{{ $banner->title }}</div>
+                <div>{!! nl2br(e($banner->body)) !!}</div>
+            </div>
+        </div>
+    @endforeach
+    @php($active = $accounts->filter(fn ($a) => $a->status === \App\Enums\AccountStatus::Active))
+    <section class="clubarr-hero">
+        <div>
+            <h2 class="clubarr-hero-title">{{ __('Hi :name', ['name' => \Illuminate\Support\Str::before($member->name, ' ')]) }}</h2>
+            @if ($member->access_expires_at)
+                @if ($member->hasAccessExpired())
+                    <p class="clubarr-hero-sub" style="color:rgb(239 68 68)">{{ __('Your access ended on :date.', ['date' => $member->access_expires_at->translatedFormat(__('j F Y'))]) }}</p>
+                @else
+                    <p class="clubarr-hero-sub">{{ __('Your access lasts until :date.', ['date' => $member->access_expires_at->translatedFormat(__('j F Y'))]) }}</p>
+                @endif
+            @elseif ($active->isNotEmpty())
+                <p class="clubarr-hero-sub">{{ __('Pick a server and start watching.') }}</p>
             @endif
-        </x-filament::section>
-    @endif
+        </div>
+        @if ($active->isNotEmpty())
+            <div class="clubarr-hero-apps">
+                @foreach ($active as $account)
+                    @php($server = $account->mediaServer)
+                    <x-filament::button tag="a" size="lg" :href="$server->type === \App\Enums\ServerType::Plex ? 'https://app.plex.tv' : $server->openUrl()" target="_blank" rel="noopener noreferrer" icon="heroicon-m-play">{{ __('Open :server', ['server' => $server->name]) }}</x-filament::button>
+                @endforeach
+            </div>
+        @endif
+    </section>
 
     @if ($accounts->isEmpty())
         <x-filament::section>
@@ -21,7 +59,30 @@
         </x-filament::section>
     @endif
 
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,24rem),1fr));gap:1.5rem">
+    @php($rows = $this->posterRows())
+    @php($new = $this->newOnServers())
+    @foreach (['new' => __('New on the server'), 'continue' => __('Continue watching'), 'popular' => __('Popular now')] as $row => $heading)
+        @php($items = $row === 'new' && $new !== [] ? $new : $rows[$row])
+        @if ($items !== [] && $accounts->isNotEmpty())
+            <section>
+                <h2 class="clubarr-row-title">{{ $heading }}</h2>
+                <div class="clubarr-row">
+                    @foreach ($items as $item)
+                        <figure class="clubarr-poster">
+                            <img src="{{ isset($item['server']) ? route('filament.app.server-poster', ['key' => $item['key']]) : route('filament.app.poster', ['key' => $item['key']]) }}" alt="" loading="lazy" onerror="this.closest('figure').style.display='none'">
+                            @isset($item['percent'])<div class="clubarr-progress"><div style="width:{{ (int) $item['percent'] }}%"></div></div>@endisset
+                            <figcaption>{{ $item['title'] }}@if (! empty($item['year'])) <span>{{ $item['year'] }}</span>@endif</figcaption>
+                        </figure>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+    @endforeach
+
+    @if ($accounts->isNotEmpty())
+        <h2 class="clubarr-row-title" style="margin-bottom:-.5rem">{{ __('Your servers') }}</h2>
+    @endif
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,24rem),1fr));gap:1rem">
         @foreach ($accounts as $account)
             @php($server = $account->mediaServer)
             <x-filament::section>
@@ -48,7 +109,6 @@
                             <dt style="{{ $muted }}">{{ __('Libraries') }}</dt><dd>{{ $libraries === null ? __('All') : $libraries->implode(', ') }}</dd>
                         </dl>
                         <div style="display:flex;flex-wrap:wrap;align-items:center;gap:1rem;padding-top:.25rem">
-                            <x-filament::button tag="a" :href="$server->type === \App\Enums\ServerType::Plex ? 'https://app.plex.tv' : $server->openUrl()" target="_blank" rel="noopener noreferrer" icon="heroicon-m-play">{{ __('Open :server', ['server' => $server->name]) }}</x-filament::button>
                             @if ($this->canChangePassword($account))
                                 {{ ($this->changePasswordAction)(['account' => $account->id]) }}
                             @endif
@@ -61,7 +121,7 @@
 
     @php($stats = $this->stats())
     @if ($stats !== null && $accounts->isNotEmpty())
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:1rem">
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem">
             @foreach ([[__('Watched, 7 days'), __(':hours h', ['hours' => $stats['hours7']])], [__('Watched, 30 days'), __(':hours h', ['hours' => $stats['hours30']])], [__('Plays, 30 days'), $stats['plays30']]] as [$label, $value])
                 <x-filament::section :compact="true">
                     <div style="opacity:.7;font-size:.8rem">{{ $label }}</div>
@@ -69,23 +129,6 @@
                 </x-filament::section>
             @endforeach
         </div>
-        @php($rows = $this->posterRows())
-        @foreach (['continue' => __('Continue watching'), 'popular' => __('Popular now'), 'new' => __('New on the server')] as $row => $heading)
-            @if ($rows[$row] !== [])
-                <div>
-                    <h2 style="font-weight:700;font-size:1.05rem;margin:.25rem 0 .6rem">{{ $heading }}</h2>
-                    <div style="display:flex;gap:.75rem;overflow-x:auto;padding-bottom:.4rem">
-                        @foreach ($rows[$row] as $item)
-                            <div style="flex:0 0 7.5rem">
-                                <img src="{{ route('filament.app.poster', ['key' => $item['key']]) }}" alt="{{ $item['title'] }}" loading="lazy" onerror="this.parentNode.style.display='none'" style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:.6rem;background:rgba(127,127,127,.18)">
-                                @isset($item['percent'])<div style="height:4px;border-radius:4px;background:rgba(127,127,127,.3);margin-top:.3rem"><div style="height:100%;width:{{ (int) $item['percent'] }}%;background:#8b5cf6;border-radius:4px"></div></div>@endisset
-                                <div style="font-size:.8rem;margin-top:.3rem;line-height:1.25">{{ $item['title'] }}</div>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-            @endif
-        @endforeach
     @endif
 
     @if ($this->discordEnabled())

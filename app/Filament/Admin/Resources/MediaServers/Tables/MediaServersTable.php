@@ -28,12 +28,12 @@ class MediaServersTable
             ->columns([
                 TextColumn::make('name')->label(__('Name'))->searchable()->weight('medium')
                     ->description(fn (MediaServer $record) => $record->type->label().($record->setting('version') ? ' · '.$record->setting('version') : '')),
-                TextColumn::make('url')->label(__('Address'))->limit(40)->color('gray'),
-                TextColumn::make('libraries_count')->counts('libraries')->label(__('Libraries')),
+                TextColumn::make('url')->visibleFrom('lg')->label(__('Address'))->limit(40)->color('gray'),
+                TextColumn::make('libraries_count')->visibleFrom('md')->counts('libraries')->label(__('Libraries')),
                 TextColumn::make('accounts_count')->counts('accounts')->label(__('Members'))
                     ->formatStateUsing(fn (MediaServer $record, $state) => $record->capacity ? $state.' / '.$record->capacity : $state),
-                IconColumn::make('is_enabled')->label(__('In use'))->boolean(),
-                TextColumn::make('last_error')->label(__('Last check'))->wrap()
+                IconColumn::make('is_enabled')->visibleFrom('sm')->label(__('In use'))->boolean(),
+                TextColumn::make('last_error')->visibleFrom('md')->label(__('Last check'))->wrap()
                     ->state(fn (MediaServer $record) => $record->last_checked_at === null ? '—' : ($record->last_error ?? __('OK, :time', ['time' => $record->last_checked_at->diffForHumans()])))
                     ->color(fn (MediaServer $record) => $record->last_error ? 'danger' : 'success'),
             ])

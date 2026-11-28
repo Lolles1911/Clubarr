@@ -19,8 +19,46 @@ a few environment variables:
 | `clubarr.sqlite` | The database (with SQLite). |
 | `app.key` | The encryption key. API keys, the mail password and two-factor secrets are encrypted with it. **Without it they can't be read**, so back it up with the database. |
 | `setup-token` | Exists only until the first admin is made. |
+| `backups/` | Nightly copies of the database (the newest 7). `CLUBARR_BACKUP_PATH` puts them elsewhere. |
 
 Back up the whole folder. All files are readable only by Clubarr's user.
+
+## Backups
+
+Admin → Settings → Backup.
+
+- **Automatic**: every night at 03:41 a copy of the database goes to
+  `/config/backups`; the newest 7 are kept. **Make one now** makes one.
+- **Download a backup**: the database and the encryption key in one file,
+  locked with a password you choose (it is not saved anywhere). With it you
+  can move Clubarr to a new machine: install it, make the first admin, then
+  **Restore from a file**.
+- **Restoring** replaces everything. The current database is copied to
+  `/config/backups` first, and everyone signs in again. A backup from another
+  installation has its secrets moved to this one's key; nothing to restart.
+- With MySQL/MariaDB or PostgreSQL, back up the database with its own tools
+  (and keep `app.key`).
+
+## Notifications
+
+Admin → Settings → Notifications: paste a Discord webhook URL (the channel →
+Edit channel → Integrations → Webhooks → New webhook → Copy webhook URL) and
+tick what you want to hear about: a new member, a media server that stops
+answering (checked every 5 minutes) and comes back, someone on the waiting
+list, a stream stopped for the limit, a new Clubarr version. **Send a test
+message** checks it.
+
+## Messages to members
+
+Admin → Messages → New message: a title and text, to all members or one
+server's members, by mail, as a Discord message (members who linked Discord)
+and/or as a banner on their page until a date.
+
+## Look
+
+Admin → Settings → General: an accent colour and a logo (PNG, JPEG or WebP,
+at most 300 KB). **Tell me when a new Clubarr is out** checks GitHub's
+public list of releases once a day and shows a notice on the dashboard.
 
 ## Reverse proxy
 

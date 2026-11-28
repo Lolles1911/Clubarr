@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
+use App\Services\NewOnServers;
 use App\Services\Watching;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Throwable;
@@ -19,6 +22,17 @@ class MediaImageController
     {
         abort_unless(preg_match('/^[a-f0-9]{20}$/', $key) === 1, 404);
         $image = $watching->poster($key);
+        abort_if($image === null, 404);
+
+        return $this->image($image['body'], $image['type']);
+    }
+
+    /** A poster from a media server (New on the server), only for members of that server. */
+    public function serverPoster(string $key, NewOnServers $new): Response
+    {
+        abort_unless(preg_match('/^[a-f0-9]{24}$/', $key) === 1, 404);
+        $user = Auth::user();
+        $image = $user instanceof User ? $new->poster($key, $user) : null;
         abort_if($image === null, 404);
 
         return $this->image($image['body'], $image['type']);

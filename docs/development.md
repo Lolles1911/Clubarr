@@ -18,11 +18,12 @@ vendor/bin/phpstan        # static analysis (Larastan)
 | Where | What |
 |---|---|
 | `app/MediaServers/` | Talking to media servers. `Contracts/` says what a server can do; `Drivers/` has one class per type; `ServerHttp` is the only HTTP client (timeouts, no redirects, safe errors). |
-| `app/Services/` | What Clubarr does: `Redeemer` (an invitation from start to end), `AccessManager` (giving, pausing, removing access), `ServerSync`, `PlexLogin`, `SiteSettings`, `SetupState`, `Audit`. |
+| `app/Services/` | What Clubarr does: `Redeemer` (an invitation from start to end), `AccessManager` (giving, pausing, removing access), `ServerSync`, `PlexLogin`, `PlexFinder`, `SiteSettings`, `SetupState`, `Audit` (every log line can become an alert: `AdminAlerts`), `Backups`, `Branding`, `NewOnServers`, `UpdateCheck`. |
 | `app/Filament/Admin/` | /admin: resources (servers, invitations, members, log), Settings, widgets. |
 | `app/Filament/App/` | The members' side: My access, Join (/join/{code}), Setup. |
 | `app/Models/`, `app/Enums/` | Data. Secrets use the `encrypted` cast. |
-| `app/Console/Commands/` | `clubarr:check-access` (hourly), `clubarr:setup-token`. |
+| `app/Console/Commands/` | `clubarr:check-access` (hourly), `clubarr:check-servers` (every 5 minutes; also fetches "New on the server"), `clubarr:stream-limits`, `clubarr:waitlist`, `clubarr:backup` (nightly), `clubarr:check-update` (daily), `clubarr:setup-token`. |
+| `app/Jobs/` | Queued work: admin alerts (Discord webhook) and messages to members. |
 | `docker/` | The container: entrypoint, nginx, PHP-FPM, supervisord. |
 | `lang/da.json` | Danish. A test fails if a text has no translation. |
 
