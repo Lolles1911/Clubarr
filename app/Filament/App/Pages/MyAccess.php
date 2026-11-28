@@ -7,7 +7,9 @@ use App\MediaServers\Contracts\CreatesUsers;
 use App\MediaServers\Contracts\UsesClaimLinks;
 use App\MediaServers\Contracts\VerifiesLogins;
 use App\Models\Announcement;
+use App\Models\Challenge;
 use App\Models\MediaServer;
+use App\Models\MovieNight;
 use App\Models\ServerAccount;
 use App\Models\User;
 use App\Services\AccessManager;
@@ -249,6 +251,42 @@ class MyAccess extends Dashboard
                 } catch (Throwable $e) {
                     report($e);
                     Notification::make()->title(__(':server did not answer. Please try again later.', ['server' => $server?->name]))->danger()->send();
+                }
+            });
+    }
+
+    /** @return Collection<int, MovieNight> */
+    #[Unexposed]
+    public function movieNights(): Collection
+    {
+        return MovieNight::upcomingFor($this->member());
+    }
+
+    /** @return list<array{challenge: Challenge, progress: float}> running challenges and how far the member is */
+    #[Unexposed]
+    public function challenges(): array
+    {
+        $running = Challenge::running();
+        if ($running->isEmpty()) {
+            return [];
+        }
+        try {
+            $plays = app(MemberHistory::class)->yearPlays($this->member());
+        } catch (Throwable) {
+            $plays = [];
+        }
+
+        return $running->map(fn (Challenge $c) => ['challenge' => $c, 'progress' => $c->progress($plays)])->all();
+    }
+
+    public function comingAction(): Action
+    {
+        return Action::make('coming')->link()->size('sm')
+            ->label(fn (array $arguments) => $this->member()->movieNights()->whereKey((int) ($arguments['night'] ?? 0))->exists() ? __('I can\'t come after all') : __('I\'m coming'))
+            ->action(function (array $arguments) {
+                $night = $this->movieNights()->firstWhere('id', (int) ($arguments['night'] ?? 0));
+                if ($night !== null) {
+                    $this->member()->movieNights()->toggle([$night->id]);
                 }
             });
     }
