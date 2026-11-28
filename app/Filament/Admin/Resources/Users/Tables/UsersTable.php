@@ -2,9 +2,12 @@
 
 namespace App\Filament\Admin\Resources\Users\Tables;
 
+use App\Filament\Admin\Resources\Users\UserResource;
+use App\Models\MemberGroup;
 use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
+use App\Services\GroupRules;
 use App\Services\MemberAccounts;
 use App\Services\MemberAdmin;
 use App\Services\MemberRequests;
@@ -22,6 +25,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -36,13 +40,16 @@ class UsersTable
     {
         return $table
             ->defaultSort('created_at', 'desc')
-            ->modifyQueryUsing(fn (Builder $query) => $query->with('serverAccounts.mediaServer'))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['serverAccounts.mediaServer', 'groups']))
+            ->recordUrl(fn (User $record) => UserResource::getUrl('view', ['record' => $record]))
             ->columns([
                 TextColumn::make('name')->label(__('Name'))->searchable()->weight('medium')->description(fn (User $record) => $record->email),
                 TextColumn::make('email')->searchable()->hidden(),
                 TextColumn::make('servers')->label(__('Servers'))->badge()
                     ->state(fn (User $record) => $record->serverAccounts->map(fn ($a) => $a->mediaServer->name)->all())
                     ->color(fn (User $record, string $state) => $record->serverAccounts->first(fn ($a) => $a->mediaServer->name === $state)?->status->color() ?? 'gray'),
+                TextColumn::make('groups.name')->label(__('Groups'))->badge()->visibleFrom('lg')
+                    ->color(fn (User $record, string $state) => $record->groups->firstWhere('name', $state)->color ?? 'gray'),
                 TextColumn::make('access_expires_at')->visibleFrom('sm')->label(__('Access ends'))->date('j M Y')->placeholder(__('No end'))->sortable()
                     ->color(fn (User $record) => $record->hasAccessExpired() ? 'danger' : null),
                 TextColumn::make('role')->visibleFrom('md')->label(__('Role'))->badge()
@@ -52,6 +59,7 @@ class UsersTable
             ])
             ->filters([
                 TernaryFilter::make('is_admin')->label(__('Admins')),
+                SelectFilter::make('groups')->label(__('Group'))->relationship('groups', 'name')->multiple()->preload(),
                 TernaryFilter::make('disabled')->label(__('Disabled'))->nullable()->attribute('disabled_at'),
             ])
             ->toolbarActions([
@@ -69,6 +77,25 @@ class UsersTable
                                 $failed = array_merge($failed, app(MemberAdmin::class)->setEnd($user, $until));
                             }
                             self::report($failed, __('Access changed.'));
+                        })->deselectRecordsAfterCompletion(),
+                    BulkAction::make('bulkGroup')->label(__('Add to a group'))->icon(Heroicon::OutlinedUserGroup)
+                        ->schema([Select::make('group')->label(__('Group'))->required()->options(fn () => MemberGroup::orderBy('name')->pluck('name', 'id')->all())])
+                        ->action(function (Collection $records, array $data) {
+                            $group = MemberGroup::findOrFail($data['group']);
+                            foreach (self::members($records) as $user) {
+                                $user->groups()->syncWithoutDetaching([$group->id]);
+                                app(GroupRules::class)->apply($user);
+                            }
+                            Audit::log('group.members_added', $group, ['count' => $records->count()]);
+                            Notification::make()->title(__('Added to :group.', ['group' => $group->name]))->success()->send();
+                        })->deselectRecordsAfterCompletion(),
+                    BulkAction::make('bulkUngroup')->label(__('Remove from a group'))->icon(Heroicon::OutlinedUserMinus)
+                        ->schema([Select::make('group')->label(__('Group'))->required()->options(fn () => MemberGroup::orderBy('name')->pluck('name', 'id')->all())])
+                        ->action(function (Collection $records, array $data) {
+                            foreach (self::members($records) as $user) {
+                                $user->groups()->detach($data['group']);
+                            }
+                            Notification::make()->title(__('Removed from the group.'))->success()->send();
                         })->deselectRecordsAfterCompletion(),
                     BulkAction::make('bulkDisable')->label(__('Disable'))->icon(Heroicon::OutlinedPauseCircle)->color('warning')->requiresConfirmation()
                         ->action(fn (Collection $records) => self::report(self::members($records)->flatMap(fn (User $u) => app(MemberAdmin::class)->disable($u))->all(), __('Disabled.')))

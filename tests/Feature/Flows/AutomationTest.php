@@ -7,6 +7,7 @@ use App\Enums\ServerType;
 use App\Filament\Admin\Resources\AccessRequests\Pages\ListAccessRequests;
 use App\Filament\App\Pages\Apply;
 use App\Models\AccessRequest;
+use App\Models\AuditLog;
 use App\Models\Invitation;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
@@ -102,5 +103,32 @@ class AutomationTest extends TestCase
         $invitation = Invitation::where('is_template', false)->sole();
         $this->assertSame([1, 30], [$invitation->max_uses, $invitation->access_days]);
         Notification::assertSentOnDemand(InvitationLink::class, fn ($n, $c, $notifiable) => $notifiable->routes['mail'] === 'cleo@example.com');
+    }
+
+    public function test_old_data_is_removed_as_set_but_templates_and_used_invitations_stay(): void
+    {
+        $maker = app(InvitationMaker::class);
+        [$template] = $maker->create(['label' => 'T'], [$this->server->id => ['library_ids' => null]], $this->admin, template: true);
+        [$old] = $maker->create(['label' => 'Old', 'expires_at' => now()->subDays(100)], [$this->server->id => ['library_ids' => null]], $this->admin);
+        [$recent] = $maker->create(['label' => 'Recent', 'expires_at' => now()->subDays(5)], [$this->server->id => ['library_ids' => null]], $this->admin);
+        [$waitlist] = $maker->create(['label' => 'Waitlist', 'expires_at' => now()->subDays(100)], [$this->server->id => ['library_ids' => null]], $this->admin);
+        app(SiteSettings::class)->set(['waitlist_template_id' => (string) $waitlist->id]);
+        AuditLog::query()->update(['created_at' => now()->subDays(400)]);
+        $decided = AccessRequest::create(['name' => 'Sam', 'email' => 'sam@example.com']);
+        $decided->forceFill(['status' => 'declined', 'decided_at' => now()->subDays(200)])->save();
+        $pending = AccessRequest::create(['name' => 'Kim', 'email' => 'kim@example.com']);
+
+        Artisan::call('clubarr:housekeeping');
+
+        $this->assertSame([$template->id, $recent->id, $waitlist->id], Invitation::orderBy('id')->pluck('id')->all());
+        $this->assertNull(AccessRequest::find($decided->id));
+        $this->assertNotNull(AccessRequest::find($pending->id));
+        $this->assertSame(['data.cleaned'], AuditLog::pluck('action')->unique()->values()->all());
+
+        // 0 keeps everything.
+        app(SiteSettings::class)->set(['retention_invitations_days' => '0']);
+        Invitation::whereKey($recent->id)->update(['expires_at' => now()->subDays(1000)]);
+        Artisan::call('clubarr:housekeeping');
+        $this->assertNotNull(Invitation::find($recent->id));
     }
 }

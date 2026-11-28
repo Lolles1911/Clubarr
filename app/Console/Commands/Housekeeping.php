@@ -7,6 +7,7 @@ use App\Services\AccessManager;
 use App\Services\Audit;
 use App\Services\MemberAdmin;
 use App\Services\MemberRequests;
+use App\Services\Retention;
 use App\Services\ServerSync;
 use App\Services\SiteSettings;
 use App\Services\Watching;
@@ -17,7 +18,8 @@ use Illuminate\Console\Command;
  * - inactive members (nothing watched for the set days) get a mail a week
  *   before, then are paused, which frees their seat;
  * - users on the servers are deleted the set days after access ended (the
- *   Clubarr account stays, so a new invitation can bring them back).
+ *   Clubarr account stays, so a new invitation can bring them back);
+ * - old data is removed as set (see Retention).
  */
 class Housekeeping extends Command
 {
@@ -67,6 +69,11 @@ class Housekeeping extends Command
                     }
                 });
             $this->info("Cleaned up {$removed}.");
+        }
+
+        $cleaned = app(Retention::class)->run();
+        if ($cleaned !== []) {
+            $this->info('Old data removed: '.json_encode($cleaned).'.');
         }
 
         return self::SUCCESS;

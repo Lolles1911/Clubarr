@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Auth\Login;
 use App\Http\Middleware\ApplySiteLocale;
 use App\Services\Branding;
 use App\Services\SingleSignOn;
@@ -44,7 +45,7 @@ final class PanelDefaults
                 '<script src="'.e(asset('js/qrcode.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'
                 .'<script src="'.e(asset('js/clubarr-share.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'))
             ->defaultAvatarProvider(InitialsAvatar::class)
-            ->login()
+            ->login(Login::class)
             ->passwordReset()
             ->multiFactorAuthentication([AppAuthentication::make()->recoverable()])
             ->spa(false)

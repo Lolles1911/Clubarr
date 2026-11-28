@@ -2,16 +2,13 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\NavigationGroup;
 use App\Http\Middleware\ApplySiteLocale;
-use App\Integrations\Discord;
-use App\Integrations\Seerr;
-use App\Integrations\Tracearr;
-use App\Jobs\SendAdminAlert;
 use App\Models\Invitation;
-use App\Services\AdminAlerts;
 use App\Services\Audit;
 use App\Services\Backups;
 use App\Services\Branding;
+use App\Services\LoginGuard;
 use App\Services\SingleSignOn;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
@@ -19,7 +16,6 @@ use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
-use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -52,7 +48,9 @@ class Settings extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
-    protected static ?int $navigationSort = 80;
+    protected static ?int $navigationSort = 10;
+
+    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::System;
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];
@@ -79,7 +77,7 @@ class Settings extends Page
         $values['apply_enabled'] = ($values['apply_enabled'] ?? '0') === '1';
         $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
         $values['oidc_members'] = ($values['oidc_members'] ?? '0') === '1';
-        $values['alerts_events'] = ($values['alerts_events'] ?? null) === null ? array_keys(AdminAlerts::EVENTS) : array_values(array_filter(explode(',', (string) $values['alerts_events']), fn ($e) => isset(AdminAlerts::EVENTS[$e])));
+        $values['login_alerts'] = ($values['login_alerts'] ?? '1') !== '0';
         foreach (SiteSettings::SECRET as $secret) {
             unset($values[$secret]); // never sent to the browser
         }
@@ -126,6 +124,8 @@ class Settings extends Page
                         ]),
                     Toggle::make('admin_2fa_required')->label(__('Require two-factor sign-in for admins'))
                         ->helperText(__('Recommended. Admins can change members\' access and see server keys; with this on, a stolen password is not enough. Admins without it set up are asked to on their next sign-in.')),
+                    Toggle::make('login_alerts')->label(__('Mail people when their account is signed in to from a new device'))
+                        ->helperText(__('Needs mail. After :count failed sign-ins an account is locked for :minutes minutes either way, and failed sign-ins are in the log.', ['count' => LoginGuard::MAX_FAILURES, 'minutes' => LoginGuard::LOCK_MINUTES])),
                 ]),
                 Tab::make(__('Mail'))->key('mail')->icon(Heroicon::OutlinedEnvelope)->schema([
                     Section::make(__('Mail'))->columns(2)->description(__('For welcome mails, password links and access reminders.'))->schema([
@@ -141,30 +141,6 @@ class Settings extends Page
                     ])->footerActions([
                         Action::make('testMail')->label(__('Send a test mail to me'))->color('gray')->action(fn () => $this->testMail()),
                     ]),
-                ]),
-                Tab::make(__('Integrations'))->key('integrations')->icon(Heroicon::OutlinedPuzzlePiece)->schema([
-                    Section::make('Tracearr')->key('tracearr')->columns(2)
-                        ->description(__('What members watch: My devices, stream limits, numbers and posters.'))->schema([
-                            TextInput::make('tracearr_url')->label(__('Address'))->url()->maxLength(255)->placeholder('http://192.168.1.10:3000'),
-                            TextInput::make('tracearr_api_key')->label(__('API key'))->password()->revealable()->maxLength(500)->autocomplete('off')
-                                ->helperText(__('Tracearr → Settings → Data & API (starts with "trr_pub_"). Stored encrypted; leave empty to keep it.')),
-                        ])->footerActions([$this->testAction('Tracearr')]),
-                    Section::make(__('Requests (Overseerr / Jellyseerr)'))->columns(2)->schema([
-                        TextInput::make('seerr_url')->label(__('Address'))->url()->maxLength(255)->placeholder('http://192.168.1.10:5055'),
-                        TextInput::make('seerr_api_key')->label(__('API key'))->password()->revealable()->maxLength(500)->autocomplete('off')
-                            ->helperText(__('Seerr → Settings → General. Stored encrypted; leave empty to keep it.')),
-                    ])->footerActions([$this->testAction('Seerr')]),
-                    Section::make('Discord')->columns(2)
-                        ->description(__('Members can link Discord and get a role while they have access. Make an application at discord.com/developers, add a bot to your server with "Manage Roles", and add this redirect: :url', ['url' => Discord::redirectUrl()]))->schema([
-                            TextInput::make('discord_client_id')->label(__('Application (client) ID'))->maxLength(32)->regex('/^\d*$/'),
-                            TextInput::make('discord_client_secret')->label(__('Client secret'))->password()->revealable()->maxLength(200)->autocomplete('off')
-                                ->helperText(__('Stored encrypted; leave empty to keep it.')),
-                            TextInput::make('discord_bot_token')->label(__('Bot token'))->password()->revealable()->maxLength(200)->autocomplete('off')
-                                ->helperText(__('Stored encrypted; leave empty to keep it.')),
-                            TextInput::make('discord_guild_id')->label(__('Server ID'))->maxLength(32)->regex('/^\d*$/'),
-                            TextInput::make('discord_role_id')->label(__('Role for members (ID)'))->maxLength(32)->regex('/^\d*$/')
-                                ->helperText(__('The bot\'s own role must be above it.')),
-                        ])->footerActions([$this->testAction('Discord')]),
                 ]),
                 Tab::make(__('Invitations'))->key('invites')->icon(Heroicon::OutlinedTicket)->schema([
                     Section::make(__('The invitation page'))->schema([
@@ -200,24 +176,12 @@ class Settings extends Page
                         TextInput::make('cleanup_days')->label(__('Delete their users on the servers after'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days'))
                             ->helperText(__('When access ends, users are paused. This deletes them on the servers (Plex: the share) after the days set; the Clubarr account stays. 0: never.')),
                     ]),
-                ]),
-                Tab::make(__('Notifications'))->key('alerts')->icon(Heroicon::OutlinedBellAlert)->schema([
-                    Section::make(__('Discord channel for admins'))
-                        ->description(__('Clubarr posts to a channel of your choice when something happens. In Discord: the channel → Edit channel → Integrations → Webhooks → New webhook → Copy webhook URL.'))->schema([
-                            TextInput::make('alerts_webhook_url')->label(__('Webhook URL'))->password()->revealable()->maxLength(300)->autocomplete('off')
-                                ->regex(AdminAlerts::WEBHOOK_PATTERN)->validationMessages(['regex' => __('That is not a Discord webhook URL (https://discord.com/api/webhooks/…).')])
-                                ->helperText(__('Stored encrypted; leave empty to keep it.')),
-                            CheckboxList::make('alerts_events')->label(__('Tell me when'))->options(AdminAlerts::labels())->columns(1)->bulkToggleable(),
-                        ])->footerActions([
-                            Action::make('testAlert')->label(__('Send a test message'))->color('gray')->icon('heroicon-m-paper-airplane')->action(fn () => $this->testAlert()),
-                            Action::make('forgetWebhook')->label(__('Remove the webhook'))->color('danger')->link()->requiresConfirmation()
-                                ->visible(fn () => AdminAlerts::webhook() !== null)
-                                ->action(function () {
-                                    app(SiteSettings::class)->set(['alerts_webhook_url' => '']);
-                                    Audit::log('settings.webhook_removed');
-                                    Notification::make()->title(__('Removed.'))->success()->send();
-                                }),
-                        ]),
+                    Section::make(__('Old data'))->columns(3)->description(__('Removed every night after the days set. 0: keep.'))->schema([
+                        TextInput::make('retention_log_days')->label(__('The log'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days')),
+                        TextInput::make('retention_invitations_days')->label(__('Invitations that ended or were used up'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days'))
+                            ->helperText(__('Not templates.')),
+                        TextInput::make('retention_requests_days')->label(__('Decided requests, closed reports, old waiting list'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days')),
+                    ]),
                 ]),
                 Tab::make(__('Backup'))->key('backup')->icon(Heroicon::OutlinedArchiveBox)->schema(Backups::supported() ? [
                     Section::make(__('Download a backup'))
@@ -284,8 +248,7 @@ class Settings extends Page
         $data['apply_enabled'] = ! empty($data['apply_enabled']) ? '1' : '0';
         $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
         $data['oidc_members'] = ! empty($data['oidc_members']) ? '1' : '0';
-        // "-" when none is chosen: empty would mean "not set yet", which is all.
-        $data['alerts_events'] = implode(',', array_intersect((array) ($data['alerts_events'] ?? []), array_keys(AdminAlerts::EVENTS))) ?: '-';
+        $data['login_alerts'] = ! empty($data['login_alerts']) ? '1' : '0';
         foreach (SiteSettings::SECRET as $secret) {
             if (blank($data[$secret] ?? null)) {
                 unset($data[$secret]); // empty: keep the stored one
@@ -297,38 +260,6 @@ class Settings extends Page
             Audit::log($data['admin_2fa_required'] === '1' ? 'security.admin_2fa_required' : 'security.admin_2fa_optional');
         }
         Notification::make()->title(__('Saved.'))->success()->send();
-    }
-
-    /**
-     * A "Test" button for one integration: saves first, then asks the service.
-     *
-     * @param  'Tracearr'|'Seerr'|'Discord'  $name
-     */
-    private function testAction(string $name): Action
-    {
-        return Action::make('test'.$name)->label(__('Test'))->color('gray')->icon('heroicon-m-signal')
-            ->action(fn () => $this->testService($name));
-    }
-
-    /** @param  'Tracearr'|'Seerr'|'Discord'  $name */
-    protected function testService(string $name): void
-    {
-        $this->save();
-        $check = match ($name) {
-            'Tracearr' => fn () => ($t = Tracearr::fromSettings()) ? __(':count servers', ['count' => count($t->servers())]) : null,
-            'Seerr' => fn () => ($s = Seerr::fromSettings()) ? 'v'.$s->version() : null,
-            'Discord' => fn () => ($d = Discord::fromSettings()) ? __('bot :name', ['name' => $d->botName()]) : null,
-        };
-        try {
-            $result = $check();
-        } catch (Throwable $e) {
-            Notification::make()->title($name)->body(mb_substr($e->getMessage(), 0, 200))->danger()->persistent()->send();
-
-            return;
-        }
-        $result === null
-            ? Notification::make()->title($name.': '.__('not set up'))->warning()->send()
-            : Notification::make()->title($name.': '.__('OK').' ('.$result.')')->success()->send();
     }
 
     private function downloadBackupAction(): Action
@@ -385,22 +316,6 @@ class Settings extends Page
 
                 return redirect()->to(Filament::getLoginUrl());
             });
-    }
-
-    protected function testAlert(): void
-    {
-        $this->save();
-        if (AdminAlerts::webhook() === null) {
-            Notification::make()->title(__('Add the webhook URL first.'))->warning()->send();
-
-            return;
-        }
-        try {
-            (new SendAdminAlert(__(':site: test from Clubarr. Notifications work.', ['site' => app(SiteSettings::class)->get('site_name')])))->handle();
-            Notification::make()->title(__('Sent. Look in the Discord channel.'))->success()->send();
-        } catch (Throwable) {
-            Notification::make()->title(__('Discord did not take the message. Check the webhook URL.'))->danger()->send();
-        }
     }
 
     protected function testMail(): void

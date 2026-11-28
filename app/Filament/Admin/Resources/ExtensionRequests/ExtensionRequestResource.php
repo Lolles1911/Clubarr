@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\ExtensionRequests;
 
+use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\ExtensionRequests\Pages\ListExtensionRequests;
 use App\Models\ExtensionRequest;
 use App\Services\MemberRequests;
@@ -23,7 +24,9 @@ class ExtensionRequestResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClock;
 
-    protected static ?int $navigationSort = 22;
+    protected static ?int $navigationSort = 20;
+
+    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::Members;
 
     public static function getModelLabel(): string
     {

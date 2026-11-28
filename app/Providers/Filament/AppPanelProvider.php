@@ -8,6 +8,7 @@ use App\Filament\App\Pages\Join;
 use App\Filament\App\Pages\JoinWaitlist;
 use App\Filament\App\Pages\MyAccess;
 use App\Filament\App\Pages\Setup;
+use App\Filament\Pages\Auth\Profile;
 use App\Http\Controllers\DiscordLinkController;
 use App\Http\Controllers\MediaImageController;
 use App\Http\Controllers\PlexReturnController;
@@ -15,7 +16,6 @@ use App\Http\Controllers\SingleSignOnController;
 use App\Services\Applications;
 use App\Services\Branding;
 use Filament\Actions\Action;
-use Filament\Auth\Pages\EditProfile;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\View\PanelsRenderHook;
@@ -38,7 +38,9 @@ class AppPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::AUTH_LOGIN_FORM_AFTER, fn () => Applications::enabled()
                 ? new HtmlString('<p style="text-align:center;font-size:.875rem;margin-top:1rem;opacity:.8">'.e(__('No account yet?')).' <a href="'.e(route('filament.app.apply')).'" style="text-decoration:underline">'.e(__('Apply to join')).'</a></p>') : '')
             ->path('')
-            ->profile(EditProfile::class, isSimple: false)
+            ->profile(Profile::class, isSimple: false)
+            // A new email is only used once a link mailed to it is opened (when mail is on; see Profile).
+            ->emailChangeVerification()
             ->userMenuItems([
                 'admin' => Action::make('admin')->label(fn () => __('Admin'))->icon('heroicon-o-shield-check')->url(fn () => url('/admin'))
                     ->visible(fn () => (bool) auth()->user()?->is_admin),

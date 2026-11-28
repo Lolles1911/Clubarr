@@ -5,10 +5,12 @@ namespace Tests\Feature\Flows;
 use App\Enums\AccountStatus;
 use App\Enums\ServerType;
 use App\Filament\Admin\Resources\Users\Pages\ListUsers;
+use App\Filament\Admin\Resources\Users\Pages\ViewUser;
 use App\Filament\Admin\Widgets\MembersChart;
 use App\Filament\Admin\Widgets\WatchingNow;
 use App\Models\Library;
 use App\Models\MediaServer;
+use App\Models\MemberGroup;
 use App\Models\ServerAccount;
 use App\Models\User;
 use App\Services\SiteSettings;
@@ -91,5 +93,21 @@ class MemberAdminTest extends TestCase
 
         Livewire::test(WatchingNow::class)->assertSee('Dune')->assertSee('Apple TV');
         Livewire::test(MembersChart::class)->assertOk();
+    }
+
+    public function test_group_rules_apply_and_the_member_page_shows_everything(): void
+    {
+        $anna = $this->member('Anna');
+        $anna->forceFill(['access_expires_at' => now()->addDays(3), 'max_streams' => 1, 'admin_note' => 'Mum\'s friend'])->save();
+        $family = MemberGroup::create(['name' => 'Family', 'color' => 'success', 'no_end' => true, 'max_streams' => 4]);
+        $friends = MemberGroup::create(['name' => 'Friends', 'max_streams' => 2]);
+
+        Livewire::test(ListUsers::class)->callTableBulkAction('bulkGroup', [$anna], ['group' => $friends->id]);
+        $this->assertSame(2, $anna->fresh()->max_streams);
+        Livewire::test(ListUsers::class)->callTableBulkAction('bulkGroup', [$anna], ['group' => $family->id]);
+        $this->assertSame([null, 4], [$anna->fresh()->access_expires_at, $anna->fresh()->max_streams]); // the most generous
+
+        Livewire::test(ViewUser::class, ['record' => $anna->id])
+            ->assertSee('Family')->assertSee('Mum&#039;s friend', false)->assertSee('Home');
     }
 }

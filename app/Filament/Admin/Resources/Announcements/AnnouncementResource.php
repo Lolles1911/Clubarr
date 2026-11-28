@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Announcements;
 
+use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\Announcements\Pages\CreateAnnouncement;
 use App\Filament\Admin\Resources\Announcements\Pages\ListAnnouncements;
 use App\Models\Announcement;
@@ -34,7 +35,9 @@ class AnnouncementResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMegaphone;
 
-    protected static ?int $navigationSort = 27;
+    protected static ?int $navigationSort = 60;
+
+    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::Members;
 
     public static function getModelLabel(): string
     {

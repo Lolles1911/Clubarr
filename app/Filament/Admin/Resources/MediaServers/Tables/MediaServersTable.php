@@ -6,6 +6,7 @@ use App\MediaServers\Data\RemoteUser;
 use App\MediaServers\MediaServerException;
 use App\Models\Claim;
 use App\Models\MediaServer;
+use App\Services\Audit;
 use App\Services\ServerSync;
 use App\Services\UserImport;
 use App\Support\Copy;
@@ -17,8 +18,10 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\HtmlString;
+use Throwable;
 
 class MediaServersTable
 {
@@ -57,6 +60,7 @@ class MediaServersTable
                         }
                     }),
                 self::importAction(),
+                self::cleanUpAction(),
                 EditAction::make(),
             ])
             ->emptyStateHeading(__('No media servers yet'))
@@ -84,6 +88,52 @@ class MediaServersTable
                 Cache::forget('clubarr:remote-users:'.$record->id);
                 $rows = app(UserImport::class)->import($record, $users);
                 self::showImport($rows);
+            });
+    }
+
+    /**
+     * Deletes users on the server that no member has, after the admin chose
+     * them. The list is read again from the server first: only users still
+     * not linked and not administrators are deleted (the drivers refuse
+     * administrators too).
+     */
+    private static function cleanUpAction(): Action
+    {
+        return Action::make('cleanUp')->label(__('Clean up'))->icon(Heroicon::OutlinedTrash)->color('danger')
+            ->visible(fn (MediaServer $record) => (int) $record->setting('unlinked', 0) > 0)
+            ->modalHeading(fn (MediaServer $record) => __('Users on :server not in Clubarr', ['server' => $record->name]))
+            ->modalDescription(__('Choose the users to delete on the server (Plex: the share is removed). Server administrators are not listed. Want to keep someone? Use Import users instead. This can\'t be undone.'))
+            ->modalSubmitActionLabel(__('Delete the chosen'))
+            ->schema(fn (MediaServer $record) => [
+                CheckboxList::make('remote')->label(__('Users on the server'))->required()->bulkToggleable()->searchable()->columns(1)
+                    ->options(fn () => collect(self::unlinkedUsers($record))->sortBy(fn (RemoteUser $u) => $u->lastSeen ?? 0)
+                        ->mapWithKeys(fn (RemoteUser $u) => [$u->id => $u->username.($u->email ? ' ('.$u->email.')' : '').' · '
+                            .($u->lastSeen ? __('last seen :time', ['time' => Carbon::createFromTimestamp($u->lastSeen)->diffForHumans()]) : __('never seen'))])->all()),
+            ])
+            ->action(function (MediaServer $record, array $data) {
+                $chosen = array_map('strval', (array) ($data['remote'] ?? []));
+                Cache::forget('clubarr:remote-users:'.$record->id);
+                $deleted = $failed = 0;
+                foreach (self::unlinkedUsers($record) as $user) {
+                    if (! in_array($user->id, $chosen, true)) {
+                        continue;
+                    }
+                    try {
+                        $record->driver()->delete($user->id, $user->username);
+                        Audit::log('server.unlinked_deleted', $record, ['remote_username' => $user->username]);
+                        $deleted++;
+                    } catch (Throwable $e) {
+                        report($e);
+                        $failed++;
+                    }
+                }
+                Cache::forget('clubarr:remote-users:'.$record->id);
+                try {
+                    app(ServerSync::class)->syncUsers($record);
+                } catch (Throwable) {
+                }
+                Notification::make()->title(__(':count deleted on the server.', ['count' => $deleted]))->{$failed > 0 ? 'warning' : 'success'}()
+                    ->body($failed > 0 ? __(':count failed; see the log.', ['count' => $failed]) : null)->send();
             });
     }
 

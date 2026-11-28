@@ -13,6 +13,17 @@ See [SECURITY.md](../SECURITY.md).
 - Passwords: at least 10 characters with letters and digits (admins 12),
   stored with bcrypt. Sign-in, invitation lookups, sign-ups, password changes
   and Plex sign-in are rate limited per IP.
+- **Failed sign-ins are logged** (who and the IP, never what was typed). After
+  10 failed sign-ins for one email, that account is locked for 15 minutes,
+  even with the right password; any email typed counts the same, so the lock
+  says nothing about which accounts exist. Admins can get an alert.
+- **A sign-in from a new device is mailed** to the person (Settings →
+  Security; needs mail). A device is a random cookie, stored as a hash; the
+  first device ever (joining) is not mailed.
+- On their profile, people see the browsers they are signed in on and can
+  **sign out everywhere else** (with their password). A new email is only
+  used once the link mailed to it is opened, and the old address gets a
+  notice with a link to stop the change (when mail is on).
 - Sessions are encrypted, HTTP-only cookies, `SameSite=Lax`, `Secure` with
   `SESSION_SECURE_COOKIE=true`. A disabled member is refused on every page.
 - Members can't reach /admin. Every member action checks that the server user
@@ -148,3 +159,17 @@ internet can't be claimed by someone else. After setup, /setup is gone.
 Admin → Log keeps who did what: setup, servers, invitations (made, redeemed,
 withdrawn, new link), members (changed, disabled, removed), passwords changed,
 settings saved. Never passwords or keys.
+
+## API and admin alerts
+
+- API keys are random (`clb_` and 40 characters), shown once and **stored
+  only as a hash**. A key reads; making invitations needs a key allowed to,
+  and only from a template the admin made. Calls are rate limited per key
+  and per IP. Codes, passwords, keys and notes are never in an answer.
+- Admin alerts (Discord, ntfy, Telegram, Gotify, a webhook): addresses and
+  tokens are stored encrypted, read when sending (never put in the queue),
+  calls never follow redirects, and a failure names only the channel. A
+  webhook can be signed (HMAC-SHA256 of the body in X-Clubarr-Signature).
+- Mail texts written by the admin are plain text; names filled in are
+  escaped like everything else in the mails.
+

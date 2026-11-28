@@ -54,6 +54,8 @@ class Redeemer
                 // The invitation's limits; a member keeps the more generous one (null = none).
                 $user->max_streams = self::generous($user->exists ? $user->max_streams : 0, $invitation->max_streams, $user->exists);
                 $user->request_limit = self::generous($user->exists ? $user->request_limit : 0, $invitation->request_limit, $user->exists);
+                // Requests only when the invitation gives them (a member keeps them once given).
+                $user->seerr_access = ($user->exists && $user->seerr_access) || $invitation->seerr_access;
                 $user->save();
                 $this->access->record($user, $invitation, $made);
             });
@@ -65,12 +67,16 @@ class Redeemer
         }
 
         Audit::log('invitation.redeemed', $invitation, ['servers' => array_map(fn ($r) => $r['server']->name, $made)], $user->id);
+        if ($invitation->member_group_id !== null) {
+            $user->groups()->syncWithoutDetaching([$invitation->member_group_id]);
+            app(GroupRules::class)->apply($user);
+        }
         // The link kept for a reminder is not needed any more.
         $invitation->forceFill(['reminder_link' => null])->save();
         $this->tellCreator($invitation, $user);
         app(DiscordSync::class)->sync($user);
         // Their own user in Overseerr/Jellyseerr right away (on the queue: Seerr can be slow).
-        if (app(Requests::class)->enabled()) {
+        if ($user->seerr_access && app(Requests::class)->enabled()) {
             $userId = $user->id;
             dispatch(function () use ($userId) {
                 $member = User::find($userId);

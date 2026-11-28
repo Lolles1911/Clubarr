@@ -84,6 +84,8 @@ class MemberRequests
     /** A plain-text note to a member by mail (when mail is set up); never throws. */
     public static function tell(User $user, string $subject, string $text): void
     {
+        // Also as a Discord message, for members who linked Discord.
+        app(DiscordSync::class)->tell($user, '**'.$subject."**\n".$text);
         if (app(SiteSettings::class)->get('mail_enabled') !== '1') {
             return;
         }

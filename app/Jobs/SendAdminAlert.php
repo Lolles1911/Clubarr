@@ -2,14 +2,13 @@
 
 namespace App\Jobs;
 
-use App\Services\AdminAlerts;
+use App\Services\AlertChannels;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Throwable;
+use RuntimeException;
 
-/** Posts one alert to the admins' Discord webhook. The webhook address is read when sent, never queued. */
+/** Sends one alert to one channel. Addresses and tokens are read when sent, never queued. */
 class SendAdminAlert implements ShouldQueue
 {
     use Queueable;
@@ -18,24 +17,19 @@ class SendAdminAlert implements ShouldQueue
 
     public int $backoff = 30;
 
-    public function __construct(public string $text) {}
+    public function __construct(public string $text, public string $channel = 'discord') {}
 
     public function handle(): void
     {
-        $url = AdminAlerts::webhook();
-        if ($url === null) {
+        if (! in_array($this->channel, AlertChannels::configured(), true)) {
             return;
         }
         try {
-            Http::timeout(10)->withoutRedirecting()->post($url, [
-                'content' => mb_substr($this->text, 0, 1900),
-                'allowed_mentions' => ['parse' => []], // a name can't ping @everyone
-            ])->throw();
-        } catch (Throwable $e) {
-            // Without the address: it holds the webhook's secret.
-            Log::warning('Clubarr: admin alert not sent ('.class_basename($e).').');
+            AlertChannels::send($this->channel, $this->text);
+        } catch (RuntimeException $e) {
+            Log::warning('Clubarr: admin alert not sent: '.$e->getMessage());
 
-            throw new \RuntimeException('Admin alert not sent.');
+            throw $e;
         }
     }
 }

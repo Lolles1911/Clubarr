@@ -11,6 +11,7 @@ use App\Models\ServerAccount;
 use App\Models\User;
 use App\Services\Requests;
 use App\Services\SiteSettings;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -28,7 +29,7 @@ class RequestsTest extends TestCase
         app(SiteSettings::class)->set(['seerr_url' => 'http://seerr.local', 'seerr_api_key' => 'sk']);
         $server = MediaServer::create(['type' => ServerType::Jellyfin, 'name' => 'Home', 'url' => 'http://jf.local', 'api_key' => 'k']);
         $this->anna = User::create(['name' => 'Anna', 'email' => 'anna@example.com', 'password' => 'Member-pass-1']);
-        $this->anna->forceFill(['request_limit' => 2])->save();
+        $this->anna->forceFill(['request_limit' => 2, 'seerr_access' => true])->save();
         ServerAccount::create(['user_id' => $this->anna->id, 'media_server_id' => $server->id, 'remote_id' => 'jf-anna', 'remote_username' => 'anna', 'status' => AccountStatus::Active]);
         Http::fake([
             'seerr.local/api/v1/settings/main' => Http::response(['mediaServerType' => 2]),
@@ -76,5 +77,15 @@ class RequestsTest extends TestCase
         $this->anna->forceFill(['access_expires_at' => now()->subDay()])->save();
         $this->expectException(MediaServerException::class);
         $requests->request($this->anna, 'movie', 603);
+    }
+
+    public function test_requests_are_only_for_members_the_admin_gave_them_to(): void
+    {
+        $this->anna->forceFill(['seerr_access' => false])->save();
+        $this->actingAs($this->anna);
+        Filament::setCurrentPanel('app');
+        $this->assertFalse(\App\Filament\App\Pages\Requests::canAccess());
+        $this->expectException(MediaServerException::class);
+        app(Requests::class)->seerrUser($this->anna);
     }
 }

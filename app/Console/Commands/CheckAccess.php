@@ -30,8 +30,10 @@ class CheckAccess extends Command
         $warnDays = (int) config('clubarr.expiry_warning_days');
         User::members()->whereNull('disabled_at')->whereNull('expiry_warned_at')->whereNotNull('access_expires_at')
             ->whereBetween('access_expires_at', [now(), now()->addDays($warnDays)])
-            ->each(function (User $user) {
+            ->each(function (User $user) use ($discord) {
                 $this->send($user, new AccessEndingSoon);
+                $discord->tell($user, __('Your access to :site ends on :date. Want to keep watching? Ask the person who invited you.',
+                    ['site' => app(SiteSettings::class)->get('site_name'), 'date' => $user->access_expires_at?->translatedFormat(__('j F Y'))]));
                 $user->forceFill(['expiry_warned_at' => now()])->saveQuietly();
             });
 

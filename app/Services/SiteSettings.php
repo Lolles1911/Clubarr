@@ -14,7 +14,8 @@ use Throwable;
  */
 class SiteSettings
 {
-    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token', 'alerts_webhook_url', 'oidc_client_secret'];
+    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token', 'alerts_webhook_url', 'oidc_client_secret', 'tautulli_api_key', 'sonarr_api_key', 'radarr_api_key',
+        'alerts_ntfy_url', 'alerts_ntfy_token', 'alerts_telegram_token', 'alerts_gotify_token', 'alerts_hook_url', 'alerts_hook_secret'];
 
     public const DEFAULTS = [
         'site_name' => 'Clubarr',
@@ -32,9 +33,19 @@ class SiteSettings
         'help_text' => '',
         // Admins must use two-factor sign-in ('1') or may ('0').
         'admin_2fa_required' => '1',
+        // Mail on a sign-in from a new device ('1') or not ('0').
+        'login_alerts' => '1',
         // Tracearr: what plays, devices, stream limits, posters.
         'tracearr_url' => '',
         'tracearr_api_key' => '',
+        // Tautulli (Plex), used when Tracearr is not set up.
+        'tautulli_url' => '',
+        'tautulli_api_key' => '',
+        // Sonarr and Radarr: "coming soon" for members.
+        'sonarr_url' => '',
+        'sonarr_api_key' => '',
+        'radarr_url' => '',
+        'radarr_api_key' => '',
         // Overseerr/Jellyseerr: requests.
         'seerr_url' => '',
         'seerr_api_key' => '',
@@ -49,6 +60,26 @@ class SiteSettings
         // Alerts to the admins' Discord channel: the webhook (secret) and the events, comma separated.
         'alerts_webhook_url' => '',
         'alerts_events' => null,
+        // Remove old data after these days (0: keep); see Retention.
+        'retention_log_days' => '365',
+        'retention_invitations_days' => '90',
+        'retention_requests_days' => '180',
+        // The member mails' words (see MailTexts); empty: Clubarr's own.
+        'mail_text_welcome_subject' => '',
+        'mail_text_welcome_body' => '',
+        'mail_text_ending_soon_subject' => '',
+        'mail_text_ending_soon_body' => '',
+        'mail_text_ended_subject' => '',
+        'mail_text_ended_body' => '',
+        // More places for admin alerts (see AlertChannels).
+        'alerts_ntfy_url' => '',
+        'alerts_ntfy_token' => '',
+        'alerts_telegram_token' => '',
+        'alerts_telegram_chat' => '',
+        'alerts_gotify_url' => '',
+        'alerts_gotify_token' => '',
+        'alerts_hook_url' => '',
+        'alerts_hook_secret' => '',
         // Invitations: the welcome text on the invitation page, a reminder
         // mail after this many days when unused (0 = off), and members
         // inviting friends (invitations a month; 0 = off) from a template.

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\AccessRequests;
 
+use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\AccessRequests\Pages\ListAccessRequests;
 use App\Models\AccessRequest;
 use App\Models\Invitation;
@@ -27,7 +28,9 @@ class AccessRequestResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedHandRaised;
 
-    protected static ?int $navigationSort = 24;
+    protected static ?int $navigationSort = 40;
+
+    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::Members;
 
     public static function getModelLabel(): string
     {

@@ -10,6 +10,7 @@ use App\Models\ServerAccount;
 use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
+use App\Services\ComingSoon;
 use App\Services\DiscordSync;
 use App\Services\MemberRequests;
 use App\Services\NewOnServers;
@@ -114,6 +115,13 @@ class MyAccess extends Dashboard
         } catch (Throwable) {
             return [];
         }
+    }
+
+    /** @return list<array{title: string, detail: string, date: string, tmdb: ?string}> */
+    #[Unexposed]
+    public function comingSoon(): array
+    {
+        return $this->member()->hasActiveAccess() ? app(ComingSoon::class)->items() : [];
     }
 
     /** Messages from the admins shown as a banner, for this member's servers. */

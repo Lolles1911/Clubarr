@@ -3,12 +3,15 @@
 namespace Tests\Feature\Admin;
 
 use App\Enums\ServerType;
-use App\Filament\Admin\Pages\Settings;
+use App\Filament\Admin\Pages\Alerts;
+use App\Filament\Admin\Pages\EmailTexts;
 use App\Filament\Admin\Widgets\UpdateNotice;
 use App\Jobs\SendAdminAlert;
 use App\Models\MediaServer;
 use App\Models\User;
+use App\Notifications\Welcome;
 use App\Services\AdminAlerts;
+use App\Services\AlertChannels;
 use App\Services\Audit;
 use App\Services\ServerSync;
 use App\Services\SiteSettings;
@@ -53,7 +56,7 @@ class AlertsAndUpdatesTest extends TestCase
     public function test_events_can_be_turned_off_one_by_one(): void
     {
         Queue::fake();
-        Livewire::test(Settings::class)
+        Livewire::test(Alerts::class)
             ->fillForm(['alerts_webhook_url' => self::HOOK, 'alerts_events' => ['server_down']])
             ->call('save')->assertHasNoFormErrors();
 
@@ -69,7 +72,7 @@ class AlertsAndUpdatesTest extends TestCase
         Queue::assertPushed(SendAdminAlert::class, fn ($job) => str_contains($job->text, 'Home'));
 
         // None chosen means none, not "all".
-        Livewire::test(Settings::class)->fillForm(['alerts_events' => []])->call('save');
+        Livewire::test(Alerts::class)->fillForm(['alerts_events' => []])->call('save');
         $this->assertFalse(AdminAlerts::enabled('server_down'));
         $this->assertFalse(AdminAlerts::enabled('member_joined'));
     }
@@ -82,7 +85,49 @@ class AlertsAndUpdatesTest extends TestCase
         (new SendAdminAlert('@everyone hi'))->handle();
 
         Http::assertSent(fn ($r) => $r->url() === self::HOOK && $r['allowed_mentions'] === ['parse' => []]);
-        $this->assertStringNotContainsString('abcdefghijklmnop', Livewire::test(Settings::class)->html());
+        $this->assertStringNotContainsString('abcdefghijklmnop', Livewire::test(Alerts::class)->html());
+    }
+
+    public function test_each_channel_gets_its_own_alert_and_tokens_stay_out_of_the_page_and_the_log(): void
+    {
+        Queue::fake();
+        Livewire::test(Alerts::class)->fillForm([
+            'alerts_ntfy_url' => 'https://ntfy.example.com/clubarr-secret-topic', 'alerts_ntfy_token' => 'tk_ntfy_secret',
+            'alerts_telegram_token' => '123456:ABCdefGHIjklMNOpqrSTUvwxYZ0123456789', 'alerts_telegram_chat' => '-1001234567890',
+            'alerts_gotify_url' => 'https://gotify.example.com', 'alerts_gotify_token' => 'gotify_secret',
+            'alerts_hook_url' => 'https://hooks.example.com/in/clubarr', 'alerts_hook_secret' => 'hmac-secret',
+        ])->call('save')->assertHasNoFormErrors();
+        $this->assertSame(['ntfy', 'telegram', 'gotify', 'webhook'], AlertChannels::configured());
+        $html = Livewire::test(Alerts::class)->html();
+        foreach (['clubarr-secret-topic', 'tk_ntfy_secret', 'ABCdefGHI', 'gotify_secret', 'hmac-secret', 'hooks.example.com/in'] as $secret) {
+            $this->assertStringNotContainsString($secret, $html);
+        }
+
+        Audit::log('waitlist.joined');
+        Queue::assertPushed(SendAdminAlert::class, 4);
+
+        Http::fake(['*' => Http::response(['ok' => true])]);
+        foreach (['ntfy', 'telegram', 'gotify', 'webhook'] as $channel) {
+            (new SendAdminAlert('Hello', $channel))->handle();
+        }
+        Http::assertSent(fn ($r) => $r->url() === 'https://ntfy.example.com/' && $r['topic'] === 'clubarr-secret-topic' && $r->header('Authorization')[0] === 'Bearer tk_ntfy_secret');
+        Http::assertSent(fn ($r) => str_starts_with($r->url(), 'https://api.telegram.org/bot123456:') && $r['chat_id'] === '-1001234567890');
+        Http::assertSent(fn ($r) => $r->url() === 'https://gotify.example.com/message' && $r->header('X-Gotify-Key')[0] === 'gotify_secret');
+        Http::assertSent(fn ($r) => $r->url() === 'https://hooks.example.com/in/clubarr' && $r['text'] === 'Hello'
+            && $r->header('X-Clubarr-Signature')[0] === 'sha256='.hash_hmac('sha256', $r->body(), 'hmac-secret'));
+    }
+
+    public function test_a_failed_alert_names_the_channel_but_not_the_token(): void
+    {
+        app(SiteSettings::class)->set(['alerts_telegram_token' => '123456:ABCdefGHIjklMNOpqrSTUvwxYZ0123456789', 'alerts_telegram_chat' => '-100123']);
+        Http::fake(['*' => Http::response('nope', 500)]);
+        try {
+            AlertChannels::send('telegram', 'Hello');
+            $this->fail('No exception');
+        } catch (\RuntimeException $e) {
+            $this->assertStringNotContainsString('ABCdefGHI', $e->getMessage());
+            $this->assertStringContainsString('Telegram', $e->getMessage());
+        }
     }
 
     public function test_a_newer_release_shows_and_is_told_once(): void
@@ -103,5 +148,17 @@ class AlertsAndUpdatesTest extends TestCase
 
         app(SiteSettings::class)->set(['update_check' => '0', 'internal_latest_version' => '']);
         $this->assertNull(app(UpdateCheck::class)->run());
+    }
+
+    public function test_mail_texts_written_by_the_admin_are_used_and_empty_means_the_default(): void
+    {
+        $member = User::create(['name' => 'Anna', 'email' => 'anna@example.com', 'password' => 'Member-pass-1']);
+        $this->assertStringContainsString('Your account is ready', implode(' ', (new Welcome)->toMail($member)->introLines));
+
+        Livewire::test(EmailTexts::class)->fillForm(['mail_text_welcome_subject' => 'Hej {name}!', 'mail_text_welcome_body' => "Velkommen til {site}.\n\nGod fornøjelse."])
+            ->call('save')->assertHasNoFormErrors();
+        $mail = (new Welcome)->toMail($member);
+        $this->assertSame('Hej Anna!', $mail->subject);
+        $this->assertSame(['Velkommen til Clubarr.', 'God fornøjelse.'], $mail->introLines);
     }
 }

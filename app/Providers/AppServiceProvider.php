@@ -5,12 +5,17 @@ namespace App\Providers;
 use App\Http\Middleware\ApplySiteLocale;
 use App\MediaServers\DriverFactory;
 use App\Models\User;
+use App\Services\LoginGuard;
 use App\Services\SetupState;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
+use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -41,11 +46,21 @@ class AppServiceProvider extends ServiceProvider
             $this->applySiteLocale();
         });
 
+        // The API: per key presented (or none) and per IP, so guessing keys is slow too.
+        RateLimiter::for('clubarr-api', fn (Request $request) => [
+            Limit::perMinute(60)->by('key:'.hash('sha256', (string) $request->bearerToken())),
+            Limit::perMinute(120)->by('ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('clubarr-api-write', fn (Request $request) => Limit::perHour(100)->by('key:'.hash('sha256', (string) $request->bearerToken())));
+
         Event::listen(Login::class, function (Login $event) {
             if ($event->user instanceof User) {
                 $event->user->forceFill(['last_login_at' => now()])->saveQuietly();
+                LoginGuard::signedIn($event->user);
             }
         });
+        // Only the email is used; what was typed as the password never leaves the event.
+        Event::listen(Failed::class, fn (Failed $event) => LoginGuard::failed((string) ($event->credentials['email'] ?? ''), $event->user instanceof User ? $event->user : null));
     }
 
     private function applySiteLocale(): void

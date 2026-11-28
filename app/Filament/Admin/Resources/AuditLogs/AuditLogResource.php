@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\AuditLogs;
 
+use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\AuditLogs\Pages\ListAuditLogs;
 use App\Filament\Admin\Resources\AuditLogs\Tables\AuditLogsTable;
 use App\Models\AuditLog;
@@ -19,6 +20,8 @@ class AuditLogResource extends Resource
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
     protected static ?int $navigationSort = 90;
+
+    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::Insights;
 
     public static function getModelLabel(): string
     {

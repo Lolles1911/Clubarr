@@ -19,17 +19,17 @@ final readonly class RemoteUser
      * Plain values, for the cache: Laravel's cache does not bring objects
      * back (cache.serializable_classes = false, against object injection).
      *
-     * @return array{id: string, username: string, email: ?string, isAdmin: bool, isDisabled: bool}
+     * @return array{id: string, username: string, email: ?string, isAdmin: bool, isDisabled: bool, lastSeen: ?int}
      */
     public function toArray(): array
     {
-        return ['id' => $this->id, 'username' => $this->username, 'email' => $this->email, 'isAdmin' => $this->isAdmin, 'isDisabled' => $this->isDisabled];
+        return ['id' => $this->id, 'username' => $this->username, 'email' => $this->email, 'isAdmin' => $this->isAdmin, 'isDisabled' => $this->isDisabled, 'lastSeen' => $this->lastSeen];
     }
 
     /** @param array<string, mixed> $row */
     public static function fromArray(array $row): self
     {
         return new self((string) ($row['id'] ?? ''), (string) ($row['username'] ?? ''), isset($row['email']) ? (string) $row['email'] : null,
-            (bool) ($row['isAdmin'] ?? false), (bool) ($row['isDisabled'] ?? false));
+            (bool) ($row['isAdmin'] ?? false), (bool) ($row['isDisabled'] ?? false), isset($row['lastSeen']) ? (int) $row['lastSeen'] : null);
     }
 }

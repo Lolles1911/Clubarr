@@ -4,6 +4,7 @@ namespace Tests\Feature\Flows;
 
 use App\Enums\AccountStatus;
 use App\Enums\ServerType;
+use App\Filament\Admin\Pages\Integrations;
 use App\Filament\Admin\Pages\Settings;
 use App\Filament\Admin\Resources\Invitations\Pages\CreateInvitation;
 use App\Filament\Admin\Resources\MediaServers\Pages\CreateMediaServer;
@@ -200,10 +201,10 @@ class ServerToolsTest extends TestCase
         Http::fake(['tr.local/api/v2/public/servers' => Http::response(['data' => [['id' => 1]]])]);
         app(SiteSettings::class)->set(['tracearr_url' => 'http://tr.local', 'tracearr_api_key' => 'trr_pub_x']);
 
-        Livewire::test(Settings::class)
-            ->assertSee(['General', 'Security', 'Mail', 'Integrations', 'Waiting list'])
+        Livewire::test(Settings::class)->assertSee(['General', 'Security', 'Mail', 'Waiting list']);
+        Livewire::test(Integrations::class)
             ->assertDontSee('trr_pub_x')
-            ->callAction(TestAction::make('testTracearr')->schemaComponent('integrations.tracearr', 'form'))
+            ->callAction(TestAction::make('testTracearr')->schemaComponent('tracearr', 'form'))
             ->assertNotified('Tracearr: OK (1 servers)');
     }
 }
