@@ -3,6 +3,7 @@
 namespace App\Filament\App\Pages;
 
 use App\Models\User;
+use App\Services\MemberHistory;
 use App\Services\Watching;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
@@ -35,7 +36,9 @@ class MyStats extends Page
 
     public static function canAccess(): bool
     {
-        return app(Watching::class)->enabled() && Filament::auth()->user() instanceof User;
+        $user = Filament::auth()->user();
+
+        return $user instanceof User && app(MemberHistory::class)->available($user);
     }
 
     /** @return array{month: array<string, mixed>, year: array<string, mixed>} */
@@ -45,7 +48,7 @@ class MyStats extends Page
         /** @var User $user */
         $user = Filament::auth()->user();
         try {
-            $year = app(Watching::class)->yearPlaysOf($user);
+            $year = app(MemberHistory::class)->yearPlays($user);
         } catch (Throwable) {
             $year = [];
         }

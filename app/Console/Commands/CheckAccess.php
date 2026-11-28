@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Enums\AccountStatus;
+use App\Models\MovieNight;
 use App\Models\ServerAccount;
 use App\Models\User;
 use App\Notifications\AccessEnded;
@@ -10,6 +11,8 @@ use App\Notifications\AccessEndingSoon;
 use App\Services\AccessManager;
 use App\Services\Audit;
 use App\Services\DiscordSync;
+use App\Services\MemberRequests;
+use App\Services\SelfService;
 use App\Services\SiteSettings;
 use Illuminate\Console\Command;
 use Throwable;
@@ -36,6 +39,18 @@ class CheckAccess extends Command
                     ['site' => app(SiteSettings::class)->get('site_name'), 'date' => $user->access_expires_at?->translatedFormat(__('j F Y'))]));
                 $user->forceFill(['expiry_warned_at' => now()])->saveQuietly();
             });
+
+        // Movie nights starting within two hours: a reminder to those coming.
+        MovieNight::with('attendees')->where('reminded', false)->whereBetween('starts_at', [now(), now()->addHours(2)])->each(function (MovieNight $night) {
+            $night->forceFill(['reminded' => true])->save();
+            foreach ($night->attendees as $member) {
+                MemberRequests::tell($member, __('Movie night soon: :title', ['title' => $night->title]), __('It starts :time.', ['time' => $night->starts_at->translatedFormat(__('l j F, H:i'))]).($night->note ? "\n\n".$night->note : ''));
+            }
+        });
+
+        // Members who paused themselves come back when their pause is over.
+        User::members()->whereNotNull('self_paused_at')->where('self_pause_until', '<=', now())
+            ->each(fn (User $user) => app(SelfService::class)->resume($user));
 
         $ended = 0;
         User::members()->whereNotNull('access_expires_at')->where('access_expires_at', '<=', now())

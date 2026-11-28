@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1Controller;
+use App\Http\Controllers\DiscordInteractionsController;
 use App\Http\Middleware\AuthenticateApiKey;
 use Illuminate\Support\Facades\Route;
 
@@ -11,3 +12,6 @@ Route::prefix('v1')->middleware(['throttle:clubarr-api', AuthenticateApiKey::cla
     Route::get('/invitations', [V1Controller::class, 'invitations']);
     Route::post('/invitations', [V1Controller::class, 'createInvitation'])->middleware('throttle:clubarr-api-write');
 });
+
+// Discord's slash commands: Discord posts here, signed with the application's key.
+Route::post('/discord/interactions', DiscordInteractionsController::class)->middleware('throttle:60,1');

@@ -5,13 +5,19 @@ namespace App\Filament\App\Pages;
 use App\Enums\AccountStatus;
 use App\MediaServers\Contracts\CreatesUsers;
 use App\MediaServers\Contracts\UsesClaimLinks;
+use App\MediaServers\Contracts\VerifiesLogins;
 use App\Models\Announcement;
+use App\Models\Challenge;
+use App\Models\MediaServer;
+use App\Models\MovieNight;
 use App\Models\ServerAccount;
 use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
 use App\Services\ComingSoon;
 use App\Services\DiscordSync;
+use App\Services\ExistingUsers;
+use App\Services\MemberHistory;
 use App\Services\MemberRequests;
 use App\Services\NewOnServers;
 use App\Services\SiteSettings;
@@ -20,6 +26,7 @@ use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -86,13 +93,15 @@ class MyAccess extends Dashboard
         return $user;
     }
 
-    /** @return array{hours7: float, hours30: float, plays30: int}|null */
+    /** @return array{hours7: float, hours30: float, plays30: int, top: ?string}|null from Tracearr/Tautulli, or Jellyfin/Emby */
     #[Unexposed]
     public function stats(): ?array
     {
-        $watching = app(Watching::class);
-
-        return $watching->enabled() ? $watching->statsOf($this->member()) : null;
+        try {
+            return app(MemberHistory::class)->stats($this->member());
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /** @return array{continue: list<array>, popular: list<array>, new: list<array>} */
@@ -100,7 +109,12 @@ class MyAccess extends Dashboard
     public function posterRows(): array
     {
         try {
-            return app(Watching::class)->posterRows($this->member());
+            $rows = app(Watching::class)->posterRows($this->member());
+            if ($rows['continue'] === [] && ! app(Watching::class)->enabled()) {
+                $rows['continue'] = app(MemberHistory::class)->resume($this->member());
+            }
+
+            return $rows;
         } catch (Throwable) {
             return ['continue' => [], 'popular' => [], 'new' => []];
         }
@@ -194,6 +208,89 @@ class MyAccess extends Dashboard
             });
     }
 
+    /** Jellyfin/Emby servers where the member has no user yet, and could link one they have (when the admin allows it). */
+    #[Unexposed]
+    public function linkableServers(): \Illuminate\Support\Collection
+    {
+        if (app(SiteSettings::class)->get('link_existing') === '0') {
+            return collect();
+        }
+
+        return MediaServer::where('is_enabled', true)->whereNotIn('id', $this->member()->serverAccounts()->pluck('media_server_id'))->orderBy('name')->get()
+            ->filter(fn (MediaServer $s) => $s->type->can(VerifiesLogins::class))->values();
+    }
+
+    public function linkExistingAction(): Action
+    {
+        return Action::make('linkExisting')->label(__('I already have a user on a server'))->icon('heroicon-m-link')->color('gray')->link()
+            ->visible(fn () => $this->linkableServers()->isNotEmpty())
+            ->modalDescription(__('Sign in with that user\'s name and password, and it is linked to your account here. The password is only checked by the server, never kept.'))
+            ->schema([
+                Select::make('server')->label(__('Server'))->required()->options(fn () => $this->linkableServers()->pluck('name', 'id')->all()),
+                TextInput::make('username')->label(__('User name on the server'))->required()->maxLength(100),
+                TextInput::make('password')->label(__('Password on the server'))->password()->required()->maxLength(200),
+            ])
+            ->action(function (array $data) {
+                try {
+                    $this->rateLimit(5, 3600, 'linkExisting');
+                } catch (TooManyRequestsException) {
+                    Notification::make()->title(__('That was a few times now. Please try again in an hour.'))->danger()->send();
+
+                    return;
+                }
+                $server = $this->linkableServers()->firstWhere('id', (int) $data['server']);
+                try {
+                    if ($server === null) {
+                        throw new \RuntimeException(__('Choose a server.'));
+                    }
+                    $existing = app(ExistingUsers::class);
+                    $existing->link($this->member(), $server, $existing->verify($server, (string) $data['username'], (string) $data['password']), 'member');
+                    Notification::make()->title(__('Linked. :server is on your page now.', ['server' => $server->name]))->success()->send();
+                } catch (\RuntimeException $e) {
+                    Notification::make()->title($e->getMessage())->danger()->send();
+                } catch (Throwable $e) {
+                    report($e);
+                    Notification::make()->title(__(':server did not answer. Please try again later.', ['server' => $server?->name]))->danger()->send();
+                }
+            });
+    }
+
+    /** @return Collection<int, MovieNight> */
+    #[Unexposed]
+    public function movieNights(): Collection
+    {
+        return MovieNight::upcomingFor($this->member());
+    }
+
+    /** @return list<array{challenge: Challenge, progress: float}> running challenges and how far the member is */
+    #[Unexposed]
+    public function challenges(): array
+    {
+        $running = Challenge::running();
+        if ($running->isEmpty()) {
+            return [];
+        }
+        try {
+            $plays = app(MemberHistory::class)->yearPlays($this->member());
+        } catch (Throwable) {
+            $plays = [];
+        }
+
+        return $running->map(fn (Challenge $c) => ['challenge' => $c, 'progress' => $c->progress($plays)])->all();
+    }
+
+    public function comingAction(): Action
+    {
+        return Action::make('coming')->link()->size('sm')
+            ->label(fn (array $arguments) => $this->member()->movieNights()->whereKey((int) ($arguments['night'] ?? 0))->exists() ? __('I can\'t come after all') : __('I\'m coming'))
+            ->action(function (array $arguments) {
+                $night = $this->movieNights()->firstWhere('id', (int) ($arguments['night'] ?? 0));
+                if ($night !== null) {
+                    $this->member()->movieNights()->toggle([$night->id]);
+                }
+            });
+    }
+
     public function askForTimeAction(): Action
     {
         return Action::make('askForTime')->label(__('Ask for more time'))->icon('heroicon-m-clock')->color('gray')
@@ -206,46 +303,6 @@ class MyAccess extends Dashboard
                 } catch (\RuntimeException $e) {
                     Notification::make()->title($e->getMessage())->warning()->send();
                 }
-            });
-    }
-
-    public function digestAction(): Action
-    {
-        return Action::make('digest')
-            ->label(fn () => $this->member()->digest ? __('Stop the weekly mail') : __('Get a weekly mail with what is new'))
-            ->icon('heroicon-m-envelope')->color('gray')->link()
-            ->visible(fn () => app(SiteSettings::class)->get('mail_enabled') === '1')
-            ->action(function () {
-                $member = $this->member();
-                $member->forceFill(['digest' => ! $member->digest, 'digest_sent_at' => $member->digest ? $member->digest_sent_at : now()])->save();
-                Audit::log($member->digest ? 'member.digest_on' : 'member.digest_off', $member, [], $member->id);
-                Notification::make()->title($member->digest ? __('You will get a mail on Mondays when there is something new.') : __('No more weekly mails.'))->success()->send();
-            });
-    }
-
-    public function deleteAccountAction(): Action
-    {
-        return Action::make('deleteAccount')->label(__('Delete my account'))->icon('heroicon-m-trash')->color('danger')->link()
-            ->visible(fn () => ! $this->member()->is_admin)
-            ->modalHeading(__('Delete your account?'))
-            ->modalDescription(__('Your users on the servers are deleted too (Plex: the share is removed), and you can no longer watch. This can\'t be undone.'))
-            ->schema([TextInput::make('password')->label(__('Your password'))->password()->required()->currentPassword()])
-            ->action(function () {
-                $member = $this->member();
-                $failed = app(AccessManager::class)->removeAll($member);
-                if ($failed !== []) {
-                    Notification::make()->title(__('Not everything could be removed right now. Please try again later, or ask us.'))->danger()->send();
-
-                    return null;
-                }
-                Audit::log('member.deleted_self', null, ['email' => $member->email]);
-                app(DiscordSync::class)->sync($member->forceFill(['disabled_at' => now()]));
-                Filament::auth()->logout();
-                $member->delete();
-                session()->invalidate();
-                session()->regenerateToken();
-
-                return redirect()->to(Filament::getLoginUrl());
             });
     }
 

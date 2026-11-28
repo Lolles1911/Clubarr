@@ -71,4 +71,28 @@ class DiscordTest extends TestCase
         $this->actingAs($this->anna)->get('/discord/callback?code=abc&state='.session('discord.state'));
         $this->assertNull($this->anna->fresh()->discord_id);
     }
+
+    public function test_slash_commands_need_discords_signature_and_answer_only_the_member(): void
+    {
+        $pair = sodium_crypto_sign_keypair();
+        app(SiteSettings::class)->set(['discord_public_key' => bin2hex(sodium_crypto_sign_publickey($pair))]);
+        $send = function (array $body, bool $sign = true) use ($pair) {
+            $json = json_encode($body);
+            $time = (string) time();
+            $sig = bin2hex(sodium_crypto_sign_detached($time.$json, sodium_crypto_sign_secretkey($pair)));
+
+            return $this->call('POST', '/api/discord/interactions', [], [], [], ['CONTENT_TYPE' => 'application/json',
+                'HTTP_X_SIGNATURE_ED25519' => $sign ? $sig : str_repeat('0', 128), 'HTTP_X_SIGNATURE_TIMESTAMP' => $time], $json);
+        };
+
+        $send(['type' => 1], false)->assertUnauthorized();
+        $send(['type' => 1])->assertOk()->assertExactJson(['type' => 1]);
+
+        $this->anna->forceFill(['discord_id' => '444', 'access_expires_at' => now()->addDays(10)])->save();
+        $send(['type' => 2, 'data' => ['name' => 'access'], 'member' => ['user' => ['id' => '444']]])->assertOk()
+            ->assertJsonPath('data.flags', 64)->assertJsonPath('data.content', fn ($c) => str_contains($c, 'Home') && str_contains($c, 'ends on'));
+        $send(['type' => 2, 'data' => ['name' => 'access'], 'member' => ['user' => ['id' => '999']]])
+            ->assertJsonPath('data.content', fn ($c) => str_contains($c, 'Link your Discord'));
+        $send(['type' => 2, 'data' => ['name' => 'status'], 'user' => ['id' => '999']])->assertJsonPath('data.content', fn ($c) => str_contains($c, 'Home'));
+    }
 }

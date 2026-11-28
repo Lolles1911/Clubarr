@@ -7,6 +7,7 @@ use App\MediaServers\MediaServerException;
 use App\Models\Claim;
 use App\Models\MediaServer;
 use App\Services\Audit;
+use App\Services\ExistingUsers;
 use App\Services\ServerSync;
 use App\Services\UserImport;
 use App\Support\Copy;
@@ -164,17 +165,6 @@ class MediaServersTable
     /** @return list<RemoteUser> users on the server that no member has, without administrators */
     private static function unlinkedUsers(MediaServer $server): array
     {
-        // Cached as plain arrays: the cache does not bring objects back.
-        $rows = Cache::remember('clubarr:remote-users:'.$server->id, 60, function () use ($server) {
-            try {
-                return array_map(fn (RemoteUser $u) => $u->toArray(), $server->driver()->users());
-            } catch (MediaServerException) {
-                return [];
-            }
-        });
-        $users = array_map(fn (array $row) => RemoteUser::fromArray($row), $rows);
-        $linked = $server->accounts()->whereNotNull('remote_id')->pluck('remote_id')->all();
-
-        return array_values(array_filter($users, fn (RemoteUser $u) => ! $u->isAdmin && $u->id !== '' && ! in_array($u->id, $linked, true)));
+        return app(ExistingUsers::class)->unlinked($server);
     }
 }

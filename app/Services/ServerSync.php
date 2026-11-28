@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\AccountStatus;
 use App\MediaServers\Data\ServerInfo;
 use App\MediaServers\MediaServerException;
+use App\Models\ExtraUser;
 use App\Models\Library;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
@@ -99,7 +100,8 @@ class ServerSync
             }
         }
 
-        $linked = $server->accounts()->whereNotNull('remote_id')->pluck('remote_id')->map(fn ($id) => (string) $id)->all();
+        $linked = $server->accounts()->whereNotNull('remote_id')->pluck('remote_id')
+            ->concat(ExtraUser::where('media_server_id', $server->id)->pluck('remote_id'))->map(fn ($id) => (string) $id)->all();
         $unlinked = $remote->reject(fn ($u) => $u->isAdmin || $u->id === '' || in_array($u->id, $linked, true))->count();
         MediaServer::whereKey($server->id)->update(['settings' => json_encode(array_merge($server->fresh()->settings ?? [], ['unlinked' => $unlinked]))]);
 

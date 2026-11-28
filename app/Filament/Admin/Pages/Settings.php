@@ -2,10 +2,12 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Enums\ServerType;
 use App\Filament\Admin\Concerns\FullAdminsOnly;
 use App\Filament\Admin\NavigationGroup;
 use App\Http\Middleware\ApplySiteLocale;
 use App\Models\Invitation;
+use App\Models\MediaServer;
 use App\Services\Audit;
 use App\Services\Backups;
 use App\Services\Branding;
@@ -19,6 +21,7 @@ use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -80,6 +83,9 @@ class Settings extends Page
         $values['apply_enabled'] = ($values['apply_enabled'] ?? '0') === '1';
         $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
         $values['member_invites_approval'] = ($values['member_invites_approval'] ?? '0') === '1';
+        $values['link_existing'] = ($values['link_existing'] ?? '1') !== '0';
+        $values['switch_servers'] = array_values(array_filter(explode(',', (string) ($values['switch_servers'] ?? ''))));
+        $values['apply_packages'] = array_values(array_filter((array) json_decode((string) ($values['apply_packages'] ?? ''), true), 'is_array'));
         foreach (['landing_enabled' => '0', 'landing_posters' => '0', 'landing_status' => '1'] as $key => $default) {
             $values[$key] = ($values[$key] ?? $default) === '1';
         }
@@ -164,6 +170,10 @@ class Settings extends Page
                             ->placeholder(__('e.g. "Welcome to our little cinema! Films and series for family and friends."'))
                             ->helperText(__('Shown on the first step of every invitation, above what they get. Plain text.')),
                     ]),
+                    Section::make(__('Users they already have'))->schema([
+                        Toggle::make('link_existing')->label(__('Members may link a Jellyfin or Emby user they already have'))
+                            ->helperText(__('On their page and on an invitation: they sign in with that user\'s name and password, which only the server checks. Administrators of the server can never be linked. You can always link users yourself on a member.')),
+                    ]),
                     Section::make(__('Reminders'))->schema([
                         TextInput::make('invite_reminder_days')->label(__('Remind after'))->numeric()->minValue(0)->maxValue(60)->suffix(__('days'))
                             ->helperText(__('An invitation mailed to someone and not used gets one reminder mail. 0: no reminders.')),
@@ -173,6 +183,15 @@ class Settings extends Page
                             Toggle::make('apply_enabled')->label(__('Open'))->columnSpanFull(),
                             Select::make('apply_template_id')->label(__('Template for approved applications'))->placeholder(__('Choose when approving'))
                                 ->options(fn () => Invitation::where('is_template', true)->orderBy('label')->pluck('label', 'id')->map(fn ($l) => $l ?: __('Template'))->all()),
+                            Repeater::make('apply_packages')->label(__('What they can choose'))->columnSpanFull()->reorderable()->collapsible()
+                                ->addActionLabel(__('Add a choice'))->maxItems(10)->defaultItems(0)
+                                ->schema([
+                                    TextInput::make('label')->label(__('Name'))->required()->maxLength(80)->placeholder(__('e.g. Films (Jellyfin)')),
+                                    Select::make('template_id')->label(__('Template'))->required()
+                                        ->options(fn () => Invitation::where('is_template', true)->orderBy('label')->pluck('label', 'id')->map(fn ($l) => $l ?: __('Template'))->all()),
+                                    TextInput::make('description')->label(__('A few words'))->maxLength(300)->columnSpanFull(),
+                                ])->columns(2)
+                                ->helperText(__('Each choice gives the servers, libraries and limits of its template; they may leave out servers they don\'t need. None: they just apply, and you choose when approving.')),
                             Textarea::make('apply_questions')->label(__('Your questions'))->rows(3)->maxLength(1000)->columnSpanFull()
                                 ->placeholder(__("Who do you know here?\nWhat do you watch on?"))
                                 ->helperText(__('One per line, at most 5. People must answer them; you see the answers under Applications.')),
@@ -187,6 +206,17 @@ class Settings extends Page
                             Toggle::make('member_invites_approval')->label(__('I approve each invitation first'))->columnSpanFull()
                                 ->helperText(__('The link works, and is mailed, only after you approve it under Invitations (filter "Waits for approval").')),
                         ]),
+                ]),
+                Tab::make(__('Members'))->key('members')->icon(Heroicon::OutlinedUsers)->schema([
+                    Section::make(__('What members may do themselves'))->description(__('On My page → Your access. 0 or empty: off.'))->columns(2)->schema([
+                        TextInput::make('extra_users_max')->label(__('Extra users for their family'))->numeric()->minValue(0)->maxValue(10)
+                            ->helperText(__('Jellyfin and Emby. They get the member\'s libraries, follow the member\'s access, and their streams count as the member\'s.')),
+                        TextInput::make('self_pause_days')->label(__('Pause their access for at most'))->numeric()->minValue(0)->maxValue(365)->suffix(__('days'))
+                            ->helperText(__('Their users are paused; the time paused is added to their end date when they come back.')),
+                        Select::make('switch_servers')->label(__('Servers they may move to'))->multiple()->columnSpanFull()
+                            ->options(fn () => MediaServer::orderBy('name')->get()->filter(fn (MediaServer $s) => $s->type !== ServerType::Plex)->pluck('name', 'id')->all())
+                            ->helperText(__('They get a user there (all libraries) and the old one is removed. Not Plex. Full servers are not offered.')),
+                    ]),
                 ]),
                 Tab::make(__('Automation'))->key('automation')->icon(Heroicon::OutlinedCog)->schema([
                     Section::make(__('Inactive members'))->schema([
@@ -269,6 +299,10 @@ class Settings extends Page
         $data['apply_enabled'] = ! empty($data['apply_enabled']) ? '1' : '0';
         $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
         $data['member_invites_approval'] = ! empty($data['member_invites_approval']) ? '1' : '0';
+        $data['link_existing'] = ! empty($data['link_existing']) ? '1' : '0';
+        $data['switch_servers'] = implode(',', array_map('intval', (array) ($data['switch_servers'] ?? [])));
+        $data['apply_packages'] = json_encode(array_values(array_map(fn ($p) => ['label' => (string) ($p['label'] ?? ''), 'description' => (string) ($p['description'] ?? ''), 'template_id' => (int) ($p['template_id'] ?? 0)],
+            array_filter((array) ($data['apply_packages'] ?? []), 'is_array')))) ?: '[]';
         foreach (['landing_enabled', 'landing_posters', 'landing_status'] as $key) {
             $data[$key] = ! empty($data[$key]) ? '1' : '0';
         }

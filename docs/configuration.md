@@ -89,6 +89,50 @@ invitations, requests, applications, problems and messages. They don't see
 settings, servers, groups, API keys or the log, can't change admins, and
 can't export members.
 
+## Wizard
+
+Servers → Wizard. Steps are "before joining" (they show as pages on the
+invitation, between Welcome and the account) or "after joining" (on Get
+started, and under Help as guides), for one server or all. **Add ready-made
+steps** adds "What is it?", "Get the app" and "Tips" for a server's type.
+The text is Markdown; a step can have a button with a link. **Bundles** are
+sets of steps of their own: choose one on an invitation (or template), and
+it replaces the standard steps for those who use it.
+
+## Users that already exist
+
+- **On a member** (Members → ⋯ → Link a server user): pick a server and one of
+  its users that no one here has.
+- **Members themselves** (their page, "I already have a user on a server",
+  and on an invitation): Jellyfin and Emby, with that user's name and
+  password, which only the server checks. Turn it off under Settings →
+  Invitations.
+- **Import users** on a server still brings in many at once.
+
+## Members' own choices
+
+Settings → Members: extra users for their family (Jellyfin/Emby, with the
+member's libraries; paused and removed with the member, streams count as
+the member's), pausing their access for up to the days set (the time is
+added to their end date; it ends by itself), and the servers members may
+move to (not Plex).
+
+## Movie nights and challenges
+
+Members → Movie nights: a title, a time and who it is for. Members see a card,
+press "I'm coming", and get a reminder (mail and Discord) up to two hours
+before. Members → Challenges: what counts (films, episodes or hours), a goal
+and dates; members see their progress, and **Results** shows who is furthest.
+Counted from Tracearr, Tautulli, Jellyfin/Emby or Silo.
+
+## Discord commands
+
+Integrations → Discord: copy the application's **public key**, set its
+"Interactions endpoint URL" to `<APP_URL>/api/discord/interactions` (Clubarr
+must be reachable on https), and press **Register commands**. Members who
+linked Discord get /access, /stats and /password; anyone on your server gets
+/status. Answers are only shown to the one who asks.
+
 ## Messages to members
 
 Admin → Messages → New message: a title and text, to all members or one
@@ -190,8 +234,9 @@ sign out everywhere else.
 ## Applications
 
 Settings → Invitations → Apply to join: open the public `/apply` page and
-choose the template an approved application's invitation copies, and add
-your own questions (one per line, at most 5). The
+choose the template an approved application's invitation copies, the
+choices applicants pick from (each made from a template; they may leave out
+servers), and your own questions (one per line, at most 5). The
 sign-in page then shows "Apply to join". Applications are under
 Admin → Applications.
 

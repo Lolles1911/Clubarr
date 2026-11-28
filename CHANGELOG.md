@@ -3,6 +3,65 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.10.1-beta (2026-11-30)
+
+This is the release that has 0.9 and 0.10 in it: the releases 0.8.1-beta,
+0.9.0-beta and 0.10.0-beta were made before that code was on main, so their
+image is 0.8.0-beta. Everything in 0.9.0-beta and 0.10.0-beta below is in this
+one.
+
+### Changed
+- **The version is shown** at the bottom of every page (when signed in), so
+  you can see that an update arrived.
+
+## 0.10.0-beta (2026-11-30)
+
+### New members
+- **Wizard** (Servers → Wizard): steps new members see before joining (on
+  the invitation page) and after (Get started, and later under Help), per
+  server or for all. Drag to order, "Add ready-made steps" per server type,
+  and **bundles**: other sets of steps chosen on an invitation (e.g. family).
+- **A user they already have**: on an invitation, members can sign in with a
+  Jellyfin or Emby user they already have instead of making a new one; the
+  server checks the password, Clubarr never keeps it. Server administrators
+  can never be linked.
+- **Choices when applying**: you make choices from templates ("Films",
+  "Everything"); applicants pick one and may leave out servers they don't
+  need. Approving gives just those.
+
+### For members
+- **"I already have a user on a server"** on their page, the same way.
+- On My page → **Your access** (each when you allow it): **extra users for
+  the family** (with the member's libraries; they follow the member's
+  access), **pause** their access (the time is added to the end date), and
+  **move to another server**.
+- **Movie nights** ("I'm coming", a reminder before) and **challenges**
+  ("10 films in December") with their progress, on the front page.
+- **Discord commands**: /status, /access, /stats and /password.
+
+### For admins
+- **Link a server user** to a member (a user on a server no one here has).
+- Movie nights and challenges (with results) under Members.
+- Settings → Members: family users, pausing, servers members may move to.
+
+## 0.9.0-beta (2026-11-30)
+
+### For members
+- **My page** (in the menu, and behind the avatar): the account (name,
+  email, password, two-factor, where you are signed in), **My numbers**
+  (hours watched, plays, most watched this year, and your access: when it
+  ends, groups, requests and invitations left), and **Settings** (weekly
+  mail, Discord, delete my account), each on a tab.
+- **Your access** at a glance on the front page, and a link to more numbers.
+
+### Without Tracearr or Tautulli
+- **Numbers and "Continue watching" from Jellyfin, Emby and Silo**: Clubarr
+  reads what each member watched from their own server user. Silo's own
+  playback history gives real watching time; Jellyfin and Emby give what was
+  finished, by the day it was last watched. Fetched on the queue and kept
+  half an hour, so the page never waits for the servers.
+- **Silo posters** for "Continue watching", from Silo's catalog.
+
 ## 0.8.0-beta (2026-11-30)
 
 ### For visitors

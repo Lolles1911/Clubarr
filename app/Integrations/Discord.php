@@ -101,6 +101,21 @@ class Discord
         return (string) ($this->bot()->json('GET', '/users/@me')['username'] ?? '?');
     }
 
+    /** The slash commands Clubarr answers (on your Discord server only). */
+    public const COMMANDS = [
+        ['name' => 'status', 'description' => 'Are the servers up?'],
+        ['name' => 'access', 'description' => 'Your access: servers and when it ends'],
+        ['name' => 'stats', 'description' => 'What you watched lately'],
+        ['name' => 'password', 'description' => 'Where to change your password'],
+    ];
+
+    /** Registers the slash commands on your Discord server (replaces earlier ones). */
+    public function registerCommands(): void
+    {
+        $this->bot()->send('PUT', '/applications/'.$this->id($this->clientId).'/guilds/'.$this->id($this->guildId).'/commands',
+            json: array_map(fn (array $c) => $c + ['type' => 1], self::COMMANDS));
+    }
+
     private function bot(): ServerHttp
     {
         return new ServerHttp(self::API, ['Authorization' => 'Bot '.$this->botToken], 'Discord');

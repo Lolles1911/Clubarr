@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\AccountStatus;
 use App\MediaServers\Contracts\ListsRecentlyAdded;
+use App\MediaServers\Contracts\ShowsPosters;
 use App\MediaServers\Data\RecentItem;
 use App\Models\Invitation;
 use App\Models\MediaServer;
@@ -41,6 +42,17 @@ class NewOnServers
         usort($rows, fn ($a, $b) => $b['added'] <=> $a['added']);
 
         return $this->register(array_slice($rows, 0, self::LIMIT));
+    }
+
+    /**
+     * Makes posters of these items fetchable by members of their server (/posters/s/{key}).
+     *
+     * @param  list<array{server_id: int, ref: string, title: string, year: int|null, server: string}>  $rows
+     * @return list<array{key: string, title: string, year: int|null, server: string}>
+     */
+    public function registerRows(array $rows): array
+    {
+        return $this->register($rows);
     }
 
     /**
@@ -163,7 +175,7 @@ class NewOnServers
         $image = Cache::remember('clubarr:server-poster:'.$key, 86400, function () use ($serverId, $ref) {
             try {
                 $driver = MediaServer::find($serverId)?->driver();
-                $found = $driver instanceof ListsRecentlyAdded ? $driver->poster((string) $ref) : null;
+                $found = $driver instanceof ShowsPosters ? $driver->poster((string) $ref) : null;
             } catch (Throwable) {
                 $found = null;
             }

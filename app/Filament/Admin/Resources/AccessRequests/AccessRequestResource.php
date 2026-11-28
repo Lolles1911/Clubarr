@@ -6,6 +6,7 @@ use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\AccessRequests\Pages\ListAccessRequests;
 use App\Models\AccessRequest;
 use App\Models\Invitation;
+use App\Models\MediaServer;
 use App\Services\Applications;
 use App\Services\SiteSettings;
 use BackedEnum;
@@ -70,6 +71,8 @@ class AccessRequestResource extends Resource
         return $table->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')->label(__('Name'))->weight('medium')->description(fn (AccessRequest $r) => $r->email)->searchable(['name', 'email']),
+                TextColumn::make('package')->label(__('Wants'))->badge()->placeholder('—')
+                    ->description(fn (AccessRequest $r) => $r->server_ids ? MediaServer::whereIn('id', $r->server_ids)->pluck('name')->implode(', ') : null),
                 TextColumn::make('message')->label(__('Message'))->wrap()->placeholder('—')->visibleFrom('md')
                     ->state(fn (AccessRequest $r) => collect($r->answers ?? [])->map(fn (array $qa) => $qa['q'].': '.$qa['a'])->push($r->message)->filter()->implode("\n") ?: null)
                     ->formatStateUsing(fn (?string $state) => new HtmlString(nl2br(e(mb_substr((string) $state, 0, 1500))))),
@@ -86,7 +89,7 @@ class AccessRequestResource extends Resource
                 Action::make('approve')->label(__('Invite'))->icon(Heroicon::OutlinedCheck)->color('success')->button()->size('sm')
                     ->visible(fn (AccessRequest $r) => $r->status === 'pending')
                     ->modalDescription(__('They get an invitation by mail (one person, valid 14 days) with the template\'s servers, libraries and limits.'))
-                    ->fillForm(fn () => ['template' => app(SiteSettings::class)->get('apply_template_id')])
+                    ->fillForm(fn (AccessRequest $r) => ['template' => $r->template_id ?? app(SiteSettings::class)->get('apply_template_id')])
                     ->schema([
                         Select::make('template')->label(__('Template'))->required()
                             ->options(fn () => Invitation::where('is_template', true)->orderBy('label')->pluck('label', 'id')->map(fn ($l) => $l ?: __('Template'))->all()),

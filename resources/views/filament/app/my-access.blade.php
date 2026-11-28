@@ -64,6 +64,32 @@
         </x-filament::section>
     @endif
 
+    @php($nights = $this->movieNights())
+    @php($challenges = $this->challenges())
+    @if ($nights->isNotEmpty() || $challenges !== [])
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr));gap:1rem">
+            @foreach ($nights as $night)
+                <x-filament::section :compact="true" icon="heroicon-o-film" :heading="__('Movie night: :title', ['title' => $night->title])"
+                    :description="$night->starts_at->translatedFormat(__('l j F, H:i')).($night->mediaServer ? ' · '.$night->mediaServer->name : '')">
+                    @if ($night->note)<p style="font-size:.88rem;opacity:.85">{!! nl2br(e($night->note)) !!}</p>@endif
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.5rem;font-size:.85rem">
+                        <span style="opacity:.7">{{ trans_choice(':count is coming|:count are coming', $night->attendees_count, ['count' => $night->attendees_count]) }}</span>
+                        {{ ($this->comingAction)(['night' => $night->id]) }}
+                    </div>
+                </x-filament::section>
+            @endforeach
+            @foreach ($challenges as ['challenge' => $challenge, 'progress' => $progress])
+                @php($percent = (int) min(100, round(100 * $progress / max(1, $challenge->target))))
+                <x-filament::section :compact="true" icon="heroicon-o-trophy" :heading="$challenge->title"
+                    :description="__('Until :date', ['date' => $challenge->ends_at->translatedFormat(__('j F'))])">
+                    @if ($challenge->note)<p style="font-size:.88rem;opacity:.85">{{ $challenge->note }}</p>@endif
+                    <div style="margin-top:.5rem;height:.55rem;border-radius:999px;background:rgba(127,127,127,.2);overflow:hidden"><div style="height:100%;width:{{ $percent }}%;background:var(--primary-500)"></div></div>
+                    <div style="margin-top:.35rem;font-size:.85rem">{{ $percent >= 100 ? __('Done! :n of :target :unit.', ['n' => $progress, 'target' => $challenge->target, 'unit' => $challenge->unit()]) : __(':n of :target :unit', ['n' => $progress, 'target' => $challenge->target, 'unit' => $challenge->unit()]) }}</div>
+                </x-filament::section>
+            @endforeach
+        </div>
+    @endif
+
     @php($rows = $this->posterRows())
     @php($new = $this->newOnServers())
     @foreach (['new' => __('New on the server'), 'continue' => __('Continue watching'), 'popular' => __('Popular now')] as $row => $heading)
@@ -174,22 +200,11 @@
                 </x-filament::section>
             @endforeach
         </div>
+        <div style="text-align:right;margin-top:-.5rem"><x-filament::link :href="\Filament\Facades\Filament::getPanel('app')->getProfileUrl(['tab' => 'numbers'])" size="sm">{{ __('More numbers') }}</x-filament::link></div>
     @endif
 
-    @if ($this->discordEnabled())
-        <x-filament::section :heading="__('Discord')" :compact="true">
-            @if ($member->discord_id)
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
-                    <span>{{ __('Linked as :name.', ['name' => $member->discord_username]) }}</span>
-                    <form method="POST" action="{{ route('filament.app.discord.disconnect') }}">@csrf<x-filament::button type="submit" color="gray" size="sm">{{ __('Unlink') }}</x-filament::button></form>
-                </div>
-            @else
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
-                    <span style="opacity:.8">{{ __('Link your Discord account to get the members\' role on our Discord.') }}</span>
-                    <x-filament::button tag="a" :href="route('filament.app.discord.connect')" size="sm">{{ __('Link Discord') }}</x-filament::button>
-                </div>
-            @endif
-        </x-filament::section>
+    @if ($accounts->isNotEmpty() && ! $member->is_admin)
+        @include('filament.app.account-status', ['status' => \App\Support\AccountSummary::of($member)])
     @endif
 
     @if ($this->helpText())
@@ -199,8 +214,8 @@
     @endif
 
     <div style="display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:flex-end;font-size:.85rem;opacity:.85">
-        {{ $this->digestAction }}
-        {{ $this->deleteAccountAction }}
+        {{ $this->linkExistingAction }}
+        <x-filament::link :href="\Filament\Facades\Filament::getPanel('app')->getProfileUrl()" icon="heroicon-m-user-circle">{{ __('My page: account, numbers and settings') }}</x-filament::link>
     </div>
 
     <x-filament-actions::modals />

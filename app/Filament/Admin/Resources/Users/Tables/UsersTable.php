@@ -3,10 +3,13 @@
 namespace App\Filament\Admin\Resources\Users\Tables;
 
 use App\Filament\Admin\Resources\Users\UserResource;
+use App\MediaServers\Data\RemoteUser;
+use App\Models\MediaServer;
 use App\Models\MemberGroup;
 use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
+use App\Services\ExistingUsers;
 use App\Services\GroupRules;
 use App\Services\MemberAccounts;
 use App\Services\MemberAdmin;
@@ -24,6 +27,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -146,6 +150,28 @@ class UsersTable
                             Notification::make()->title(__('Sent.'))->success()->send();
                         }),
                     EditAction::make(),
+                    Action::make('linkServerUser')->label(__('Link a server user'))->icon(Heroicon::OutlinedLink)
+                        ->modalDescription(__('A user that already exists on a server, and no one here has, becomes this member\'s. Server administrators are not listed.'))
+                        ->schema([
+                            Select::make('server')->label(__('Server'))->required()->live()
+                                ->options(fn (User $record) => MediaServer::whereNotIn('id', $record->serverAccounts()->pluck('media_server_id'))->orderBy('name')->pluck('name', 'id')->all()),
+                            Select::make('remote')->label(__('User on the server'))->required()->searchable()
+                                ->options(fn (Get $get) => filled($get('server')) && ($server = MediaServer::find((int) $get('server')))
+                                    ? collect(app(ExistingUsers::class)->unlinked($server))->mapWithKeys(fn (RemoteUser $u) => [$u->id => $u->username.($u->email ? ' ('.$u->email.')' : '')])->all() : []),
+                        ])
+                        ->action(function (User $record, array $data) {
+                            $server = MediaServer::findOrFail((int) $data['server']);
+                            $remote = collect(app(ExistingUsers::class)->unlinked($server, fresh: true))->first(fn (RemoteUser $u) => $u->id === (string) $data['remote']);
+                            try {
+                                if ($remote === null) {
+                                    throw new \RuntimeException(__('That user is gone, or linked already.'));
+                                }
+                                app(ExistingUsers::class)->link($record, $server, $remote, 'admin');
+                                Notification::make()->title(__('Linked.'))->success()->send();
+                            } catch (\RuntimeException $e) {
+                                Notification::make()->title($e->getMessage())->danger()->send();
+                            }
+                        }),
                     Action::make('libraries')->label(__('Libraries'))->icon(Heroicon::OutlinedRectangleStack)
                         ->visible(fn (User $record) => $record->serverAccounts->isNotEmpty())
                         ->modalDescription(__('What they see on each server. All ticked = all libraries, also new ones.'))

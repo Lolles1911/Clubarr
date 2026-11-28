@@ -23,6 +23,30 @@ class Applications
         return app(SiteSettings::class)->get('apply_enabled') === '1';
     }
 
+    /**
+     * What applicants can choose from: the admin's packages, each made from a
+     * template, with the template's servers (they may leave some out).
+     *
+     * @return list<array{label: string, description: string, template: Invitation}>
+     */
+    public static function packages(): array
+    {
+        $rows = json_decode((string) app(SiteSettings::class)->get('apply_packages'), true);
+        if (! is_array($rows)) {
+            return [];
+        }
+        $templates = Invitation::with('mediaServers')->where('is_template', true)->whereIn('id', array_map(fn ($r) => (int) ($r['template_id'] ?? 0), $rows))->get()->keyBy('id');
+        $out = [];
+        foreach ($rows as $row) {
+            $template = $templates->get((int) ($row['template_id'] ?? 0));
+            if ($template !== null && filled($row['label'] ?? null)) {
+                $out[] = ['label' => mb_substr((string) $row['label'], 0, 80), 'description' => mb_substr((string) ($row['description'] ?? ''), 0, 300), 'template' => $template];
+            }
+        }
+
+        return $out;
+    }
+
     /** @return list<string> the admin's own questions on the form (at most 5) */
     public static function questions(): array
     {
@@ -35,14 +59,23 @@ class Applications
      * Stores an application; the same answer whether the email is known or not.
      *
      * @param  array<int, mixed>  $answers  by the number of the question
+     * @param  list<int>  $serverIds  the package's servers they want (empty: all of them)
      */
-    public function apply(string $name, string $email, ?string $message, array $answers = []): void
+    public function apply(string $name, string $email, ?string $message, array $answers = [], ?int $package = null, array $serverIds = []): void
     {
         $email = mb_strtolower(trim($email));
         if (AccessRequest::where('email', $email)->where('status', 'pending')->exists() || User::where('email', $email)->exists()) {
             return; // already asked, or already a member: nothing new
         }
         $request = new AccessRequest(['name' => mb_substr(trim($name), 0, 100), 'email' => $email, 'message' => filled($message) ? mb_substr(trim((string) $message), 0, 1000) : null]);
+        $chosen = $package !== null ? (self::packages()[$package] ?? null) : null;
+        if ($chosen !== null) {
+            $offered = $chosen['template']->mediaServers->pluck('id')->all();
+            $wanted = array_values(array_intersect($offered, array_map('intval', $serverIds)));
+            $request->package = $chosen['label'];
+            $request->template_id = $chosen['template']->id;
+            $request->server_ids = $wanted !== [] && count($wanted) < count($offered) ? $wanted : null;
+        }
         $request->answers = collect(self::questions())->map(fn (string $q, int $i) => ['q' => $q, 'a' => mb_substr(trim((string) ($answers[$i] ?? '')), 0, 1000)])->all() ?: null;
         $request->save();
         Audit::log('access.requested', $request, ['name' => $request->name], null);
@@ -55,6 +88,10 @@ class Applications
         }
         $maker = app(InvitationMaker::class);
         [$settings, $pivot] = $maker->setupOf($template);
+        // Only the servers they asked for, when they left some out (and the template has them).
+        if ($request->server_ids !== null && $request->template_id === $template->id) {
+            $pivot = array_intersect_key($pivot, array_flip($request->server_ids)) ?: $pivot;
+        }
         $by = Auth::user() instanceof User ? Auth::user() : null;
         [$invitation, $code] = $maker->create(['label' => $request->name, 'max_uses' => 1, 'expires_at' => now()->addDays(14)] + $settings, $pivot, $by);
         $request->forceFill(['status' => 'approved', 'invitation_id' => $invitation->id, 'decided_by' => $by?->id, 'decided_at' => now()])->save();

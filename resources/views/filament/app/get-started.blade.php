@@ -3,6 +3,12 @@
         <p style="font-size:1.05rem">{{ __('Welcome! You are in. Here is how to start watching.') }}</p>
     </div>
 
+    @foreach ($this->steps() as $step)
+        <x-filament::section :heading="$step->title" :description="$step->mediaServer?->name">
+            @include('filament.app.wizard-step', ['step' => $step])
+        </x-filament::section>
+    @endforeach
+
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,22rem),1fr));gap:1rem">
         @foreach ($this->accounts() as $account)
             @php($server = $account->mediaServer)

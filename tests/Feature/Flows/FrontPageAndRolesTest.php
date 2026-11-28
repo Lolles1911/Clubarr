@@ -16,6 +16,7 @@ use App\Models\MediaServer;
 use App\Models\ServerAccount;
 use App\Models\User;
 use App\Notifications\InvitationLink;
+use App\Services\Applications;
 use App\Services\Audit;
 use App\Services\InvitationMaker;
 use App\Services\MemberExport;
@@ -165,5 +166,31 @@ class FrontPageAndRolesTest extends TestCase
         $this->assertStringContainsString("'=HYPERLINK", $csv);
         $this->assertStringNotContainsString('admin@example.com', $csv);
         $this->assertStringNotContainsString('Member-pass', $csv);
+    }
+
+    public function test_applicants_choose_a_package_and_may_leave_out_servers(): void
+    {
+        Notification::fake();
+        $second = MediaServer::create(['type' => ServerType::Emby, 'name' => 'Second', 'url' => 'http://emby.local', 'api_key' => 'k']);
+        $maker = app(InvitationMaker::class);
+        [$films] = $maker->create(['label' => 'Films'], [$this->server->id => ['library_ids' => null]], $this->admin, template: true);
+        [$all] = $maker->create(['label' => 'All', 'access_days' => 30], [$this->server->id => ['library_ids' => null], $second->id => ['library_ids' => null]], $this->admin, template: true);
+        app(SiteSettings::class)->set(['apply_enabled' => '1', 'apply_packages' => json_encode([
+            ['label' => 'Films only', 'description' => 'Just films', 'template_id' => $films->id],
+            ['label' => 'Everything', 'description' => 'Both servers', 'template_id' => $all->id],
+        ])]);
+
+        Filament::setCurrentPanel('app');
+        Livewire::test(Apply::class)->assertSee(['Films only', 'Everything'])
+            ->fillForm(['name' => 'Sam', 'email' => 'sam@example.com', 'package' => '1'])
+            ->fillForm(['servers' => [(string) $second->id]])
+            ->call('join')->assertHasNoFormErrors();
+        $request = AccessRequest::sole();
+        $this->assertSame(['Everything', $all->id, [$second->id]], [$request->package, $request->template_id, $request->server_ids]);
+
+        $this->actingAs($this->admin);
+        app(Applications::class)->approve($request, $all);
+        $made = Invitation::where('is_template', false)->sole();
+        $this->assertSame([[$second->id], 30], [$made->mediaServers->pluck('id')->all(), $made->access_days]);
     }
 }

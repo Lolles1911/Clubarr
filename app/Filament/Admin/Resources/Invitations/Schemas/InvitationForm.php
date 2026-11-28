@@ -8,6 +8,7 @@ use App\Models\Invitation;
 use App\Models\Library;
 use App\Models\MediaServer;
 use App\Models\MemberGroup;
+use App\Models\WizardBundle;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
@@ -66,6 +67,10 @@ class InvitationForm
                 Select::make('member_group_id')->label(__('Put them in a group'))->placeholder(__('None'))
                     ->options(fn () => MemberGroup::orderBy('name')->pluck('name', 'id')->all())
                     ->helperText(__('The group\'s rules apply to them.')),
+                Select::make('wizard_bundle_id')->label(__('Wizard'))->placeholder(__('The standard steps'))
+                    ->options(fn () => WizardBundle::orderBy('name')->pluck('name', 'id')->all())
+                    ->visible(fn () => WizardBundle::exists())
+                    ->helperText(__('The steps they see before and after joining.')),
                 Toggle::make('seerr_access')->label(__('May request (Seerr)'))->live()
                     ->visible(fn () => Seerr::fromSettings() !== null)
                     ->helperText(__('Off: no user in Overseerr/Jellyseerr and no Requests page.')),
@@ -87,7 +92,7 @@ class InvitationForm
         }
         $set('servers', $template->mediaServers->pluck('id')->map(fn ($id) => (string) $id)->all());
         $set('libraries', $template->mediaServers->flatMap(fn ($s) => collect($template->libraryIdsFor($s) ?? [])->map(fn ($id) => $s->id.':'.$id))->values()->all());
-        foreach (['max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id'] as $field) {
+        foreach (['max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id', 'wizard_bundle_id'] as $field) {
             $set($field, $template->{$field});
         }
     }
