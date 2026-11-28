@@ -11,6 +11,7 @@ use App\Filament\App\Pages\Setup;
 use App\Http\Controllers\DiscordLinkController;
 use App\Http\Controllers\MediaImageController;
 use App\Http\Controllers\PlexReturnController;
+use App\Http\Controllers\SingleSignOnController;
 use App\Services\Applications;
 use App\Services\Branding;
 use Filament\Actions\Action;
@@ -49,6 +50,8 @@ class AppPanelProvider extends PanelProvider
                 Route::get('/setup', Setup::class)->name('setup');
                 Route::get('/waitlist', JoinWaitlist::class)->name('waitlist');
                 Route::get('/apply', Apply::class)->name('apply');
+                Route::get('/sso/redirect', [SingleSignOnController::class, 'redirect'])->name('sso.redirect');
+                Route::get('/sso/callback', [SingleSignOnController::class, 'callback'])->name('sso.callback');
                 Route::get('/plex/return', PlexReturnController::class)->name('plex.return');
                 Route::get('/join-posters/{key}', [MediaImageController::class, 'joinPoster'])->name('join-poster');
                 Route::get('/brand/logo', function () {

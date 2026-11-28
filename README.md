@@ -40,6 +40,11 @@ Silo servers.** Self-hosted, one Docker container. *Beta.*
 - **Backups**: every night in `/config/backups`, and a password-locked file
   to download; restore from either.
 - **Your look**: your logo and accent colour.
+- **Members help themselves**: ask for more time, report a problem, a
+  weekly mail of what is new, delete their account.
+- **Automatic**: servers kept in step, inactive members paused, server users
+  removed after access ends, applications to join, Seerr users at once.
+- **Single sign-on** with OpenID Connect (Authentik, Authelia, Keycloak).
 - English, and Danish for most of it.
 
 ## Install

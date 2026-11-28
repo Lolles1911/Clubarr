@@ -3,6 +3,37 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.6.0-beta (2026-11-29)
+
+### For members
+- **Ask for more time** in the last 14 days of their access; you approve
+  with a number of days (or decline) under **More time**, and they get a mail.
+- **Help**: "Something doesn't work" (a film that won't play, subtitles,
+  sign-in). You answer under **Problems**; the answer is mailed and shown on
+  their Help page.
+- **A weekly mail** with what is new on their servers, if they turn it on.
+- **Delete my account** (with their password): their users on the servers
+  go too.
+
+### For admins
+- **Dashboard**: members over 12 weeks, who watches now and the most
+  watched (with Tracearr), and the latest events.
+- **Libraries per member**: change what a member sees on each server
+  (Jellyfin, Emby, Plex); Clubarr changes the server.
+- **Many members at once**: change the end date, pause, enable, mail or
+  remove the ones you tick.
+- **Single sign-on** (OpenID Connect: Authentik, Authelia, Keycloak ...)
+  for admins, and members if you want. Only existing accounts can sign in.
+
+### Automatic
+- **Overseerr/Jellyseerr user at once** when someone joins.
+- **Inactive members**: nothing watched for the days you set: a mail a
+  week before, then paused (which frees the seat).
+- **After access ends**: their users on the servers are deleted after the
+  days you set; the Clubarr account stays.
+- **Apply to join** (/apply): people ask, you approve, and they get an
+  invitation by mail from your template.
+
 ## 0.5.0-beta (2026-11-28)
 
 ### Media servers and Clubarr stay in step

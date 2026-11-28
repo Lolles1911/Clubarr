@@ -106,3 +106,28 @@ the reminder (days; 0 = off), and members inviting friends (a number a
 month and the template their invitations copy). Templates are made under
 Invitations → New → "Save as a template instead". **Many at once** on the
 invitations list mails a personal single-use link to each email.
+
+## Automation
+
+Admin → Settings → Automation: **inactive members** (nothing watched for
+the days set: a mail a week before, then paused; last watched comes from
+Jellyfin/Emby, or Tracearr, which is needed for Plex) and **after access
+ends** (delete their users on the servers after the days set). Both run
+daily at 05:13; 0 turns them off. Servers are synced every 15 minutes.
+
+## Applications
+
+Settings → Invitations → Apply to join: open the public `/apply` page and
+choose the template an approved application's invitation copies. The
+sign-in page then shows "Apply to join". Applications are under
+Admin → Applications.
+
+## Single sign-on
+
+Settings → Security → Single sign-on. In your provider (Authentik,
+Authelia, Keycloak, ...) make an OpenID Connect client (confidential, code
+flow) with the redirect URI shown, scopes `openid email profile`, and
+copy the issuer URL, client ID and secret into Clubarr. People sign in to
+their existing account by a verified email; SSO never makes accounts. Turn
+on "Members may use it too" to offer it to members. Require two-factor at
+the provider: an SSO sign-in skips Clubarr's own.

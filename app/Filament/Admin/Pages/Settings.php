@@ -12,6 +12,7 @@ use App\Services\AdminAlerts;
 use App\Services\Audit;
 use App\Services\Backups;
 use App\Services\Branding;
+use App\Services\SingleSignOn;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
 use BackedEnum;
@@ -76,6 +77,8 @@ class Settings extends Page
         $values['admin_2fa_required'] = ($values['admin_2fa_required'] ?? '1') !== '0';
         $values['update_check'] = ($values['update_check'] ?? '1') !== '0';
         $values['apply_enabled'] = ($values['apply_enabled'] ?? '0') === '1';
+        $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
+        $values['oidc_members'] = ($values['oidc_members'] ?? '0') === '1';
         $values['alerts_events'] = ($values['alerts_events'] ?? null) === null ? array_keys(AdminAlerts::EVENTS) : array_values(array_filter(explode(',', (string) $values['alerts_events']), fn ($e) => isset(AdminAlerts::EVENTS[$e])));
         foreach (SiteSettings::SECRET as $secret) {
             unset($values[$secret]); // never sent to the browser
@@ -108,6 +111,19 @@ class Settings extends Page
                         ->helperText(__('Once a day Clubarr reads the public list of releases on GitHub. Nothing about your Clubarr is sent.')),
                 ]),
                 Tab::make(__('Security'))->key('security')->icon(Heroicon::OutlinedShieldCheck)->schema([
+                    Section::make(__('Single sign-on (OpenID Connect)'))->columns(2)
+                        ->description(__('Sign in with Authentik, Authelia, Keycloak or similar. Only existing accounts can sign in (by a verified email); SSO never makes accounts. Redirect URI for the provider: :url', ['url' => SingleSignOn::redirectUri()]))
+                        ->schema([
+                            Toggle::make('oidc_enabled')->label(__('On'))->columnSpanFull(),
+                            TextInput::make('oidc_issuer')->label(__('Issuer URL'))->url()->maxLength(255)->placeholder('https://auth.example.com/application/o/clubarr')
+                                ->regex('~^https://~')->helperText(__('Must be https. Clubarr reads /.well-known/openid-configuration from it.')),
+                            TextInput::make('oidc_label')->label(__('Button text'))->maxLength(40)->placeholder(__('Sign in with SSO')),
+                            TextInput::make('oidc_client_id')->label(__('Client ID'))->maxLength(200),
+                            TextInput::make('oidc_client_secret')->label(__('Client secret'))->password()->revealable()->maxLength(500)->autocomplete('off')
+                                ->helperText(__('Stored encrypted; leave empty to keep it.')),
+                            Toggle::make('oidc_members')->label(__('Members may use it too'))->columnSpanFull()
+                                ->helperText(__('Off: only admins. Signing in this way skips Clubarr\'s own two-factor step, so require two-factor at the provider.')),
+                        ]),
                     Toggle::make('admin_2fa_required')->label(__('Require two-factor sign-in for admins'))
                         ->helperText(__('Recommended. Admins can change members\' access and see server keys; with this on, a stolen password is not enough. Admins without it set up are asked to on their next sign-in.')),
                 ]),
@@ -266,6 +282,8 @@ class Settings extends Page
         $data['admin_2fa_required'] = ! empty($data['admin_2fa_required']) ? '1' : '0';
         $data['update_check'] = ! empty($data['update_check']) ? '1' : '0';
         $data['apply_enabled'] = ! empty($data['apply_enabled']) ? '1' : '0';
+        $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
+        $data['oidc_members'] = ! empty($data['oidc_members']) ? '1' : '0';
         // "-" when none is chosen: empty would mean "not set yet", which is all.
         $data['alerts_events'] = implode(',', array_intersect((array) ($data['alerts_events'] ?? []), array_keys(AdminAlerts::EVENTS))) ?: '-';
         foreach (SiteSettings::SECRET as $secret) {

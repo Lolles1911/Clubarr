@@ -17,7 +17,8 @@ class RequireAdminTwoFactor
 {
     public function handle(Request $request, Closure $next): mixed
     {
-        if (app(SiteSettings::class)->get('admin_2fa_required') === '0') {
+        // Signed in with single sign-on: the provider asked for the second factor.
+        if (app(SiteSettings::class)->get('admin_2fa_required') === '0' || $request->session()->get('clubarr.sso') === true) {
             return $next($request);
         }
 
