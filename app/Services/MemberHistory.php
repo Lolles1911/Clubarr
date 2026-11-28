@@ -124,8 +124,8 @@ class MemberHistory
      */
     public function because(User $user): ?array
     {
-        $because = $this->local($user)['because'] ?? null;
-        if (! is_array($because) || ($because['items'] ?? []) === []) {
+        $because = $this->local($user)['because'];
+        if ($because === null || $because['items'] === []) {
             return null;
         }
 
