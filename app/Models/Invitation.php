@@ -32,6 +32,7 @@ use Illuminate\Support\Str;
  * @property Carbon|null $sent_at
  * @property Carbon|null $reminded_at
  * @property string|null $reminder_link
+ * @property string|null $code_secret the code, encrypted (see code())
  * @property bool $awaiting_approval a member's invitation not approved yet
  * @property string|null $pending_code
  * @property string|null $pending_email
@@ -50,7 +51,7 @@ class Invitation extends Model
 
     protected $fillable = ['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id', 'wizard_bundle_id'];
 
-    protected $hidden = ['code_hash', 'reminder_link', 'pending_code', 'pending_email'];
+    protected $hidden = ['code_hash', 'code_secret', 'reminder_link', 'pending_code', 'pending_email'];
 
     protected function casts(): array
     {
@@ -70,6 +71,7 @@ class Invitation extends Model
             'reminded_at' => 'datetime',
             'reminder_link' => 'encrypted',
             'pending_code' => 'encrypted',
+            'code_secret' => 'encrypted',
             'pending_email' => 'encrypted',
             'awaiting_approval' => 'boolean',
         ];
@@ -103,8 +105,15 @@ class Invitation extends Model
         $code ??= self::newCode();
         $this->code_hash = self::hashCode($code);
         $this->code_hint = substr(self::normalize($code), 0, 5);
+        $this->code_secret = $code;
 
         return $code;
+    }
+
+    /** The whole code, for admins to see and copy again; null for invitations made before 0.10.2 (use "New link"). */
+    public function code(): ?string
+    {
+        return $this->is_template ? null : $this->code_secret;
     }
 
     public static function findByCode(string $code): ?self

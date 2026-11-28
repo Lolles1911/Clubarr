@@ -31,16 +31,18 @@ See [SECURITY.md](../SECURITY.md).
 
 ## Invitations
 
-- Codes are 20 random characters (about 99 bits) and are **stored only as a
-  hash**: a leaked database gives no working links. An admin sees the link
-  once; "New link" replaces it.
+- Codes are 20 random characters (about 99 bits). They are looked up by a
+  hash, and kept **encrypted** (with the key in `/config/app.key`) so admins
+  can see and copy them again in the list, like in Wizarr. A leaked database
+  alone gives no working links; with the key too, the open ones work, so keep
+  backups and `/config` safe. "New link" replaces a code.
 - Using an invitation takes a use under a database lock, so two people can't
   take the last one. If making a user on a server fails, everything made so
   far is removed again and the use is given back.
 
 ## Personal links (Import users)
 
-- Like invitation codes: random, stored only as a hash, shown once, used
+- Random, stored only as a hash (unlike invitation codes), shown once, used
   once (under a row lock), valid 30 days, and refused once the server user
   is linked to someone. Lookups are rate limited.
 
@@ -70,9 +72,8 @@ See [SECURITY.md](../SECURITY.md).
 
 ## Invitations
 
-- Codes are only stored as hashes. A link mailed to someone is kept
-  encrypted only for the one reminder, and removed after it, or when the
-  invitation is used or ends.
+- A link mailed to someone is also kept for the one reminder, encrypted, and
+  removed after it, or when the invitation is used or ends.
 - The QR code is made in the browser; the link is never sent to another
   service to draw it.
 - Members inviting friends choose only who and the words: servers,

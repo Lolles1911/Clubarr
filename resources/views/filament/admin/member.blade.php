@@ -13,7 +13,7 @@
             <div style="{{ $row }}"><span>{{ __('Joined') }}</span><span>{{ $m->created_at->translatedFormat('j M Y') }}</span></div>
             <div style="{{ $row }}"><span>{{ __('Last sign-in') }}</span><span>{{ $m->last_login_at?->diffForHumans() ?? '—' }}</span></div>
             <div style="{{ $row }}"><span>{{ __('Last watched') }}</span><span>{{ $m->last_seen_at?->diffForHumans() ?? '—' }}</span></div>
-            <div style="{{ $row }}"><span>{{ __('Invited') }}</span><span>{{ $inv ? ($inv->label ?: $inv->code_hint.'…').($inv->creator ? ' · '.__('by :name', ['name' => $inv->creator->name]) : '') : '—' }}</span></div>
+            <div style="{{ $row }}"><span>{{ __('Invited') }}</span><span>{{ $inv ? trim(($inv->label ? $inv->label.' · ' : '').($inv->code() ?? $inv->code_hint.'…'), ' ·').($inv->creator ? ' · '.__('by :name', ['name' => $inv->creator->name]) : '') : '—' }}</span></div>
             <div style="{{ $row }}"><span>{{ __('Limits') }}</span><span>{{ __(':streams streams, :requests requests/week', ['streams' => $m->max_streams ?? '∞', 'requests' => $m->seerr_access ? ($m->request_limit ?? '∞') : __('none')]) }}</span></div>
             <div style="{{ $row }}"><span>Discord</span><span>{{ $m->discord_username ?? '—' }}</span></div>
             @if ($m->groups->isNotEmpty())

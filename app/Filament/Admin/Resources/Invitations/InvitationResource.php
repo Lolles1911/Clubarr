@@ -75,7 +75,7 @@ class InvitationResource extends Resource
         } else {
             session()->flash('clubarr.share', self::link($code)); // shown by the list page after the redirect
         }
-        Notification::make()->title(__('Here is the invitation link'))->body(__('Copy, share or show it as a QR code at the top of the page. It is shown only this once.'))->success()->send();
+        Notification::make()->title(__('Here is the invitation link'))->body(__('Copy, share or show it as a QR code at the top of the page. You can copy it again from the list later.'))->success()->send();
     }
 
     public static function shareBox(string $link): HtmlString

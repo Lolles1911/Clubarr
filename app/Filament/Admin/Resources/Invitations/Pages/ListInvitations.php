@@ -54,7 +54,7 @@ class ListInvitations extends ListRecords
         return new HtmlString('<div style="margin-top:1rem;padding:1rem 1.1rem;border-radius:.75rem;border:1px solid color-mix(in oklab,var(--primary-500) 45%,transparent);background:color-mix(in oklab,var(--primary-500) 10%,transparent)">'
             .'<div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.6rem"><strong>'.e(__('Here is the invitation link')).'</strong>'
             .'<button type="button" wire:click="closeShare" style="opacity:.7;font-size:.85rem">'.e(__('Close')).'</button></div>'
-            .'<p style="font-size:.85rem;opacity:.8;margin-bottom:.6rem">'.e(__('It is shown only this once.')).'</p>'
+            .'<p style="font-size:.85rem;opacity:.8;margin-bottom:.6rem">'.e(__('You can copy it again from the list later.')).'</p>'
             .InvitationResource::shareBox($this->shareLink)->toHtml().'</div>');
     }
 
@@ -115,7 +115,7 @@ class ListInvitations extends ListRecords
                 Audit::log('invitation.many', $template, ['count' => $emails->count(), 'mailed' => $sent]);
                 $text = implode("\n", $lines);
                 Notification::make()->title(__(':count invitations made, :sent mailed.', ['count' => $emails->count(), 'sent' => $sent]))
-                    ->body(new HtmlString(nl2br(e($sent < $emails->count() ? __('Send the links below yourself; they are shown only this once.')."\n\n".$text : $text))))
+                    ->body(new HtmlString(nl2br(e($sent < $emails->count() ? __('Send the links below yourself.')."\n\n".$text : $text))))
                     ->actions($sent < $emails->count() ? [Action::make('copyAll')->label(__('Copy all'))->button()->alpineClickHandler(Copy::handler($text))] : [])
                     ->success()->persistent()->send();
             });
