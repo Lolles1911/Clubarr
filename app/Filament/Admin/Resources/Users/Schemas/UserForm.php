@@ -7,6 +7,7 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rules\Password;
@@ -33,8 +34,10 @@ class UserForm
                     ->hiddenOn('create'),
                 TextInput::make('max_streams')->label(__('Streams at the same time'))->numeric()->minValue(1)->maxValue(50)
                     ->helperText(__('Needs Tracearr. Empty: no limit.'))->hiddenOn('create'),
+                Toggle::make('seerr_access')->label(__('May request (Seerr)'))->live()->hiddenOn('create')
+                    ->helperText(__('Gives a user in Overseerr/Jellyseerr and the Requests page.')),
                 TextInput::make('request_limit')->label(__('Requests per week'))->numeric()->minValue(0)->maxValue(1000)
-                    ->helperText(__('Needs Seerr. Empty: no limit.'))->hiddenOn('create'),
+                    ->helperText(__('Needs Seerr. Empty: no limit.'))->hiddenOn('create')->visible(fn (Get $get) => (bool) $get('seerr_access')),
             ]),
         ]);
     }

@@ -41,6 +41,7 @@ use SensitiveParameter;
  * @property Carbon|null $last_seen_at
  * @property Carbon|null $inactive_warned_at
  * @property string|null $oidc_sub
+ * @property bool $seerr_access
  */
 class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasName
 {
@@ -68,6 +69,7 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'request_limit' => 'integer',
             'seerr_user_id' => 'integer',
             'digest' => 'boolean',
+            'seerr_access' => 'boolean',
             'digest_sent_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'inactive_warned_at' => 'datetime',

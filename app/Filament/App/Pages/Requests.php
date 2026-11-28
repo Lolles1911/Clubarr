@@ -37,7 +37,9 @@ class Requests extends Page
 
     public static function canAccess(): bool
     {
-        return app(RequestService::class)->enabled();
+        $user = Filament::auth()->user();
+
+        return app(RequestService::class)->enabled() && $user instanceof User && $user->seerr_access;
     }
 
     #[Unexposed]

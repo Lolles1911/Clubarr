@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Invitations\Schemas;
 
 use App\Integrations\Discord;
+use App\Integrations\Seerr;
 use App\Models\Invitation;
 use App\Models\Library;
 use App\Models\MediaServer;
@@ -61,8 +62,12 @@ class InvitationForm
                     ->helperText(__('Empty: until you remove it.')),
                 TextInput::make('max_streams')->label(__('Streams at the same time'))->numeric()->minValue(1)->maxValue(50)
                     ->helperText(__('Needs Tracearr. Empty: no limit.')),
+                Toggle::make('seerr_access')->label(__('May request (Seerr)'))->live()
+                    ->visible(fn () => Seerr::fromSettings() !== null)
+                    ->helperText(__('Off: no user in Overseerr/Jellyseerr and no Requests page.')),
                 TextInput::make('request_limit')->label(__('Requests per week'))->numeric()->minValue(0)->maxValue(1000)
-                    ->helperText(__('Needs Seerr. Empty: no limit.')),
+                    ->visible(fn (Get $get) => (bool) $get('seerr_access'))
+                    ->helperText(__('Empty: no limit.')),
             ]),
             Toggle::make('is_template')->label(__('Save as a template instead'))->live()->visibleOn('create')
                 ->helperText(__('A template is not an invitation: it keeps this set-up, to make invitations from later (also "Many at once" and members\' invitations).')),
@@ -78,7 +83,7 @@ class InvitationForm
         }
         $set('servers', $template->mediaServers->pluck('id')->map(fn ($id) => (string) $id)->all());
         $set('libraries', $template->mediaServers->flatMap(fn ($s) => collect($template->libraryIdsFor($s) ?? [])->map(fn ($id) => $s->id.':'.$id))->values()->all());
-        foreach (['max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting'] as $field) {
+        foreach (['max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access'] as $field) {
             $set($field, $template->{$field});
         }
     }

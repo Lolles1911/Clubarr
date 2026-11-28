@@ -10,6 +10,7 @@ use App\Models\Invitation;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
 use App\Models\User;
+use App\Services\SiteSettings;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -152,5 +153,17 @@ class JoinTest extends TestCase
         $this->fakeJellyfin();
         [, $code] = $this->invitation();
         $this->join($code, ['email' => 'admin@example.com'])->assertHasFormErrors(['email']);
+    }
+
+    public function test_seerr_only_when_the_invitation_gives_it(): void
+    {
+        app(SiteSettings::class)->set(['seerr_url' => 'http://seerr.local', 'seerr_api_key' => 'sk']);
+        $this->fakeJellyfin();
+        [, $code] = $this->invitation();
+
+        $this->join($code)->assertHasNoFormErrors();
+
+        $this->assertFalse(User::where('email', 'anna@example.com')->sole()->seerr_access);
+        Http::assertNotSent(fn (Request $r) => str_contains($r->url(), 'seerr.local'));
     }
 }

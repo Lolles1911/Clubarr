@@ -3,6 +3,13 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.6.1-beta (2026-11-29)
+
+### Changed
+- **Requests (Overseerr/Jellyseerr) are your choice**: "May request (Seerr)"
+  on the invitation (and templates) and on each member. Without it there is
+  no Seerr user and no Requests page. Members from before keep it.
+
 ## 0.6.0-beta (2026-11-29)
 
 ### For members

@@ -40,6 +40,9 @@ class Requests
     /** The member's Seerr user (looked up once, then kept). */
     public function seerrUser(User $user): int
     {
+        if (! $user->seerr_access) {
+            throw new MediaServerException(__('Requests are not part of your access.'));
+        }
         if ($user->seerr_user_id !== null) {
             return $user->seerr_user_id;
         }
@@ -74,7 +77,7 @@ class Requests
         if (! in_array($type, ['movie', 'tv'], true) || $tmdb <= 0) {
             throw new MediaServerException(__('That title can\'t be requested.'));
         }
-        if (! $user->hasActiveAccess()) {
+        if (! $user->hasActiveAccess() || ! $user->seerr_access) {
             throw new MediaServerException(__('Requests need active access.'));
         }
         if (($left = $this->remaining($user)) !== null && $left <= 0) {
