@@ -2,6 +2,8 @@
 
 namespace App\Filament\Admin\Resources\MediaServers\Concerns;
 
+use App\Enums\ServerType;
+use App\Models\MediaServer;
 use App\Services\Audit;
 use App\Services\PlexLogin;
 use Filament\Notifications\Notification;
@@ -52,7 +54,9 @@ trait SignsInWithPlex
     protected function withPlexToken(array $data): array
     {
         $token = session('admin.plex.token');
-        if (is_string($token) && $token !== '' && blank($data['api_key'] ?? null) && ($data['type'] ?? $this->record?->type?->value ?? null) === 'plex') {
+        $record = property_exists($this, 'record') ? $this->record : null;
+        $type = $data['type'] ?? ($record instanceof MediaServer ? $record->type->value : null);
+        if (is_string($token) && $token !== '' && blank($data['api_key'] ?? null) && $type === ServerType::Plex->value) {
             $data['api_key'] = $token;
         }
 
