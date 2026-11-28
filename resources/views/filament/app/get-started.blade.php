@@ -1,5 +1,5 @@
 <x-filament-panels::page>
-    <div style="display:flex;flex-direction:column;gap:.35rem">
+    <div style="display:flex;flex-direction:column;gap:.35rem" @if ($this->only !== null) data-clubarr-celebrate="joined" @endif>
         <p style="font-size:1.05rem">{{ __('Welcome! You are in. Here is how to start watching.') }}</p>
     </div>
 

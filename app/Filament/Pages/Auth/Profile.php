@@ -96,7 +96,7 @@ class Profile extends EditProfile
                     ->schema([View::make('filament.app.my-page-access')->viewData(['member' => $member, 'page' => $this, 'familyMax' => FamilyUsers::max()])]),
                 Tab::make(__('Settings'))->key('settings')->icon('heroicon-o-cog-6-tooth')->schema([
                     View::make('filament.app.my-page-settings')->viewData(['member' => $member, 'discord' => app(DiscordSync::class)->enabled()]),
-                    Actions::make([$this->digestAction(), $this->deleteAccountAction()]),
+                    Actions::make([$this->digestAction(), $this->episodesAction(), $this->deleteAccountAction()]),
                 ]),
             ]),
         ]);

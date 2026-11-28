@@ -31,6 +31,19 @@ trait MemberSettingsActions
             });
     }
 
+    public function episodesAction(): Action
+    {
+        return Action::make('episodes')
+            ->label(fn () => $this->member()->episode_alerts ? __('Stop messages about new episodes') : __('Tell me about new episodes of my shows'))
+            ->icon('heroicon-m-tv')->color('gray')->link()
+            ->visible(fn () => app(SiteSettings::class)->get('episode_alerts') !== '0')
+            ->action(function () {
+                $member = $this->member();
+                $member->forceFill(['episode_alerts' => ! $member->episode_alerts])->save();
+                Notification::make()->title($member->episode_alerts ? __('You get a message when your shows have new episodes.') : __('No more messages about new episodes.'))->success()->send();
+            });
+    }
+
     public function deleteAccountAction(): Action
     {
         return Action::make('deleteAccount')->label(__('Delete my account'))->icon('heroicon-m-trash')->color('danger')->link()

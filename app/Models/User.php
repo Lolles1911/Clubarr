@@ -28,6 +28,8 @@ use SensitiveParameter;
  * @property bool $is_admin
  * @property string|null $admin_role null: a full admin; 'moderator' (see AdminRole)
  * @property Carbon|null $self_paused_at
+ * @property bool $episode_alerts
+ * @property Carbon|null $episodes_told_at
  * @property Carbon|null $self_pause_until
  * @property Carbon|null $access_expires_at
  * @property Carbon|null $disabled_at
@@ -68,6 +70,8 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'app_authentication_recovery_codes' => 'encrypted:array',
             'access_expires_at' => 'datetime',
             'self_paused_at' => 'datetime',
+            'episode_alerts' => 'boolean',
+            'episodes_told_at' => 'datetime',
             'self_pause_until' => 'datetime',
             'expiry_warned_at' => 'datetime',
             'disabled_at' => 'datetime',

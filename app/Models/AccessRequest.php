@@ -16,6 +16,7 @@ use Illuminate\Support\Carbon;
  * @property list<array{q: string, a: string}>|null $answers
  * @property string $status pending|approved|declined
  * @property string|null $package
+ * @property int|null $renew_of an invitation they ask a new link for
  * @property int|null $template_id
  * @property list<int>|null $server_ids
  * @property int|null $invitation_id
@@ -28,6 +29,12 @@ class AccessRequest extends Model
     protected function casts(): array
     {
         return ['decided_at' => 'datetime', 'answers' => 'array', 'server_ids' => 'array'];
+    }
+
+    /** @return BelongsTo<Invitation, $this> the invitation they ask a new link for */
+    public function renewing(): BelongsTo
+    {
+        return $this->belongsTo(Invitation::class, 'renew_of');
     }
 
     /** @return BelongsTo<Invitation, $this> the package's template */

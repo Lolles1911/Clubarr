@@ -25,4 +25,11 @@ interface ReadsWatchHistory
      * @return list<RecentItem>
      */
     public function resume(string $remoteId, int $limit = 12): array;
+
+    /**
+     * Titles like one the user watched (its "item" from watched()), that they can see.
+     *
+     * @return list<RecentItem>
+     */
+    public function similar(string $remoteId, string $itemId, int $limit = 12): array;
 }

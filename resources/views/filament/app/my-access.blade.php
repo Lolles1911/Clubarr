@@ -9,6 +9,8 @@
         .clubarr-hero-title{font-size:clamp(1.4rem,4vw,2rem);font-weight:800;line-height:1.15;margin:0}
         .clubarr-hero-sub{opacity:.8;margin:.35rem 0 0;font-size:.95rem}
         .clubarr-hero-apps{display:flex;flex-wrap:wrap;gap:.6rem}
+        .clubarr-hero{position:relative}
+        .clubarr-hero > .clubarr-hero-more{position:absolute;top:.9rem;right:.9rem;z-index:3}
         .clubarr-row-title{font-weight:700;font-size:1.1rem;margin:0 0 .6rem}
         .clubarr-row{display:flex;gap:.8rem;overflow-x:auto;padding-bottom:.5rem;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
         .clubarr-poster{flex:0 0 clamp(6.75rem,27vw,9.5rem);margin:0;scroll-snap-align:start}
@@ -36,6 +38,9 @@
         @if ($backdrop)
             <div class="clubarr-hero-bg" aria-hidden="true" style="background-image:url('{{ isset($backdrop['server']) ? route('filament.app.server-poster', ['key' => $backdrop['key']]) : route('filament.app.poster', ['key' => $backdrop['key']]) }}')"></div>
         @endif
+        <div class="clubarr-hero-more">
+            <x-filament-actions::group :actions="$this->moreActions()" :label="__('More')" icon="heroicon-m-ellipsis-horizontal" color="gray" :button="true" size="sm" dropdown-placement="bottom-end" />
+        </div>
         <div>
             <h2 class="clubarr-hero-title">{{ __('Hi :name', ['name' => \Illuminate\Support\Str::before($member->name, ' ')]) }}</h2>
             @if ($member->access_expires_at)
@@ -96,8 +101,9 @@
         </div>
     @endif
 
-    @foreach (['new' => __('New on the server'), 'continue' => __('Continue watching'), 'popular' => __('Popular now')] as $row => $heading)
-        @php($items = $row === 'new' && $new !== [] ? $new : $rows[$row])
+    @php($because = $this->because())
+    @foreach (['new' => __('New on the server'), 'continue' => __('Continue watching'), 'because' => $because ? __('Because you watched :title', ['title' => $because['title']]) : '', 'popular' => __('Popular now')] as $row => $heading)
+        @php($items = $row === 'because' ? ($because['items'] ?? []) : ($row === 'new' && $new !== [] ? $new : $rows[$row]))
         @if ($items !== [] && $accounts->isNotEmpty())
             <section>
                 <h2 class="clubarr-row-title">{{ $heading }}</h2>
@@ -155,7 +161,7 @@
     @endif
 
     @if ($accounts->isNotEmpty())
-        <h2 class="clubarr-row-title" style="margin-bottom:-.5rem">{{ __('Your servers') }}</h2>
+        <h2 id="servers" class="clubarr-row-title" style="margin-bottom:-.5rem;scroll-margin-top:5rem">{{ __('Your servers') }}</h2>
     @endif
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,24rem),1fr));gap:1rem">
         @foreach ($accounts as $account)
@@ -170,9 +176,13 @@
                 <div style="display:flex;flex-direction:column;gap:.75rem;font-size:.9rem">
                     @if ($account->status === \App\Enums\AccountStatus::Pending && $account->claim_url)
                         <p>{{ __('One step left: choose your user name and password on :server\'s own page.', ['server' => $server->name]) }}</p>
-                        <div><x-filament::button tag="a" :href="$account->claim_url" target="_blank" rel="noopener noreferrer">{{ __('Finish on :server', ['server' => $server->name]) }}</x-filament::button></div>
+                        <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center"><x-filament::button tag="a" :href="$account->claim_url" target="_blank" rel="noopener noreferrer">{{ __('Finish on :server', ['server' => $server->name]) }}</x-filament::button>
+                            {{ ($this->newClaimAction)(['account' => $account->id]) }}</div>
+                        <p style="font-size:.8rem;opacity:.7">{{ __('The link does not work any more? Get a new one.') }}</p>
                     @elseif ($account->status === \App\Enums\AccountStatus::Pending)
                         <p>{{ __('Accept the invitation in Plex (plex.tv or the mail from Plex). Then the server shows up in your Plex apps.') }}</p>
+                        <div><x-filament::button tag="a" href="https://app.plex.tv/desktop/#!/settings/friends" target="_blank" rel="noopener noreferrer" color="gray" size="sm" icon="heroicon-m-arrow-top-right-on-square">{{ __('Open Plex to accept it') }}</x-filament::button></div>
+                        <p style="font-size:.8rem;opacity:.7">{{ __('No invitation from Plex? Tell us under Help, and we send it again.') }}</p>
                     @elseif ($account->status === \App\Enums\AccountStatus::Disabled)
                         <p>{{ __('Your user is paused. Contact the person who invited you.') }}</p>
                     @else
@@ -217,10 +227,7 @@
         </x-filament::section>
     @endif
 
-    <div style="display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:flex-end;font-size:.85rem;opacity:.85">
-        {{ $this->linkExistingAction }}
-        <x-filament::link :href="\Filament\Facades\Filament::getPanel('app')->getProfileUrl()" icon="heroicon-m-user-circle">{{ __('My page: account, numbers and settings') }}</x-filament::link>
-    </div>
+
 
     <x-filament-actions::modals />
 </x-filament-panels::page>

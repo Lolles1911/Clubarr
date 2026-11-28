@@ -24,6 +24,12 @@ class SiteSettings
         'locale' => 'en',
         // The look: streaming | midnight | classic (see Theme).
         'theme' => 'streaming',
+        // Animations in the themes and the burst on an invitation ('1') or none ('0').
+        'animations' => '1',
+        // Members get "new episodes of your shows" ('1', each can turn it off) or not ('0').
+        'episode_alerts' => '1',
+        // A public status page at /status ('1') or not.
+        'status_page' => '0',
         'mail_enabled' => '0',
         'mail_host' => '',
         'mail_port' => '587',

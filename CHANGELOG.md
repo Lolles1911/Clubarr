@@ -3,6 +3,38 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.12.0-beta (2026-11-30)
+
+### For members
+- **A "More" menu** by the greeting (and in the avatar menu): My page, My
+  statistics, Invite a friend, the password for watching, "I already have a
+  user" and Help. The links at the bottom are gone.
+- **When a link fails**: an invitation that ended or was used up has
+  **"Ask for a new link"** (you approve it under Applications, and a new link
+  is mailed); a Silo user not finished gets **a new link at once**; Plex has
+  a button to accept the share; the sign-in page explains the password for
+  watching.
+- **"Because you watched …"**: titles like the last one they watched
+  (Jellyfin and Emby).
+- **New episodes of your shows**: a message (mail and Discord) when shows
+  they watch get something new. They can turn it off on My page.
+- **The app on the home screen**: Clubarr can be added to a phone's home
+  screen with its icon and opens full screen.
+
+### Look
+- **A burst of confetti** when someone opens an invitation and when they have
+  joined, and soft motion in the themes (cards and posters glide in). Off
+  with "reduce motion" on the phone, or under Settings → General.
+
+### For admins
+- **Checks** (System): what may be wrong or waiting, worst first, with a link
+  to fix it: servers not answering, the scheduler or queue stopped, mail off,
+  no https, admins without two-factor, old backups, a new version, and
+  applications, problems and invitations waiting.
+- **A public status page** at /status (Settings → Members): whether the
+  servers answer, their uptime over 24 hours and 30 days, and planned
+  maintenance.
+
 ## 0.11.0-beta (2026-11-30)
 
 ### New look

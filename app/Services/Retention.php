@@ -8,6 +8,7 @@ use App\Models\ExtensionRequest;
 use App\Models\Invitation;
 use App\Models\KnownDevice;
 use App\Models\ProblemReport;
+use App\Models\ServerCheck;
 use App\Models\WaitlistEntry;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -44,6 +45,7 @@ class Retention
                 + ProblemReport::where('status', 'closed')->where('updated_at', '<', $before)->delete()
                 + WaitlistEntry::whereIn('status', ['joined', 'expired', 'removed'])->where('updated_at', '<', $before)->delete();
         }
+        ServerCheck::where('checked_at', '<', now()->subDays(90))->delete();
         // Devices not signed in on for over a year: a sign-in there is "new" again.
         KnownDevice::where('last_used_at', '<', now()->subDays(400))->delete();
 

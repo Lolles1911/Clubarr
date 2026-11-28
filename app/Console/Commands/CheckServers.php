@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\MediaServer;
+use App\Models\ServerCheck;
 use App\Services\NewOnServers;
 use App\Services\ServerSync;
 use Illuminate\Console\Command;
@@ -21,8 +22,11 @@ class CheckServers extends Command
             try {
                 $sync->check($server);
             } catch (Throwable) {
+                ServerCheck::create(['media_server_id' => $server->id, 'up' => false, 'checked_at' => now()]);
+
                 continue; // noted on the server by check()
             }
+            ServerCheck::create(['media_server_id' => $server->id, 'up' => true, 'checked_at' => now()]);
             $new->warm($server); // "New on the server" for the members' page
         }
 

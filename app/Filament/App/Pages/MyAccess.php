@@ -18,6 +18,7 @@ use App\Services\ComingSoon;
 use App\Services\DiscordSync;
 use App\Services\ExistingUsers;
 use App\Services\MemberHistory;
+use App\Services\MemberInvites;
 use App\Services\MemberRequests;
 use App\Services\NewOnServers;
 use App\Services\SiteSettings;
@@ -128,6 +129,17 @@ class MyAccess extends Dashboard
             return app(NewOnServers::class)->forMember($this->member());
         } catch (Throwable) {
             return [];
+        }
+    }
+
+    /** @return array{title: string, items: list<array<string, mixed>>}|null "Because you watched …" */
+    #[Unexposed]
+    public function because(): ?array
+    {
+        try {
+            return app(MemberHistory::class)->because($this->member());
+        } catch (Throwable) {
+            return null;
         }
     }
 
@@ -287,6 +299,49 @@ class MyAccess extends Dashboard
                 $night = $this->movieNights()->firstWhere('id', (int) ($arguments['night'] ?? 0));
                 if ($night !== null) {
                     $this->member()->movieNights()->toggle([$night->id]);
+                }
+            });
+    }
+
+    /** The "⋯ More" menu by the greeting: everything a member may want besides watching. */
+    #[Unexposed]
+    public function moreActions(): array
+    {
+        $member = $this->member();
+
+        return array_map(fn (Action $action) => $action->livewire($this), [
+            Action::make('myPage')->label(__('My page'))->icon('heroicon-m-user-circle')->url(Filament::getPanel('app')->getProfileUrl()),
+            Action::make('myStats')->label(__('My statistics'))->icon('heroicon-m-chart-bar')->url(fn () => MyStats::getUrl(panel: 'app'))->visible(fn () => MyStats::canAccess()),
+            Action::make('inviteFriend')->label(__('Invite a friend'))->icon('heroicon-m-user-plus')->url(fn () => InviteFriend::getUrl(panel: 'app'))->visible(fn () => MemberInvites::allowed($member)),
+            Action::make('serverPassword')->label(__('Password for watching'))->icon('heroicon-m-key')->url('#servers')
+                ->visible(fn () => $this->accounts()->contains(fn (ServerAccount $a) => $this->canChangePassword($a))),
+            $this->getAction('linkExisting', isMounting: false),
+            Action::make('help')->label(__('Help'))->icon('heroicon-m-lifebuoy')->url(fn () => Help::getUrl(panel: 'app')),
+        ]);
+    }
+
+    /** A Silo link that expired or was lost: a new one, at once (the member's own pending user only). */
+    public function newClaimAction(): Action
+    {
+        return Action::make('newClaim')->label(__('Get a new link'))->icon('heroicon-m-arrow-path')->color('gray')->size('sm')
+            ->action(function (array $arguments) {
+                $account = $this->ownAccount($arguments);
+                if ($account === null || $account->status !== AccountStatus::Pending || ! $account->mediaServer->type->can(UsesClaimLinks::class)) {
+                    return;
+                }
+                try {
+                    $this->rateLimit(3, 3600, 'newClaim');
+                    /** @var UsesClaimLinks $driver */
+                    $driver = $account->mediaServer->driver();
+                    $claim = $driver->createClaim($account->library_ids);
+                    $account->update(['claim_url' => $claim->url, 'claim_id' => $claim->id]);
+                    Audit::log('account.new_claim', $account, ['server' => $account->mediaServer->name]);
+                    Notification::make()->title(__('Here is a new link. Open it to choose your user name and password.'))->success()->send();
+                } catch (TooManyRequestsException) {
+                    Notification::make()->title(__('That was a few times now. Please try again in an hour.'))->danger()->send();
+                } catch (Throwable $e) {
+                    report($e);
+                    Notification::make()->title(__('No new link right now. Please try again later, or ask us.'))->danger()->send();
                 }
             });
     }

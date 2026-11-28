@@ -85,6 +85,9 @@ class Settings extends Page
         $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
         $values['member_invites_approval'] = ($values['member_invites_approval'] ?? '0') === '1';
         $values['link_existing'] = ($values['link_existing'] ?? '1') !== '0';
+        $values['animations'] = ($values['animations'] ?? '1') !== '0';
+        $values['episode_alerts'] = ($values['episode_alerts'] ?? '1') !== '0';
+        $values['status_page'] = ($values['status_page'] ?? '0') === '1';
         $values['switch_servers'] = array_values(array_filter(explode(',', (string) ($values['switch_servers'] ?? ''))));
         $values['apply_packages'] = array_values(array_filter((array) json_decode((string) ($values['apply_packages'] ?? ''), true), 'is_array'));
         foreach (['landing_enabled' => '0', 'landing_posters' => '0', 'landing_status' => '1'] as $key => $default) {
@@ -110,6 +113,8 @@ class Settings extends Page
                         ->helperText(__('Shown to members on their page: which apps to use, house rules, where to ask. Plain text.')),
                     Select::make('theme')->label(__('Theme'))->options(Theme::options())->required()->columnSpanFull()
                         ->helperText(__('The look of every page, for members and admins. Your accent colour and logo are used in all of them.')),
+                    Toggle::make('animations')->label(__('Animations'))->columnSpanFull()
+                        ->helperText(__('Cards and posters glide in, and confetti when someone opens an invitation and joins. Phones set to "reduce motion" never get them.')),
                     ColorPicker::make('brand_color')->label(__('Accent colour'))->regex('/^#[0-9a-fA-F]{6}$/')
                         ->helperText(__('Buttons and links, for admins and members. Empty: the theme\'s own.')),
                     FileUpload::make('logo')->label(__('Logo'))->image()->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])->maxSize(300)->storeFiles(false)
@@ -216,6 +221,10 @@ class Settings extends Page
                             ->helperText(__('Jellyfin and Emby. They get the member\'s libraries, follow the member\'s access, and their streams count as the member\'s.')),
                         TextInput::make('self_pause_days')->label(__('Pause their access for at most'))->numeric()->minValue(0)->maxValue(365)->suffix(__('days'))
                             ->helperText(__('Their users are paused; the time paused is added to their end date when they come back.')),
+                        Toggle::make('episode_alerts')->label(__('Tell members about new episodes of their shows'))->columnSpanFull()
+                            ->helperText(__('Daily, by mail and Discord: shows they watched lately that got something new. Each member can turn it off.')),
+                        Toggle::make('status_page')->label(__('A public status page at /status'))->columnSpanFull()
+                            ->helperText(__('Whether the servers answer, how often they did the last 30 days, and planned maintenance. No names of members.')),
                         Select::make('switch_servers')->label(__('Servers they may move to'))->multiple()->columnSpanFull()
                             ->options(fn () => MediaServer::orderBy('name')->get()->filter(fn (MediaServer $s) => $s->type !== ServerType::Plex)->pluck('name', 'id')->all())
                             ->helperText(__('They get a user there (all libraries) and the old one is removed. Not Plex. Full servers are not offered.')),
@@ -303,6 +312,9 @@ class Settings extends Page
         $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
         $data['member_invites_approval'] = ! empty($data['member_invites_approval']) ? '1' : '0';
         $data['link_existing'] = ! empty($data['link_existing']) ? '1' : '0';
+        $data['animations'] = ! empty($data['animations']) ? '1' : '0';
+        $data['episode_alerts'] = ! empty($data['episode_alerts']) ? '1' : '0';
+        $data['status_page'] = ! empty($data['status_page']) ? '1' : '0';
         $data['switch_servers'] = implode(',', array_map('intval', (array) ($data['switch_servers'] ?? [])));
         $data['apply_packages'] = json_encode(array_values(array_map(fn ($p) => ['label' => (string) ($p['label'] ?? ''), 'description' => (string) ($p['description'] ?? ''), 'template_id' => (int) ($p['template_id'] ?? 0)],
             array_filter((array) ($data['apply_packages'] ?? []), 'is_array')))) ?: '[]';

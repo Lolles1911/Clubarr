@@ -82,6 +82,23 @@ abstract class MediaBrowserDriver implements ChangesLibraries, CreatesUsers, Lis
         return array_slice($items, 0, $limit);
     }
 
+    public function similar(string $remoteId, string $itemId, int $limit = 12): array
+    {
+        if (! preg_match('/^[A-Za-z0-9-]{1,64}$/', $remoteId) || ! preg_match('/^[A-Za-z0-9-]{1,64}$/', $itemId)) {
+            return [];
+        }
+        $found = $this->http->json('GET', '/Items/'.$itemId.'/Similar', ['userId' => $remoteId, 'Limit' => min(24, max(1, $limit)), 'Fields' => 'ProductionYear'])['Items'] ?? [];
+        $items = [];
+        foreach (array_filter($found, 'is_array') as $item) {
+            $ref = (string) ($item['Id'] ?? '');
+            if ($ref !== '' && preg_match('/^[A-Za-z0-9-]{1,64}$/', $ref) && in_array($item['Type'] ?? '', ['Movie', 'Series'], true)) {
+                $items[] = new RecentItem($ref, (string) ($item['Name'] ?? ''), isset($item['ProductionYear']) ? (int) $item['ProductionYear'] : null, 0);
+            }
+        }
+
+        return $items;
+    }
+
     public function verifyLogin(string $username, string $password): ?RemoteUser
     {
         // Without the server's key: this is the member signing in, as an app would.
@@ -133,6 +150,7 @@ abstract class MediaBrowserDriver implements ChangesLibraries, CreatesUsers, Lis
                 'media_type' => $episode ? 'episode' : 'movie',
                 'media_title' => (string) ($item['Name'] ?? ''),
                 'show_title' => $episode ? (string) ($item['SeriesName'] ?? '') : null,
+                'item' => (string) ($episode ? ($item['SeriesId'] ?? '') : ($item['Id'] ?? '')),
             ];
         }
 

@@ -102,8 +102,27 @@
 .clubarr-hero-title { font-size: clamp(1.8rem, 5vw, 2.8rem) !important; letter-spacing: -.03em; }
 .clubarr-hero-bg { position: absolute; inset: 0; z-index: 0; background-size: cover; background-position: center 25%; opacity: .45; filter: blur(2px) saturate(1.2); transform: scale(1.06); }
 .clubarr-hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7,7,10,.92) 0%, rgba(7,7,10,.55) 55%, rgba(7,7,10,.15) 100%), linear-gradient(0deg, rgba(7,7,10,.85), transparent 60%); }
-.clubarr-hero > :not(.clubarr-hero-bg) { position: relative; z-index: 1; }
+.clubarr-hero > :not(.clubarr-hero-bg):not(.clubarr-hero-more) { position: relative; z-index: 1; }
 .clubarr-row-title { font-size: 1.25rem !important; letter-spacing: -.01em; }
 .clubarr-poster { flex-basis: clamp(7.5rem, 30vw, 11rem) !important; }
 .clubarr-poster img { border-radius: .8rem !important; transition: transform .2s ease, box-shadow .2s ease; box-shadow: 0 12px 30px -12px rgba(0,0,0,.8) !important; }
 .clubarr-poster:hover img { transform: scale(1.04); box-shadow: 0 0 0 2px var(--primary-500), 0 18px 40px -12px rgba(0,0,0,.9) !important; }
+
+/* Motion: things rise into place, the greeting has a slow light; off with "reduce motion" or html.cb-no-motion */
+@keyframes cb-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes cb-sheen { 0% { transform: translateX(-120%) skewX(-18deg); } 55%, 100% { transform: translateX(260%) skewX(-18deg); } }
+@keyframes cb-drift { from { transform: rotate(-6deg) scale(1.25) translateY(0); } to { transform: rotate(-6deg) scale(1.25) translateY(-60px); } }
+@media (prefers-reduced-motion: no-preference) {
+    html:not(.cb-no-motion) .fi-page-content > *, html:not(.cb-no-motion) .fi-simple-main { animation: cb-rise .55s cubic-bezier(.2,.7,.2,1) both; }
+    html:not(.cb-no-motion) .fi-page-content > :nth-child(2) { animation-delay: .06s; }
+    html:not(.cb-no-motion) .fi-page-content > :nth-child(3) { animation-delay: .12s; }
+    html:not(.cb-no-motion) .fi-page-content > :nth-child(n+4) { animation-delay: .18s; }
+    html:not(.cb-no-motion) .clubarr-poster { animation: cb-rise .5s cubic-bezier(.2,.7,.2,1) both; }
+    html:not(.cb-no-motion) .clubarr-poster:nth-child(2) { animation-delay: .05s; } html:not(.cb-no-motion) .clubarr-poster:nth-child(3) { animation-delay: .1s; }
+    html:not(.cb-no-motion) .clubarr-poster:nth-child(4) { animation-delay: .15s; } html:not(.cb-no-motion) .clubarr-poster:nth-child(n+5) { animation-delay: .2s; }
+    html:not(.cb-no-motion) .clubarr-hero::after { content: ""; position: absolute; top: 0; bottom: 0; width: 35%; z-index: 0; pointer-events: none;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,.07), transparent); animation: cb-sheen 7s ease-in-out 1s infinite; }
+    html:not(.cb-no-motion) .cb-backdrop { animation: cb-drift 40s linear infinite alternate; }
+    html:not(.cb-no-motion) .fi-btn.fi-color-primary:not(.fi-disabled) { transition: filter .2s ease, box-shadow .2s ease, transform .2s ease; }
+    html:not(.cb-no-motion) .fi-btn.fi-color-primary:not(.fi-disabled):hover { transform: translateY(-1px); box-shadow: 0 12px 30px -8px color-mix(in oklab, var(--primary-500) 85%, transparent); }
+}

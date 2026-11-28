@@ -50,7 +50,15 @@ final class PanelDefaults
                 ? new HtmlString('<link rel="stylesheet" href="'.e($sheet).'">') : '')
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => new HtmlString(
                 '<script src="'.e(asset('js/qrcode.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'
-                .'<script src="'.e(asset('js/clubarr-share.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'))
+                .'<script src="'.e(asset('js/clubarr-share.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'
+                .'<script src="'.e(asset('js/clubarr-celebrate.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'
+                // On the home screen as an app (manifest + a service worker that keeps nothing).
+                .'<link rel="manifest" href="'.e(route('manifest')).'"><meta name="theme-color" content="'.e(Theme::accentHex()).'">'
+                .'<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">'
+                .'<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><link rel="apple-touch-icon" href="'.e(asset('clubarr-icon.png')).'">'
+                .'<script>if ("serviceWorker" in navigator) { addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {})) }</script>'
+                // Animations off (Settings → General): one class on <html>, set before anything is drawn.
+                .(app(SiteSettings::class)->get('animations') === '0' ? '<script>document.documentElement.classList.add("cb-no-motion")</script>' : '')))
             // The version, for those signed in (so you can see an update arrived); not shown to visitors.
             ->renderHook(PanelsRenderHook::FOOTER, fn () => auth()->check()
                 ? new HtmlString('<div style="text-align:center;font-size:.75rem;opacity:.5;padding:1rem 0">Clubarr '.e((string) config('clubarr.version')).'</div>') : '')
