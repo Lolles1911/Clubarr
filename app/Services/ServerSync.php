@@ -108,7 +108,7 @@ class ServerSync
         $server = $account->mediaServer;
         $account->delete();
         Audit::log('account.gone_on_server', $member, ['server' => $server->name, 'remote_username' => $account->remote_username], null);
-        if ($member !== null && ! $member->is_admin && $member->disabled_at === null && ! $member->serverAccounts()->exists()) {
+        if (! $member->is_admin && $member->disabled_at === null && ! $member->serverAccounts()->exists()) {
             $member->forceFill(['disabled_at' => now()])->save();
             Audit::log('member.disabled', $member, ['reason' => 'no servers left'], null);
             app(DiscordSync::class)->sync($member);
