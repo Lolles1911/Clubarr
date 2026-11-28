@@ -6,6 +6,7 @@ use App\MediaServers\Contracts\ChangesLibraries;
 use App\MediaServers\Contracts\CreatesUsers;
 use App\MediaServers\Contracts\ListsRecentlyAdded;
 use App\MediaServers\Contracts\MediaServerDriver;
+use App\MediaServers\Contracts\ReadsWatchHistory;
 use App\MediaServers\Data\LibraryData;
 use App\MediaServers\Data\RecentItem;
 use App\MediaServers\Data\RemoteUser;
@@ -19,7 +20,7 @@ use Throwable;
  * Jellyfin and Emby share most of their API (both come from Media Browser).
  * The differences are in the two drivers that extend this one.
  */
-abstract class MediaBrowserDriver implements ChangesLibraries, CreatesUsers, ListsRecentlyAdded, MediaServerDriver
+abstract class MediaBrowserDriver implements ChangesLibraries, CreatesUsers, ListsRecentlyAdded, MediaServerDriver, ReadsWatchHistory
 {
     protected ServerHttp $http;
 
@@ -78,6 +79,53 @@ abstract class MediaBrowserDriver implements ChangesLibraries, CreatesUsers, Lis
         usort($items, fn (RecentItem $a, RecentItem $b) => $b->addedAt <=> $a->addedAt);
 
         return array_slice($items, 0, $limit);
+    }
+
+    public function watched(string $remoteId, int $limit = 300): array
+    {
+        if (! preg_match('/^[A-Za-z0-9-]{1,64}$/', $remoteId)) {
+            return [];
+        }
+        $found = $this->http->json('GET', '/Users/'.$remoteId.'/Items', [
+            'Recursive' => 'true', 'IsPlayed' => 'true', 'IncludeItemTypes' => 'Movie,Episode', 'SortBy' => 'DatePlayed',
+            'SortOrder' => 'Descending', 'Limit' => min(1000, max(1, $limit)), 'EnableUserData' => 'true',
+        ])['Items'] ?? [];
+        $plays = [];
+        foreach (array_filter($found, 'is_array') as $item) {
+            $at = strtotime((string) ($item['UserData']['LastPlayedDate'] ?? '')) ?: 0;
+            if ($at === 0) {
+                continue;
+            }
+            $episode = ($item['Type'] ?? '') === 'Episode';
+            $plays[] = [
+                'started_at' => gmdate('Y-m-d\TH:i:s\Z', $at),
+                'duration_ms' => (int) (((int) ($item['RunTimeTicks'] ?? 0)) / 10000),
+                'media_type' => $episode ? 'episode' : 'movie',
+                'media_title' => (string) ($item['Name'] ?? ''),
+                'show_title' => $episode ? (string) ($item['SeriesName'] ?? '') : null,
+            ];
+        }
+
+        return $plays;
+    }
+
+    public function resume(string $remoteId, int $limit = 12): array
+    {
+        if (! preg_match('/^[A-Za-z0-9-]{1,64}$/', $remoteId)) {
+            return [];
+        }
+        $found = $this->http->json('GET', '/Users/'.$remoteId.'/Items/Resume', ['Limit' => min(50, max(1, $limit)), 'MediaTypes' => 'Video', 'EnableUserData' => 'true'])['Items'] ?? [];
+        $items = [];
+        foreach (array_filter($found, 'is_array') as $item) {
+            $episode = ($item['Type'] ?? '') === 'Episode';
+            $ref = (string) ($episode ? ($item['SeriesId'] ?? '') : ($item['Id'] ?? ''));
+            $title = (string) ($episode ? ($item['SeriesName'] ?? '') : ($item['Name'] ?? ''));
+            if ($ref !== '' && $title !== '' && preg_match('/^[A-Za-z0-9-]{1,64}$/', $ref) && ! isset($items[$ref])) {
+                $items[$ref] = new RecentItem($ref, $title, null, (int) round((float) ($item['UserData']['PlayedPercentage'] ?? 0)));
+            }
+        }
+
+        return array_values($items);
     }
 
     public function poster(string $ref): ?array

@@ -15,6 +15,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -56,6 +57,7 @@ class AccessTest extends TestCase
         ]);
 
         $this->actingAs($attacker);
+        Queue::fake(); // the page's own history refresh is queued, not a call here
         Livewire::test(MyAccess::class)->callAction('changePassword', [], ['account' => $victim->id]);
         Http::assertNothingSent();
 

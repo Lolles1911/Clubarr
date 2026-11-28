@@ -44,6 +44,17 @@ class NewOnServers
     }
 
     /**
+     * Makes posters of these items fetchable by members of their server (/posters/s/{key}).
+     *
+     * @param  list<array{server_id: int, ref: string, title: string, year: int|null, server: string}>  $rows
+     * @return list<array{key: string, title: string, year: int|null, server: string}>
+     */
+    public function registerRows(array $rows): array
+    {
+        return $this->register($rows);
+    }
+
+    /**
      * Gives each poster a key that only Clubarr can turn back into the server and item.
      *
      * @return list<array{key: string, title: string, year: int|null, server: string}>

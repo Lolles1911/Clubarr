@@ -5,6 +5,7 @@ namespace Tests\Feature\Members;
 use App\Enums\AccountStatus;
 use App\Enums\ServerType;
 use App\Filament\App\Pages\MyAccess;
+use App\Jobs\RefreshMemberHistory;
 use App\Models\Library;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
@@ -14,6 +15,7 @@ use App\Services\SiteSettings;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -90,9 +92,12 @@ class NewOnServersTest extends TestCase
         $server = MediaServer::create(['type' => ServerType::Jellyfin, 'name' => 'Home', 'url' => 'http://jf.local', 'api_key' => 'k']);
         $anna = $this->member($server, null);
         Http::fake();
+        Queue::fake();
 
         $this->actingAs($anna);
         Livewire::test(MyAccess::class)->assertSee('Hi Anna')->assertSee('Open Home')->assertDontSee('New on the server');
         Http::assertNothingSent();
+        // Their own history (no Tracearr) is fetched on the queue, once.
+        Queue::assertPushed(RefreshMemberHistory::class, 1);
     }
 }

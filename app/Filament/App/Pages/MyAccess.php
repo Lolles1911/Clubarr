@@ -12,6 +12,7 @@ use App\Services\AccessManager;
 use App\Services\Audit;
 use App\Services\ComingSoon;
 use App\Services\DiscordSync;
+use App\Services\MemberHistory;
 use App\Services\MemberRequests;
 use App\Services\NewOnServers;
 use App\Services\SiteSettings;
@@ -86,13 +87,15 @@ class MyAccess extends Dashboard
         return $user;
     }
 
-    /** @return array{hours7: float, hours30: float, plays30: int}|null */
+    /** @return array{hours7: float, hours30: float, plays30: int, top: ?string}|null from Tracearr/Tautulli, or Jellyfin/Emby */
     #[Unexposed]
     public function stats(): ?array
     {
-        $watching = app(Watching::class);
-
-        return $watching->enabled() ? $watching->statsOf($this->member()) : null;
+        try {
+            return app(MemberHistory::class)->stats($this->member());
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /** @return array{continue: list<array>, popular: list<array>, new: list<array>} */
@@ -100,7 +103,12 @@ class MyAccess extends Dashboard
     public function posterRows(): array
     {
         try {
-            return app(Watching::class)->posterRows($this->member());
+            $rows = app(Watching::class)->posterRows($this->member());
+            if ($rows['continue'] === [] && ! app(Watching::class)->enabled()) {
+                $rows['continue'] = app(MemberHistory::class)->resume($this->member());
+            }
+
+            return $rows;
         } catch (Throwable) {
             return ['continue' => [], 'popular' => [], 'new' => []];
         }
