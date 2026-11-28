@@ -3,7 +3,7 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
-## 0.2.1-beta (2026-11-28)
+## 0.2.2-beta (2026-11-28)
 
 ### Fixed
 - **Sign in with Plex on a phone** stopped at Plex's "you can close the
@@ -16,6 +16,11 @@ release on GitHub (`.github/release-notes.sh` puts it there).
 - **Settings** is split into tabs: General, Security, Mail, Integrations and
   Waiting list. Mail and each integration (Tracearr, Seerr, Discord) have
   their own **Test** button.
+
+## 0.2.1-beta (2026-11-28)
+
+Built from the wrong commit: the same as 0.2.0-beta. Its changes are in
+0.2.2-beta.
 
 ## 0.2.0-beta (2026-11-28)
 
