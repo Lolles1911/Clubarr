@@ -13,6 +13,17 @@ See [SECURITY.md](../SECURITY.md).
 - Passwords: at least 10 characters with letters and digits (admins 12),
   stored with bcrypt. Sign-in, invitation lookups, sign-ups, password changes
   and Plex sign-in are rate limited per IP.
+- **Failed sign-ins are logged** (who and the IP, never what was typed). After
+  10 failed sign-ins for one email, that account is locked for 15 minutes,
+  even with the right password; any email typed counts the same, so the lock
+  says nothing about which accounts exist. Admins can get an alert.
+- **A sign-in from a new device is mailed** to the person (Settings →
+  Security; needs mail). A device is a random cookie, stored as a hash; the
+  first device ever (joining) is not mailed.
+- On their profile, people see the browsers they are signed in on and can
+  **sign out everywhere else** (with their password). A new email is only
+  used once the link mailed to it is opened, and the old address gets a
+  notice with a link to stop the change (when mail is on).
 - Sessions are encrypted, HTTP-only cookies, `SameSite=Lax`, `Secure` with
   `SESSION_SECURE_COOKIE=true`. A disabled member is refused on every page.
 - Members can't reach /admin. Every member action checks that the server user

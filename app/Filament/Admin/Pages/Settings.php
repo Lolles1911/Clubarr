@@ -15,6 +15,7 @@ use App\Services\Audit;
 use App\Services\Backups;
 use App\Services\Branding;
 use App\Services\ComingSoon;
+use App\Services\LoginGuard;
 use App\Services\SingleSignOn;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
@@ -84,6 +85,7 @@ class Settings extends Page
         $values['apply_enabled'] = ($values['apply_enabled'] ?? '0') === '1';
         $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
         $values['oidc_members'] = ($values['oidc_members'] ?? '0') === '1';
+        $values['login_alerts'] = ($values['login_alerts'] ?? '1') !== '0';
         $values['alerts_events'] = ($values['alerts_events'] ?? null) === null ? array_keys(AdminAlerts::EVENTS) : array_values(array_filter(explode(',', (string) $values['alerts_events']), fn ($e) => isset(AdminAlerts::EVENTS[$e])));
         foreach (SiteSettings::SECRET as $secret) {
             unset($values[$secret]); // never sent to the browser
@@ -131,6 +133,8 @@ class Settings extends Page
                         ]),
                     Toggle::make('admin_2fa_required')->label(__('Require two-factor sign-in for admins'))
                         ->helperText(__('Recommended. Admins can change members\' access and see server keys; with this on, a stolen password is not enough. Admins without it set up are asked to on their next sign-in.')),
+                    Toggle::make('login_alerts')->label(__('Mail people when their account is signed in to from a new device'))
+                        ->helperText(__('Needs mail. After :count failed sign-ins an account is locked for :minutes minutes either way, and failed sign-ins are in the log.', ['count' => LoginGuard::MAX_FAILURES, 'minutes' => LoginGuard::LOCK_MINUTES])),
                 ]),
                 Tab::make(__('Mail'))->key('mail')->icon(Heroicon::OutlinedEnvelope)->schema([
                     Section::make(__('Mail'))->columns(2)->description(__('For welcome mails, password links and access reminders.'))->schema([
@@ -302,6 +306,7 @@ class Settings extends Page
         $data['apply_enabled'] = ! empty($data['apply_enabled']) ? '1' : '0';
         $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
         $data['oidc_members'] = ! empty($data['oidc_members']) ? '1' : '0';
+        $data['login_alerts'] = ! empty($data['login_alerts']) ? '1' : '0';
         // "-" when none is chosen: empty would mean "not set yet", which is all.
         $data['alerts_events'] = implode(',', array_intersect((array) ($data['alerts_events'] ?? []), array_keys(AdminAlerts::EVENTS))) ?: '-';
         foreach (SiteSettings::SECRET as $secret) {

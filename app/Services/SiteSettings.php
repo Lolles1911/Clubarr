@@ -32,6 +32,8 @@ class SiteSettings
         'help_text' => '',
         // Admins must use two-factor sign-in ('1') or may ('0').
         'admin_2fa_required' => '1',
+        // Mail on a sign-in from a new device ('1') or not ('0').
+        'login_alerts' => '1',
         // Tracearr: what plays, devices, stream limits, posters.
         'tracearr_url' => '',
         'tracearr_api_key' => '',

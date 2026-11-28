@@ -24,6 +24,7 @@ class AdminAlerts
         'asks' => ['extension.requested', 'problem.reported', 'access.requested'],
         'stream_limit' => ['stream.limit'],
         'new_version' => ['clubarr.new_version'],
+        'login_locked' => ['auth.locked'],
     ];
 
     /** Only Discord's own webhook addresses are accepted (nothing else is ever called). */
@@ -40,6 +41,7 @@ class AdminAlerts
             'asks' => __('A member asks for more time or reports a problem, or someone applies to join'),
             'stream_limit' => __('A stream is stopped for being over the limit'),
             'new_version' => __('A new Clubarr version is out'),
+            'login_locked' => __('An account is locked after too many failed sign-ins'),
         ];
     }
 
@@ -78,6 +80,7 @@ class AdminAlerts
             'waitlist.joined' => __('On the waiting list: :name', ['name' => $subject instanceof WaitlistEntry ? ($subject->name ?: $subject->email) : '?'], $locale),
             'stream.limit' => __(':name was over :limit streams; Clubarr stopped ":title".', ['name' => $subject?->getAttribute('name'), 'limit' => $meta['limit'] ?? '?', 'title' => (string) ($meta['title'] ?? '')], $locale),
             'clubarr.new_version' => __('Clubarr :version is out (you have :current): :url', ['version' => $meta['version'] ?? '?', 'current' => config('clubarr.version'), 'url' => $meta['url'] ?? ''], $locale),
+            'auth.locked' => __(':name is locked for :minutes minutes after :count failed sign-ins.', ['name' => $subject?->getAttribute('name') ?? '?', 'minutes' => $meta['minutes'] ?? '?', 'count' => $meta['failures'] ?? '?'], $locale),
             default => null,
         };
         if ($text !== null) {

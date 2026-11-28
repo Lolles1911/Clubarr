@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\KnownDevice;
 use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
@@ -68,6 +69,9 @@ class Housekeeping extends Command
                 });
             $this->info("Cleaned up {$removed}.");
         }
+
+        // Devices not signed in on for over a year: a sign-in there is "new" again.
+        KnownDevice::where('last_used_at', '<', now()->subDays(400))->delete();
 
         return self::SUCCESS;
     }

@@ -5,9 +5,11 @@ namespace App\Providers;
 use App\Http\Middleware\ApplySiteLocale;
 use App\MediaServers\DriverFactory;
 use App\Models\User;
+use App\Services\LoginGuard;
 use App\Services\SetupState;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
+use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
@@ -44,8 +46,11 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(Login::class, function (Login $event) {
             if ($event->user instanceof User) {
                 $event->user->forceFill(['last_login_at' => now()])->saveQuietly();
+                LoginGuard::signedIn($event->user);
             }
         });
+        // Only the email is used; what was typed as the password never leaves the event.
+        Event::listen(Failed::class, fn (Failed $event) => LoginGuard::failed((string) ($event->credentials['email'] ?? ''), $event->user instanceof User ? $event->user : null));
     }
 
     private function applySiteLocale(): void
