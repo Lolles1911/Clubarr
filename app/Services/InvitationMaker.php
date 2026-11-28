@@ -57,6 +57,7 @@ class InvitationMaker
     public function setupOf(Invitation $source): array
     {
         $settings = $source->only(['max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id', 'wizard_bundle_id']);
+        $settings['seerr_access'] = (bool) ($settings['seerr_access'] ?? false); // not loaded on a model just made
         $pivot = [];
         foreach ($source->mediaServers as $server) {
             $ids = $source->libraryIdsFor($server);

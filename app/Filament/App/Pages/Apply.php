@@ -6,6 +6,8 @@ use App\Services\Applications;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -14,6 +16,8 @@ use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Text;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Contracts\Support\Htmlable;
@@ -61,11 +65,32 @@ class Apply extends SimplePage
         return $schema->statePath('data')->components([
             TextInput::make('name')->label(__('Your name'))->required()->maxLength(100),
             TextInput::make('email')->label(__('Email'))->email()->required()->maxLength(190),
+            ...self::packageFields(),
             ...collect(Applications::questions())->map(fn (string $q, int $i) => Textarea::make('answers.'.$i)->label($q)->required()->rows(2)->maxLength(1000))->all(),
             Textarea::make('message')->label(Applications::questions() === [] ? __('How do you know us? (optional)') : __('Anything else? (optional)'))->rows(3)->maxLength(1000),
             // Left empty by people; filled by bots.
             TextInput::make('website')->label('Website')->extraAttributes(['style' => 'position:absolute;left:-10000px', 'tabindex' => '-1', 'autocomplete' => 'off'])->hiddenLabel(),
         ]);
+    }
+
+    /** The admin's packages to choose from, and the chosen one's servers (all ticked; they may leave some out). */
+    private static function packageFields(): array
+    {
+        $packages = Applications::packages();
+        if ($packages === []) {
+            return [];
+        }
+
+        return [
+            Radio::make('package')->label(__('What would you like?'))->required()->live()
+                ->options(array_map(fn ($p) => $p['label'], $packages))
+                ->descriptions(array_map(fn ($p) => $p['description'], $packages))
+                ->afterStateUpdated(fn ($state, Set $set) => $set('servers', isset($packages[(int) $state]) ? $packages[(int) $state]['template']->mediaServers->pluck('id')->map(fn ($id) => (string) $id)->all() : [])),
+            CheckboxList::make('servers')->label(__('Servers'))->required()
+                ->visible(fn (Get $get) => filled($get('package')) && count($packages[(int) $get('package')]['template']->mediaServers ?? []) > 1)
+                ->options(fn (Get $get) => filled($get('package')) ? $packages[(int) $get('package')]['template']->mediaServers->mapWithKeys(fn ($s) => [$s->id => $s->name.' ('.$s->type->label().')'])->all() : [])
+                ->helperText(__('Leave out the ones you don\'t need.')),
+        ];
     }
 
     #[Unexposed]
@@ -93,7 +118,8 @@ class Apply extends SimplePage
         }
         $data = $this->form->getState();
         if (blank($data['website'] ?? null)) {
-            app(Applications::class)->apply((string) $data['name'], (string) $data['email'], $data['message'] ?? null, (array) ($data['answers'] ?? []));
+            app(Applications::class)->apply((string) $data['name'], (string) $data['email'], $data['message'] ?? null, (array) ($data['answers'] ?? []),
+                filled($data['package'] ?? null) ? (int) $data['package'] : null, array_map('intval', (array) ($data['servers'] ?? [])));
         }
         $this->done = true;
     }
