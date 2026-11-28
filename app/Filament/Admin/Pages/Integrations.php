@@ -41,7 +41,7 @@ class Integrations extends SettingsPage
     protected function keys(): array
     {
         return ['tracearr_url', 'tracearr_api_key', 'tautulli_url', 'tautulli_api_key', 'sonarr_url', 'sonarr_api_key', 'radarr_url', 'radarr_api_key',
-            'seerr_url', 'seerr_api_key', 'discord_client_id', 'discord_client_secret', 'discord_bot_token', 'discord_guild_id', 'discord_role_id'];
+            'seerr_url', 'seerr_api_key', 'discord_client_id', 'discord_client_secret', 'discord_bot_token', 'discord_guild_id', 'discord_role_id', 'discord_public_key'];
     }
 
     #[Unexposed]
@@ -80,9 +80,24 @@ class Integrations extends SettingsPage
                     TextInput::make('discord_bot_token')->label(__('Bot token'))->password()->revealable()->maxLength(200)->autocomplete('off')
                         ->helperText(__('Stored encrypted; leave empty to keep it.')),
                     TextInput::make('discord_guild_id')->label(__('Server ID'))->maxLength(32)->regex('/^\d*$/'),
+                    TextInput::make('discord_public_key')->label(__('Public key (for /commands)'))->maxLength(64)->regex('/^([0-9a-fA-F]{64})?$/')
+                        ->helperText(__('Optional: /status, /access, /stats and /password in your Discord. Copy the public key from the application, set its "Interactions endpoint URL" to :url, then press "Register commands".', ['url' => url('/api/discord/interactions')])),
                     TextInput::make('discord_role_id')->label(__('Role for members (ID)'))->maxLength(32)->regex('/^\d*$/')
                         ->helperText(__('The bot\'s own role must be above it.')),
-                ])->footerActions([$this->testAction('Discord')]),
+                ])->footerActions([$this->testAction('Discord'), Action::make('registerCommands')->label(__('Register commands'))->color('gray')->icon('heroicon-m-command-line')
+                ->action(function () {
+                    $this->save();
+                    try {
+                        $discord = Discord::fromSettings();
+                        if ($discord === null) {
+                            throw new \RuntimeException(__('Set up Discord first.'));
+                        }
+                        $discord->registerCommands();
+                        Notification::make()->title(__('The commands are on your Discord server.'))->success()->send();
+                    } catch (Throwable $e) {
+                        Notification::make()->title(__('Discord did not take them: :reason', ['reason' => mb_substr($e->getMessage(), 0, 150)]))->danger()->send();
+                    }
+                })]),
         ]);
     }
 
