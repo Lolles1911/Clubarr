@@ -7,6 +7,7 @@ use App\Enums\ServerType;
 use App\MediaServers\Contracts\MediaServerDriver;
 use App\MediaServers\DriverFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -45,6 +46,12 @@ class MediaServer extends Model
     public function libraries(): HasMany
     {
         return $this->hasMany(Library::class)->orderBy('name');
+    }
+
+    /** @return BelongsToMany<Invitation, $this> */
+    public function invitations(): BelongsToMany
+    {
+        return $this->belongsToMany(Invitation::class)->withPivot('library_ids');
     }
 
     /** @return HasMany<ServerAccount, $this> */

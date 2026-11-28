@@ -149,6 +149,25 @@ class Settings extends Page
                                 ->helperText(__('The bot\'s own role must be above it.')),
                         ])->footerActions([$this->testAction('Discord')]),
                 ]),
+                Tab::make(__('Invitations'))->key('invites')->icon(Heroicon::OutlinedTicket)->schema([
+                    Section::make(__('The invitation page'))->schema([
+                        Textarea::make('invite_welcome')->label(__('Welcome text'))->rows(4)->maxLength(3000)
+                            ->placeholder(__('e.g. "Welcome to our little cinema! Films and series for family and friends."'))
+                            ->helperText(__('Shown on the first step of every invitation, above what they get. Plain text.')),
+                    ]),
+                    Section::make(__('Reminders'))->schema([
+                        TextInput::make('invite_reminder_days')->label(__('Remind after'))->numeric()->minValue(0)->maxValue(60)->suffix(__('days'))
+                            ->helperText(__('An invitation mailed to someone and not used gets one reminder mail. 0: no reminders.')),
+                    ]),
+                    Section::make(__('Members invite friends'))->columns(2)
+                        ->description(__('Members get "Invite a friend": one person per invitation, valid 7 days, with the servers, libraries and limits of the template. You see who invited whom.'))->schema([
+                            TextInput::make('member_invites_per_month')->label(__('Invitations per member a month'))->numeric()->minValue(0)->maxValue(50)
+                                ->helperText(__('0: off.')),
+                            Select::make('member_invite_template_id')->label(__('Template'))->placeholder(__('None (off)'))
+                                ->options(fn () => Invitation::where('is_template', true)->orderBy('label')->pluck('label', 'id')->map(fn ($l) => $l ?: __('Template'))->all())
+                                ->helperText(__('Make one under Invitations: "Save as a template instead".')),
+                        ]),
+                ]),
                 Tab::make(__('Notifications'))->key('alerts')->icon(Heroicon::OutlinedBellAlert)->schema([
                     Section::make(__('Discord channel for admins'))
                         ->description(__('Clubarr posts to a channel of your choice when something happens. In Discord: the channel → Edit channel → Integrations → Webhooks → New webhook → Copy webhook URL.'))->schema([

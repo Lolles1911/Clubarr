@@ -11,8 +11,10 @@ use App\Models\Invitation;
 use App\Models\MediaServer;
 use App\Models\User;
 use App\Services\InvitationProblem;
+use App\Services\NewOnServers;
 use App\Services\PlexLogin;
 use App\Services\Redeemer;
+use App\Services\SiteSettings;
 use App\Services\Waitlist;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
@@ -26,11 +28,16 @@ use Filament\Schemas\Components\EmbeddedSchema;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Text;
+use Filament\Schemas\Components\View;
+use Filament\Schemas\Components\Wizard;
+use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\HtmlString;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Locked;
@@ -123,8 +130,20 @@ class Join extends SimplePage
         }
         $guest = ! Filament::auth()->check();
         $needsUsername = $this->serversNeeding(CreatesUsers::class) !== [];
+        $plex = $this->serversNeeding(SharesWithPlexAccounts::class) !== [];
+        $signedIn = $this->plexIdentity();
 
-        return $schema->statePath('data')->components(array_filter([
+        $account = array_values(array_filter([
+            $plex ? Section::make(__('Plex'))->compact()
+                ->extraAttributes($this->plexPending ? ['wire:poll.3s' => 'plexCheck'] : [])
+                ->schema([
+                    Text::make($signedIn !== null ? __('Signed in with Plex as :name.', ['name' => $signedIn->username])
+                        : ($this->plexPending ? __('Waiting for Plex… Approve Clubarr in the window that opened.') : __('Plex uses your own Plex account. Sign in with it, and the server is shared with you.'))),
+                    $signedIn === null ? Actions::make([Action::make('plexStart')->label(__('Sign in with Plex'))->color('warning')
+                        ->extraAttributes(['x-on:click' => "window.clubarrPlex = window.open('about:blank', 'clubarr-plex', 'width=600,height=720')"])
+                        ->action(fn () => $this->plexStart())]) : null,
+                ]) : null,
+            $this->serversNeeding(UsesClaimLinks::class) !== [] ? Text::make(__('For Silo you choose your user on Silo\'s own page; the link is on the next page.')) : null,
             // Plex without the sign-in window: Plex sends the member an invitation to accept.
             $this->serversNeeding(SharesWithPlexAccounts::class) !== [] && $this->plexIdentity() === null
                 ? TextInput::make('plex_account')->label(__('Or: your Plex email or user name'))->maxLength(190)->autocomplete('email')
@@ -140,6 +159,41 @@ class Join extends SimplePage
                 ->helperText($guest && $needsUsername ? __('For your account here and for watching.') : null) : null,
             $guest || $needsUsername ? TextInput::make('password_confirmation')->label(__('Password again'))->password()->revealable()->required()->dehydrated(false) : null,
         ]));
+
+        // Two steps: what is waiting, then the account. (Step 3, the apps, comes after joining: Get started.)
+        return $schema->statePath('data')->components([
+            Wizard::make([
+                Step::make(__('Welcome'))->icon('heroicon-o-sparkles')->schema([
+                    View::make('filament.app.join-welcome')->viewData(['welcome' => $this->welcome($invitation)]),
+                ]),
+                Step::make(__('Your account'))->icon('heroicon-o-user-circle')->schema($account),
+            ])->submitAction(new HtmlString(Blade::render('<x-filament::button type="submit" size="lg" icon="heroicon-m-check">'.e(Filament::auth()->check() ? __('Add to my account') : __('Create my account')).'</x-filament::button>'))),
+        ]);
+    }
+
+    /**
+     * What the welcome step shows: the greeting, who invites, the servers, how long, the site's text, posters.
+     *
+     * @return array<string, mixed>
+     */
+    #[Unexposed]
+    public function welcome(Invitation $invitation): array
+    {
+        $creator = $invitation->by_member ? $invitation->creator : null;
+        try {
+            $posters = app(NewOnServers::class)->forInvitation($invitation);
+        } catch (Throwable) {
+            $posters = [];
+        }
+
+        return [
+            'greeting' => $invitation->greeting,
+            'from' => $creator?->name,
+            'text' => app(SiteSettings::class)->get('invite_welcome'),
+            'servers' => $invitation->mediaServers->filter(fn (MediaServer $s) => $s->is_enabled)->map(fn (MediaServer $s) => ['name' => $s->name, 'type' => $s->type->label()])->values()->all(),
+            'days' => $invitation->access_days,
+            'posters' => $posters,
+        ];
     }
 
     #[Unexposed]
@@ -152,23 +206,9 @@ class Join extends SimplePage
                     ->footer([Actions::make([Action::make('findCode')->label(__('Continue'))->submit('findCode')])->fullWidth()]),
             ]);
         }
-        $plex = $this->serversNeeding(SharesWithPlexAccounts::class) !== [];
-        $silo = $this->serversNeeding(UsesClaimLinks::class) !== [];
-        $signedIn = $this->plexIdentity();
 
         return $schema->components(array_filter([
-            $plex ? Section::make(__('Plex'))->compact()
-                ->extraAttributes($this->plexPending ? ['wire:poll.3s' => 'plexCheck'] : [])
-                ->schema([
-                    Text::make($signedIn !== null ? __('Signed in with Plex as :name.', ['name' => $signedIn->username])
-                        : ($this->plexPending ? __('Waiting for Plex… Approve Clubarr in the window that opened.') : __('Plex uses your own Plex account. Sign in with it, and the server is shared with you.'))),
-                    $signedIn === null ? Actions::make([Action::make('plexStart')->label(__('Sign in with Plex'))->color('warning')
-                        ->extraAttributes(['x-on:click' => "window.clubarrPlex = window.open('about:blank', 'clubarr-plex', 'width=600,height=720')"])
-                        ->action(fn () => $this->plexStart())]) : null,
-                ]) : null,
-            $silo ? Text::make(__('For Silo you choose your user on Silo\'s own page; the link is on the next page.')) : null,
-            Form::make([EmbeddedSchema::make('form')])->id('form')->livewireSubmitHandler('join')
-                ->footer([Actions::make([Action::make('join')->label(Filament::auth()->check() ? __('Add to my account') : __('Create my account'))->submit('join')])->fullWidth()]),
+            Form::make([EmbeddedSchema::make('form')])->id('form')->livewireSubmitHandler('join'),
             ! Filament::auth()->check() ? Text::make(__('Already a member? Sign in first, then open the invitation link again.')) : null,
         ]));
     }
@@ -291,7 +331,7 @@ class Join extends SimplePage
         }
         Notification::make()->title(__('Welcome! Here is how to start watching.'))->success()->send();
 
-        return redirect()->to(MyAccess::getUrl(panel: 'app'));
+        return redirect()->to(GetStarted::getUrl(panel: 'app'));
     }
 
     /** Tells the visitor why, with the way onto the waiting list when a server is full. */

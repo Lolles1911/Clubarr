@@ -5,6 +5,7 @@ namespace App\Services;
 use App\MediaServers\Data\PlexIdentity;
 use App\Models\Invitation;
 use App\Models\User;
+use App\Notifications\InvitationUsed;
 use App\Notifications\Welcome;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -63,6 +64,9 @@ class Redeemer
         }
 
         Audit::log('invitation.redeemed', $invitation, ['servers' => array_map(fn ($r) => $r['server']->name, $made)], $user->id);
+        // The link kept for a reminder is not needed any more.
+        $invitation->forceFill(['reminder_link' => null])->save();
+        $this->tellCreator($invitation, $user);
         app(DiscordSync::class)->sync($user);
         if ($existing === null) {
             try {
@@ -73,6 +77,20 @@ class Redeemer
         }
 
         return $user;
+    }
+
+    /** Mails the one who made the invitation (admin or member) that it was used. */
+    private function tellCreator(Invitation $invitation, User $user): void
+    {
+        $creator = $invitation->creator;
+        if ($creator === null || $creator->id === $user->id || $creator->disabled_at !== null || app(SiteSettings::class)->get('mail_enabled') !== '1') {
+            return;
+        }
+        try {
+            $creator->notify(new InvitationUsed($user->name, $creator->is_admin ? $invitation->label : null));
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     /** Throws when a server the visitor doesn't have yet is full (waiting-list invitations hold their seat). */

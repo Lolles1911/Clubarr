@@ -4,8 +4,8 @@ namespace Tests\Feature\Flows;
 
 use App\Enums\AccountStatus;
 use App\Enums\ServerType;
+use App\Filament\App\Pages\GetStarted;
 use App\Filament\App\Pages\Join;
-use App\Filament\App\Pages\MyAccess;
 use App\Models\Invitation;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
@@ -63,7 +63,7 @@ class JoinTest extends TestCase
         $this->fakeJellyfin();
         [$invitation, $code] = $this->invitation();
 
-        $this->join($code)->assertHasNoFormErrors()->assertRedirect(MyAccess::getUrl(panel: 'app'));
+        $this->join($code)->assertHasNoFormErrors()->assertRedirect(GetStarted::getUrl(panel: 'app'));
 
         $user = User::where('email', 'anna@example.com')->sole();
         $this->assertFalse($user->is_admin);

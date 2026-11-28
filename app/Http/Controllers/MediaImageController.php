@@ -38,6 +38,16 @@ class MediaImageController
         return $this->image($image['body'], $image['type']);
     }
 
+    /** A poster on an invitation page (no account yet): only those that page listed for this visitor. */
+    public function joinPoster(string $key, NewOnServers $new): Response
+    {
+        abort_unless(preg_match('/^[a-f0-9]{24}$/', $key) === 1, 404);
+        $image = $new->guestPoster($key);
+        abort_if($image === null, 404);
+
+        return $this->image($image['body'], $image['type']);
+    }
+
     public function tmdb(string $file): Response
     {
         abort_unless(preg_match('/^[A-Za-z0-9._-]{5,64}\.(jpg|png)$/', $file) === 1, 404);
