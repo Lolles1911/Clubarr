@@ -13,6 +13,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
@@ -57,6 +58,8 @@ class MediaServerForm
         return $schema->components([
             Section::make()->columns(2)->schema([
                 Select::make('type')->label(__('Type'))->options(ServerType::options())->required()->live()
+                    // Back from signing in with Plex in another tab (phones): Plex is already chosen.
+                    ->default(fn () => session()->has('admin.plex.pin') || session()->has('admin.plex.token') ? ServerType::Plex->value : null)
                     ->disabledOn('edit'),
                 TextInput::make('name')->label(__('Name'))->required()->maxLength(60)
                     ->helperText(__('What members see, e.g. "Movies & TV".')),
@@ -79,6 +82,8 @@ class MediaServerForm
                     ->helperText(__('Empty: no limit. When full, invitations wait, and the waiting list (Settings) takes over.')),
                 Toggle::make('is_enabled')->label(__('In use'))->default(true)
                     ->helperText(__('Off: new invitations can\'t give access to it. Existing users are not changed.')),
+                Text::make(__('Signed in with Plex. Press "Choose server".'))->columnSpanFull()
+                    ->visible(fn (Get $get) => $get('type') === ServerType::Plex->value && (session()->has('admin.plex.pin') || session()->has('admin.plex.token'))),
                 Actions::make([
                     // Plex: sign in as the server owner and pick the server; fills the address and token.
                     Action::make('plexSignIn')->label(__('Sign in with Plex'))->color('warning')->icon('heroicon-m-arrow-right-end-on-rectangle')
@@ -86,7 +91,7 @@ class MediaServerForm
                         ->extraAttributes(['x-on:click' => "window.clubarrPlex = window.open('about:blank', 'clubarr-plex', 'width=600,height=720')"])
                         ->action(function ($livewire) {
                             try {
-                                $pin = app(PlexLogin::class)->start();
+                                $pin = app(PlexLogin::class)->start(request()->header('Referer'));
                             } catch (Throwable) {
                                 $livewire->js('window.clubarrPlex && window.clubarrPlex.close()');
                                 Notification::make()->title(__('plex.tv could not be reached. Please try again.'))->danger()->send();

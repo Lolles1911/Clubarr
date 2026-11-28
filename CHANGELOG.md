@@ -3,6 +3,20 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.2.1-beta (2026-11-28)
+
+### Fixed
+- **Sign in with Plex on a phone** stopped at Plex's "you can close the
+  window" page. Plex now sends the window back to Clubarr: a popup closes
+  itself, and a phone tab returns to the page you came from (the server
+  form or the invitation), which carries on. The way back is always a page
+  on your own Clubarr.
+
+### Changed
+- **Settings** is split into tabs: General, Security, Mail, Integrations and
+  Waiting list. Mail and each integration (Tracearr, Seerr, Discord) have
+  their own **Test** button.
+
 ## 0.2.0-beta (2026-11-28)
 
 ### Tracearr

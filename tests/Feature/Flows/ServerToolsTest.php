@@ -4,6 +4,7 @@ namespace Tests\Feature\Flows;
 
 use App\Enums\AccountStatus;
 use App\Enums\ServerType;
+use App\Filament\Admin\Pages\Settings;
 use App\Filament\Admin\Resources\Invitations\Pages\CreateInvitation;
 use App\Filament\Admin\Resources\MediaServers\Pages\CreateMediaServer;
 use App\Filament\Admin\Resources\MediaServers\Pages\ListMediaServers;
@@ -107,5 +108,32 @@ class ServerToolsTest extends TestCase
         $this->get('/')->assertSee(url('/admin'), false);
         $member = User::create(['name' => 'M', 'email' => 'm@example.com', 'password' => 'x']);
         $this->actingAs($member)->get('/')->assertDontSee(url('/admin'), false);
+    }
+
+    public function test_plex_sends_the_window_back_to_clubarr_and_never_off_site(): void
+    {
+        Http::fake(['plex.tv/api/v2/pins' => Http::response(['id' => 42, 'code' => 'abcd'])]);
+
+        $pin = app(PlexLogin::class)->start(url('/admin/media-servers/create'));
+
+        $this->assertStringContainsString('forwardUrl='.urlencode(route('filament.app.plex.return')), $pin['url']);
+        $this->get('/plex/return')->assertOk()->assertSee('href="'.url('/admin/media-servers/create').'"', false);
+
+        foreach (['https://evil.example/x', '//evil.example/x', '/\\evil.example', 'javascript:alert(1)'] as $bad) {
+            $this->assertSame('/', PlexLogin::localPath($bad));
+        }
+        $this->assertSame('/join/ABC?x=1', PlexLogin::localPath(url('/join/ABC?x=1')));
+    }
+
+    public function test_settings_has_tabs_and_one_test_button_per_integration(): void
+    {
+        Http::fake(['tr.local/api/v2/public/servers' => Http::response(['data' => [['id' => 1]]])]);
+        app(SiteSettings::class)->set(['tracearr_url' => 'http://tr.local', 'tracearr_api_key' => 'trr_pub_x']);
+
+        Livewire::test(Settings::class)
+            ->assertSee(['General', 'Security', 'Mail', 'Integrations', 'Waiting list'])
+            ->assertDontSee('trr_pub_x')
+            ->callAction(TestAction::make('testTracearr')->schemaComponent('integrations.tracearr', 'form'))
+            ->assertNotified('Tracearr: OK (1 servers)');
     }
 }

@@ -17,7 +17,8 @@ administrators.**
 - **Test** on the form checks the address and key before you save. **Sync**
   on a server's row reads the libraries and updates members' users.
 - **Plex**: press **Sign in with Plex**, approve in the window, then
-  **Choose server**: the address and token are filled in.
+  **Choose server**: the address and token are filled in. On a phone the
+  Plex tab comes back to Clubarr by itself after you approve.
 - **Import users** (on the server's row) brings users that already exist on
   the server into Clubarr, many at once. With an email the server knows
   (Plex, Silo), they get a mail to choose their password. Without (Jellyfin,

@@ -20,16 +20,36 @@ class PlexLogin
         return new ServerHttp('https://plex.tv', PlexDriver::plexHeaders() + ($token !== null ? ['X-Plex-Token' => $token] : []), 'plex.tv');
     }
 
-    /** @return array{id: string, code: string, url: string} */
-    public function start(): array
+    /**
+     * Starts a sign-in. After approving, plex.tv sends the window to
+     * /plex/return, which closes it, or (on a phone, where it is a tab)
+     * goes back to $returnTo: a page on this site only.
+     *
+     * @return array{id: string, code: string, url: string}
+     */
+    public function start(?string $returnTo = null): array
     {
         $pin = $this->http()->json('POST', '/api/v2/pins', ['strong' => 'true']);
         if (empty($pin['id']) || empty($pin['code'])) {
             throw new MediaServerException(__('plex.tv did not answer as expected. Please try again.'));
         }
-        $query = http_build_query(['clientID' => app(SiteSettings::class)->plexClientId(), 'code' => $pin['code'], 'context' => ['device' => ['product' => 'Clubarr']]]);
+        $query = http_build_query(['clientID' => app(SiteSettings::class)->plexClientId(), 'code' => $pin['code'], 'context' => ['device' => ['product' => 'Clubarr']], 'forwardUrl' => route('filament.app.plex.return')]);
+        session()->put('plex.return', self::localPath($returnTo));
 
         return ['id' => (string) $pin['id'], 'code' => (string) $pin['code'], 'url' => 'https://app.plex.tv/auth#?'.$query];
+    }
+
+    /** A path on this site from a URL, or "/" for anything else (no open redirect). */
+    public static function localPath(?string $url): string
+    {
+        $parts = parse_url((string) $url);
+        $path = $parts['path'] ?? null;
+        if ($parts === false || ! is_string($path) || ! str_starts_with($path, '/') || str_starts_with($path, '//') || str_contains($path, '\\')
+            || (isset($parts['host']) && $parts['host'] !== request()->getHost())) {
+            return '/';
+        }
+
+        return $path.(isset($parts['query']) ? '?'.$parts['query'] : '');
     }
 
     /** The member's token once they approved the PIN, else null. */

@@ -30,7 +30,7 @@ proxy should not add a conflicting `Content-Security-Policy`.
 
 ## Tracearr, Seerr and Discord
 
-All under Admin → Settings; **Test Tracearr, Seerr and Discord** checks them.
+All under Admin → Settings → Integrations; each has its own **Test** button.
 
 - **Tracearr**: its address and a public API key (Tracearr → Settings →
   Data & API, starts with `trr_pub_`). Gives My devices, stream limits,

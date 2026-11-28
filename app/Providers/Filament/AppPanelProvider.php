@@ -9,6 +9,7 @@ use App\Filament\App\Pages\MyAccess;
 use App\Filament\App\Pages\Setup;
 use App\Http\Controllers\DiscordLinkController;
 use App\Http\Controllers\MediaImageController;
+use App\Http\Controllers\PlexReturnController;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EditProfile;
 use Filament\Panel;
@@ -39,6 +40,7 @@ class AppPanelProvider extends PanelProvider
                 Route::get('/join/{code?}', Join::class)->name('join')->where('code', '[A-Za-z0-9\-]{1,80}');
                 Route::get('/setup', Setup::class)->name('setup');
                 Route::get('/waitlist', JoinWaitlist::class)->name('waitlist');
+                Route::get('/plex/return', PlexReturnController::class)->name('plex.return');
                 Route::get('/claim/{code}', ClaimAccount::class)->name('claim')->where('code', '[A-Za-z0-9\-]{1,80}');
             })
             ->authenticatedRoutes(function () {

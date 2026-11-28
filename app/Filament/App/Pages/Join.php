@@ -74,6 +74,9 @@ class Join extends SimplePage
             }
         }
         $this->form->fill();
+        // Back from signing in with Plex in another tab (phones): keep checking.
+        $pin = session('join.plex.pin');
+        $this->plexPending = $this->invitationId !== null && is_array($pin) && ($pin['invitation'] ?? null) === $this->invitationId;
         if (($invitation = $this->invitation()) !== null) {
             try {
                 Redeemer::checkSeats($invitation, ($u = Filament::auth()->user()) instanceof User ? $u : null);
@@ -179,7 +182,7 @@ class Join extends SimplePage
         }
         try {
             $this->rateLimit(10, method: 'plexStart');
-            $pin = app(PlexLogin::class)->start();
+            $pin = app(PlexLogin::class)->start(request()->header('Referer'));
         } catch (TooManyRequestsException) {
             $this->js('window.clubarrPlex && window.clubarrPlex.close()');
             Notification::make()->title(__('Too many attempts. Try again in a minute.'))->danger()->send();
