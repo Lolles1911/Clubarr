@@ -44,6 +44,9 @@ final class PanelDefaults
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => new HtmlString(
                 '<script src="'.e(asset('js/qrcode.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'
                 .'<script src="'.e(asset('js/clubarr-share.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'))
+            // The version, for those signed in (so you can see an update arrived); not shown to visitors.
+            ->renderHook(PanelsRenderHook::FOOTER, fn () => auth()->check()
+                ? new HtmlString('<div style="text-align:center;font-size:.75rem;opacity:.5;padding:1rem 0">Clubarr '.e((string) config('clubarr.version')).'</div>') : '')
             ->defaultAvatarProvider(InitialsAvatar::class)
             ->login(Login::class)
             ->passwordReset()

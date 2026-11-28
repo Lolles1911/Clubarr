@@ -3,6 +3,17 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.10.1-beta (2026-11-30)
+
+This is the release that has 0.9 and 0.10 in it: the releases 0.8.1-beta,
+0.9.0-beta and 0.10.0-beta were made before that code was on main, so their
+image is 0.8.0-beta. Everything in 0.9.0-beta and 0.10.0-beta below is in this
+one.
+
+### Changed
+- **The version is shown** at the bottom of every page (when signed in), so
+  you can see that an update arrived.
+
 ## 0.10.0-beta (2026-11-30)
 
 ### New members
