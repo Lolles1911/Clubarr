@@ -5,6 +5,7 @@ namespace App\Filament\App\Pages;
 use App\Enums\AccountStatus;
 use App\MediaServers\Contracts\CreatesUsers;
 use App\MediaServers\Contracts\UsesClaimLinks;
+use App\Models\Announcement;
 use App\Models\ServerAccount;
 use App\Models\User;
 use App\Services\AccessManager;
@@ -99,6 +100,13 @@ class MyAccess extends Dashboard
         } catch (Throwable) {
             return ['continue' => [], 'popular' => [], 'new' => []];
         }
+    }
+
+    /** Messages from the admins shown as a banner, for this member's servers. */
+    #[Unexposed]
+    public function banners(): Collection
+    {
+        return Announcement::bannersFor($this->member());
     }
 
     #[Unexposed]

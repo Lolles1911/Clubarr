@@ -4,6 +4,15 @@
     $muted = 'opacity:.65';
 @endphp
 <x-filament-panels::page>
+    @foreach ($this->banners() as $banner)
+        <div role="status" style="display:flex;gap:.75rem;align-items:flex-start;padding:.9rem 1.1rem;border-radius:.75rem;border:1px solid rgba(139,92,246,.45);background:rgba(139,92,246,.12)">
+            <x-filament::icon icon="heroicon-o-megaphone" style="width:1.25rem;height:1.25rem;flex:none;margin-top:.1rem;color:#8b5cf6" />
+            <div style="font-size:.92rem;line-height:1.5">
+                <div style="font-weight:700">{{ $banner->title }}</div>
+                <div>{!! nl2br(e($banner->body)) !!}</div>
+            </div>
+        </div>
+    @endforeach
     @if ($member->access_expires_at)
         <x-filament::section :compact="true">
             @if ($member->hasAccessExpired())
