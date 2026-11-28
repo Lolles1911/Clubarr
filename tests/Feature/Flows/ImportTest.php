@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Flows;
 
+use App\Enums\AccountStatus;
 use App\Enums\ServerType;
 use App\Filament\Admin\Resources\MediaServers\Pages\ListMediaServers;
 use App\Filament\App\Pages\ClaimAccount;
@@ -9,6 +10,7 @@ use App\Models\Claim;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
 use App\Models\User;
+use App\Services\SiteSettings;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -105,5 +107,27 @@ class ImportTest extends TestCase
         }
         $this->expectException(CannotUpdateLockedPropertyException::class);
         Livewire::test(ClaimAccount::class, ['code' => $tried])->set('claimId', Claim::sole()->id);
+    }
+
+    public function test_clean_up_deletes_only_chosen_unlinked_users_never_admins_or_members(): void
+    {
+        app(SiteSettings::class)->set(['admin_2fa_required' => '0']);
+        $member = User::create(['name' => 'Grandpa', 'email' => 'gp@example.com', 'password' => 'Member-pass-1']);
+        ServerAccount::create(['user_id' => $member->id, 'media_server_id' => $this->server->id, 'remote_id' => 'u2', 'remote_username' => 'grandpa', 'status' => AccountStatus::Active]);
+        $this->server->forceFill(['settings' => ['unlinked' => 1]])->save();
+        Http::fake([
+            'jf.local/Users/u1' => Http::response(['Id' => 'u1', 'Policy' => ['IsAdministrator' => false]]),
+            'jf.local/Users/*' => Http::response(['Id' => 'x', 'Policy' => ['IsAdministrator' => true]]),
+        ]);
+        $this->actingAs($this->admin);
+        Filament::setCurrentPanel('admin');
+
+        // Members' and administrators' users are not even choices.
+        Livewire::test(ListMediaServers::class)->callAction(TestAction::make('cleanUp')->table($this->server), ['remote' => ['u2', 'admin0']])->assertHasActionErrors(['remote.0', 'remote.1']);
+        Livewire::test(ListMediaServers::class)->callAction(TestAction::make('cleanUp')->table($this->server), ['remote' => ['u1']])->assertNotified();
+
+        Http::assertSent(fn ($r) => $r->method() === 'DELETE' && str_ends_with($r->url(), '/Users/u1'));
+        Http::assertNotSent(fn ($r) => $r->method() === 'DELETE' && (str_ends_with($r->url(), '/Users/u2') || str_ends_with($r->url(), '/Users/admin0')));
+        $this->assertNotNull(ServerAccount::where('remote_id', 'u2')->first());
     }
 }
