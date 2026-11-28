@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Audit;
 use App\Services\InvitationMaker;
 use App\Services\MemberInvites;
+use App\Support\Copy;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -47,7 +48,7 @@ class InvitationsTable
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['mediaServers', 'accounts.user', 'creator']))
             ->columns([
                 TextColumn::make('label')->label(__('Note'))->searchable()->placeholder('—')
-                    ->description(fn (Invitation $record) => $record->is_template ? __('Template') : $record->code_hint.'…'.($record->by_member && $record->creator ? ' · '.__('from :name', ['name' => $record->creator->name]) : '')),
+                    ->description(fn (Invitation $record) => $record->is_template ? __('Template') : ($record->code() ?? $record->code_hint.'…').($record->by_member && $record->creator ? ' · '.__('from :name', ['name' => $record->creator->name]) : '')),
                 TextColumn::make('mediaServers.name')->visibleFrom('sm')->label(__('Servers'))->badge(),
                 TextColumn::make('uses')->label(__('Used'))
                     ->state(fn (Invitation $record) => $record->uses.' / '.($record->max_uses ?? '∞')),
@@ -83,6 +84,10 @@ class InvitationsTable
                         InvitationResource::showCode($code, $livewire);
                         InvitationResource::sendLink($invitation, $code, $data['send_to'] ?? null, $data['send_discord'] ?? null);
                     }),
+                Action::make('copyLink')->label(__('Copy link'))->icon(Heroicon::OutlinedClipboardDocument)->iconButton()->color('gray')
+                    ->tooltip(__('Copy link'))
+                    ->visible(fn (Invitation $record) => $record->code() !== null && ! $record->awaiting_approval)
+                    ->alpineClickHandler(fn (Invitation $record) => Copy::handler(InvitationMaker::link((string) $record->code()))),
                 Action::make('approve')->label(__('Approve'))->icon(Heroicon::OutlinedCheck)->color('success')->button()->size('sm')
                     ->visible(fn (Invitation $record) => $record->awaiting_approval && $record->revoked_at === null)
                     ->modalDescription(fn (Invitation $record) => __(':name invites someone. Approved, the link works, and it is mailed if they gave an email.', ['name' => $record->creator->name ?? '?']))

@@ -3,6 +3,15 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.10.2-beta (2026-11-30)
+
+### Changed
+- **Invitation codes are shown in full** in the invitations list (like in
+  Wizarr), with a **Copy link** button, and on the member's page. They are
+  kept encrypted with the key in `/config/app.key`. Invitations made before
+  this update show only their first characters; "New link" gives them a
+  code you can see.
+
 ## 0.10.1-beta (2026-11-30)
 
 This is the release that has 0.9 and 0.10 in it: the releases 0.8.1-beta,

@@ -20,6 +20,7 @@ use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
@@ -208,5 +209,18 @@ class InvitationFeaturesTest extends TestCase
     public function test_invitation_page_posters_are_only_those_it_listed(): void
     {
         $this->get(route('filament.app.join-poster', ['key' => str_repeat('a', 24)]))->assertNotFound();
+    }
+
+    public function test_the_whole_code_is_shown_again_in_the_list_and_kept_encrypted(): void
+    {
+        $invitation = new Invitation(['label' => 'For Bo', 'max_uses' => 1]);
+        $code = $invitation->assignCode();
+        $invitation->save();
+        $invitation->mediaServers()->attach($this->server->id);
+
+        $this->assertStringNotContainsString($code, (string) DB::table('invitations')->where('id', $invitation->id)->value('code_secret'));
+        $this->assertSame($code, $invitation->fresh()->code());
+        $this->asAdmin();
+        Livewire::test(ListInvitations::class)->assertSee($code)->assertTableActionVisible('copyLink', $invitation);
     }
 }
