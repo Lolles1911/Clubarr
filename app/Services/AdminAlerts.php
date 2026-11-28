@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Jobs\SendAdminAlert;
+use App\Models\Maintenance;
+use App\Models\MediaServer;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +23,7 @@ class AdminAlerts
         'server_down' => ['server.down', 'server.up'],
         'sync' => ['account.gone_on_server', 'server.sync_held'],
         'waitlist_joined' => ['waitlist.joined'],
-        'asks' => ['extension.requested', 'problem.reported', 'access.requested'],
+        'asks' => ['extension.requested', 'problem.reported', 'access.requested', 'invitation.awaiting_approval'],
         'stream_limit' => ['stream.limit'],
         'new_version' => ['clubarr.new_version'],
         'login_locked' => ['auth.locked'],
@@ -64,6 +66,10 @@ class AdminAlerts
     public static function fromAudit(string $action, ?Model $subject, array $meta, ?int $actorId): void
     {
         $event = collect(self::EVENTS)->search(fn (array $actions) => in_array($action, $actions, true));
+        // During planned maintenance a server going down (and back) is expected.
+        if (in_array($action, ['server.down', 'server.up'], true) && $subject instanceof MediaServer && Maintenance::activeFor($subject)) {
+            return;
+        }
         if ($event === false || ! self::enabled($event)) {
             return;
         }
@@ -76,6 +82,7 @@ class AdminAlerts
             'server.sync_held' => __(':server seems to miss :count users at once. Nothing was removed; check the server.', ['server' => $subject?->getAttribute('name'), 'count' => $meta['missing'] ?? '?'], $locale),
             'extension.requested' => __(':name asks for more time.', ['name' => $subject?->getAttribute('name')], $locale),
             'problem.reported' => __(':name reports a problem: :subject', ['name' => (string) ($meta['member'] ?? '?'), 'subject' => (string) ($meta['subject'] ?? '')], $locale),
+            'invitation.awaiting_approval' => __(':name made an invitation that waits for your approval.', ['name' => (string) ($meta['by'] ?? '?')], $locale),
             'access.requested' => __(':name applies to join.', ['name' => (string) ($meta['name'] ?? '?')], $locale),
             'waitlist.joined' => __('On the waiting list: :name', ['name' => $subject instanceof WaitlistEntry ? ($subject->name ?: $subject->email) : '?'], $locale),
             'stream.limit' => __(':name was over :limit streams; Clubarr stopped ":title".', ['name' => $subject?->getAttribute('name'), 'limit' => $meta['limit'] ?? '?', 'title' => (string) ($meta['title'] ?? '')], $locale),

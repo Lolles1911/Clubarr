@@ -3,6 +3,7 @@
 namespace App\Filament\Admin\Resources\Users\Schemas;
 
 use App\Models\User;
+use App\Support\AdminRole;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -28,9 +29,15 @@ class UserForm
                     ->dehydrated(fn (?string $state) => filled($state))
                     ->visibleOn('create')
                     ->helperText(__('Only for admins you add here. Members join with an invitation.')),
-                Toggle::make('is_admin')->label(__('Admin'))->default(true)
+                Toggle::make('is_admin')->label(__('Admin'))->default(true)->live()
                     ->disabled(fn (?User $record) => $record !== null && $record->is(Auth::user()))
+                    ->visible(fn () => AdminRole::full())
                     ->helperText(__('Admins sign in at /admin, with two-factor sign-in.')),
+                Select::make('admin_role')->label(__('Admin role'))->options(AdminRole::options())->selectablePlaceholder(false)
+                    ->formatStateUsing(fn (?string $state) => $state ?? 'admin')
+                    ->visible(fn (Get $get) => AdminRole::full() && (bool) $get('is_admin'))
+                    ->disabled(fn (?User $record) => $record !== null && $record->is(Auth::user()))
+                    ->helperText(__('Moderators handle members, invitations, requests and messages, but not settings, servers, groups, API keys or the log.')),
                 DateTimePicker::make('access_expires_at')->label(__('Access ends'))->seconds(false)
                     ->helperText(__('Empty: no end. Changing it does not pause or resume users by itself; use the actions in the list.'))
                     ->hiddenOn('create'),
@@ -43,6 +50,7 @@ class UserForm
             ]),
             Section::make(__('Groups and notes'))->hiddenOn('create')->schema([
                 Select::make('groups')->label(__('Groups'))->multiple()->relationship('groups', 'name')->preload()
+                    ->visible(fn () => AdminRole::full())
                     ->helperText(__('The groups\' rules apply when you save.')),
                 Textarea::make('admin_note')->label(__('Private note'))->rows(3)->maxLength(5000)
                     ->helperText(__('Only admins see it.')),

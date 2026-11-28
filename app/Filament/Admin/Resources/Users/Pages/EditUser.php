@@ -6,6 +6,7 @@ use App\Filament\Admin\Resources\Users\UserResource;
 use App\Models\User;
 use App\Services\Audit;
 use App\Services\GroupRules;
+use App\Support\AdminRole;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -34,8 +35,9 @@ class EditUser extends EditRecord
             $record->expiry_warned_at = null;
         }
         // You can't take away your own admin rights (and lock yourself out).
-        if (array_key_exists('is_admin', $data) && ! $record->is(Auth::user())) {
+        if (AdminRole::full() && array_key_exists('is_admin', $data) && ! $record->is(Auth::user())) {
             $record->is_admin = (bool) $data['is_admin'];
+            $record->admin_role = $record->is_admin && ($data['admin_role'] ?? '') === AdminRole::MODERATOR ? AdminRole::MODERATOR : null;
         }
         $changes = array_keys($record->getDirty());
         $record->save();

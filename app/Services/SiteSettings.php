@@ -31,6 +31,11 @@ class SiteSettings
         'mail_from_address' => '',
         'mail_from_name' => '',
         'help_text' => '',
+        // The public front page (see Landing).
+        'landing_enabled' => '0',
+        'landing_text' => '',
+        'landing_posters' => '0',
+        'landing_status' => '1',
         // Admins must use two-factor sign-in ('1') or may ('0').
         'admin_2fa_required' => '1',
         // Mail on a sign-in from a new device ('1') or not ('0').
@@ -87,6 +92,8 @@ class SiteSettings
         'invite_reminder_days' => '3',
         'member_invites_per_month' => '0',
         'member_invite_template_id' => '',
+        // Members' invitations wait for an admin ('1') or work at once ('0').
+        'member_invites_approval' => '0',
         // Automation: pause members who watched nothing for this many days (0 = off);
         // delete server users this many days after access ended (0 = off).
         'inactive_days' => '0',
@@ -94,6 +101,7 @@ class SiteSettings
         // Public "apply to join" page ('1' on), and the template an approved application's invitation copies.
         'apply_enabled' => '0',
         'apply_template_id' => '',
+        'apply_questions' => '',
         // Single sign-on (OpenID Connect): on ('1'), the provider, the client, the button, and whether members may use it too.
         'oidc_enabled' => '0',
         'oidc_issuer' => '',

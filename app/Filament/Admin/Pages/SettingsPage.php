@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Concerns\FullAdminsOnly;
 use App\Filament\Admin\NavigationGroup;
 use App\Services\Audit;
 use App\Services\SiteSettings;
@@ -23,6 +24,8 @@ use Filament\Support\Components\Attributes\Unexposed;
  */
 abstract class SettingsPage extends Page
 {
+    use FullAdminsOnly;
+
     protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::System;
 
     /** @var array<string, mixed>|null */

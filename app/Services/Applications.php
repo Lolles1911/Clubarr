@@ -23,14 +23,27 @@ class Applications
         return app(SiteSettings::class)->get('apply_enabled') === '1';
     }
 
-    /** Stores an application; the same answer whether the email is known or not. */
-    public function apply(string $name, string $email, ?string $message): void
+    /** @return list<string> the admin's own questions on the form (at most 5) */
+    public static function questions(): array
+    {
+        $lines = preg_split('/\R/', (string) app(SiteSettings::class)->get('apply_questions')) ?: [];
+
+        return array_slice(array_values(array_filter(array_map(fn ($q) => mb_substr(trim($q), 0, 200), $lines), fn ($q) => $q !== '')), 0, 5);
+    }
+
+    /**
+     * Stores an application; the same answer whether the email is known or not.
+     *
+     * @param  array<int, mixed>  $answers  by the number of the question
+     */
+    public function apply(string $name, string $email, ?string $message, array $answers = []): void
     {
         $email = mb_strtolower(trim($email));
         if (AccessRequest::where('email', $email)->where('status', 'pending')->exists() || User::where('email', $email)->exists()) {
             return; // already asked, or already a member: nothing new
         }
         $request = new AccessRequest(['name' => mb_substr(trim($name), 0, 100), 'email' => $email, 'message' => filled($message) ? mb_substr(trim((string) $message), 0, 1000) : null]);
+        $request->answers = collect(self::questions())->map(fn (string $q, int $i) => ['q' => $q, 'a' => mb_substr(trim((string) ($answers[$i] ?? '')), 0, 1000)])->all() ?: null;
         $request->save();
         Audit::log('access.requested', $request, ['name' => $request->name], null);
     }

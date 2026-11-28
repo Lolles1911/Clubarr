@@ -9,6 +9,7 @@ use App\Models\Invitation;
 use App\Models\User;
 use App\Services\Audit;
 use App\Services\InvitationMaker;
+use App\Services\MemberInvites;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\DeleteAction;
@@ -16,8 +17,10 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -55,10 +58,11 @@ class InvitationsTable
                     ->state(fn (Invitation $record) => $record->access_days ? __(':days days', ['days' => $record->access_days]) : __('No end')),
                 TextColumn::make('expires_at')->visibleFrom('lg')->label(__('Link valid until'))->dateTime('j M Y, H:i')->placeholder(__('No end'))->sortable(),
                 TextColumn::make('status')->label(__('Status'))->badge()
-                    ->state(fn (Invitation $record) => $record->is_template ? __('Template') : ($record->problem() === null ? __('Open') : ($record->revoked_at ? __('Withdrawn') : ($record->expires_at?->isPast() ? __('Expired') : ($record->max_uses !== null && $record->uses >= $record->max_uses ? __('Used up') : __('No servers'))))))
-                    ->color(fn (Invitation $record) => $record->problem() === null ? 'success' : 'gray'),
+                    ->state(fn (Invitation $record) => $record->is_template ? __('Template') : ($record->problem() === null ? __('Open') : ($record->revoked_at ? __('Withdrawn') : ($record->awaiting_approval ? __('Waits for approval') : ($record->expires_at?->isPast() ? __('Expired') : ($record->max_uses !== null && $record->uses >= $record->max_uses ? __('Used up') : __('No servers')))))))
+                    ->color(fn (Invitation $record) => $record->problem() === null ? 'success' : ($record->awaiting_approval && $record->revoked_at === null ? 'warning' : 'gray')),
             ])
             ->filters([
+                Filter::make('awaiting')->label(__('Waits for approval'))->query(fn (Builder $query) => $query->where('awaiting_approval', true)->whereNull('revoked_at')),
                 TernaryFilter::make('open')->label(__('Open'))->queries(
                     true: fn (Builder $query) => Invitation::applyUsable($query),
                     false: fn (Builder $query) => $query->whereNot(fn (Builder $q) => Invitation::applyUsable($q)),
@@ -79,9 +83,21 @@ class InvitationsTable
                         InvitationResource::showCode($code, $livewire);
                         InvitationResource::sendLink($invitation, $code, $data['send_to'] ?? null, $data['send_discord'] ?? null);
                     }),
+                Action::make('approve')->label(__('Approve'))->icon(Heroicon::OutlinedCheck)->color('success')->button()->size('sm')
+                    ->visible(fn (Invitation $record) => $record->awaiting_approval && $record->revoked_at === null)
+                    ->modalDescription(fn (Invitation $record) => __(':name invites someone. Approved, the link works, and it is mailed if they gave an email.', ['name' => $record->creator->name ?? '?']))
+                    ->requiresConfirmation()
+                    ->action(function (Invitation $record) {
+                        app(MemberInvites::class)->approve($record);
+                        Notification::make()->title(__('Approved.'))->success()->send();
+                    }),
+                Action::make('decline')->label(__('Decline'))->icon(Heroicon::OutlinedXMark)->color('gray')->link()
+                    ->visible(fn (Invitation $record) => $record->awaiting_approval && $record->revoked_at === null)
+                    ->requiresConfirmation()
+                    ->action(fn (Invitation $record) => app(MemberInvites::class)->decline($record)),
                 ActionGroup::make([
                     Action::make('newCode')->label(__('New link'))->icon(Heroicon::OutlinedKey)
-                        ->visible(fn (Invitation $record) => ! $record->is_template)
+                        ->visible(fn (Invitation $record) => ! $record->is_template && ! $record->awaiting_approval)
                         ->modalDescription(__('The old link stops working, and you get a new one to copy.'))
                         ->schema(self::sendFields(withNote: false))
                         ->fillForm(fn (Invitation $record) => ['greeting' => $record->greeting])

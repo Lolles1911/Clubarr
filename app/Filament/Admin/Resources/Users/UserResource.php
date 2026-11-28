@@ -10,11 +10,13 @@ use App\Filament\Admin\Resources\Users\Pages\ViewUser;
 use App\Filament\Admin\Resources\Users\Schemas\UserForm;
 use App\Filament\Admin\Resources\Users\Tables\UsersTable;
 use App\Models\User;
+use App\Support\AdminRole;
 use BackedEnum;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class UserResource extends Resource
 {
@@ -27,6 +29,17 @@ class UserResource extends Resource
     protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::Members;
 
     protected static ?string $recordTitleAttribute = 'name';
+
+    /** Moderators see and change members only, never admins. */
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->when(! AdminRole::full(), fn (Builder $q) => $q->where('is_admin', false));
+    }
+
+    public static function canCreate(): bool
+    {
+        return AdminRole::full();
+    }
 
     public static function getModelLabel(): string
     {

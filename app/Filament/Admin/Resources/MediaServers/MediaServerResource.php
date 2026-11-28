@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MediaServers;
 
+use App\Filament\Admin\Concerns\FullAdminsOnly;
 use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\MediaServers\Pages\CreateMediaServer;
 use App\Filament\Admin\Resources\MediaServers\Pages\EditMediaServer;
@@ -17,6 +18,8 @@ use Filament\Tables\Table;
 
 class MediaServerResource extends Resource
 {
+    use FullAdminsOnly;
+
     protected static ?string $model = MediaServer::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedServerStack;

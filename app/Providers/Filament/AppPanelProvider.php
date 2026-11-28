@@ -13,6 +13,7 @@ use App\Http\Controllers\DiscordLinkController;
 use App\Http\Controllers\MediaImageController;
 use App\Http\Controllers\PlexReturnController;
 use App\Http\Controllers\SingleSignOnController;
+use App\Http\Middleware\ShowLandingPage;
 use App\Services\Applications;
 use App\Services\Branding;
 use Filament\Actions\Action;
@@ -38,6 +39,8 @@ class AppPanelProvider extends PanelProvider
             ->renderHook(PanelsRenderHook::AUTH_LOGIN_FORM_AFTER, fn () => Applications::enabled()
                 ? new HtmlString('<p style="text-align:center;font-size:.875rem;margin-top:1rem;opacity:.8">'.e(__('No account yet?')).' <a href="'.e(route('filament.app.apply')).'" style="text-decoration:underline">'.e(__('Apply to join')).'</a></p>') : '')
             ->path('')
+            // The public front page at "/", for visitors, when it is on.
+            ->middleware([ShowLandingPage::class])
             ->profile(Profile::class, isSimple: false)
             // A new email is only used once a link mailed to it is opened (when mail is on; see Profile).
             ->emailChangeVerification()

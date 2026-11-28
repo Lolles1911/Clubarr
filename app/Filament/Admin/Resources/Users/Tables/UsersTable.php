@@ -12,6 +12,7 @@ use App\Services\MemberAccounts;
 use App\Services\MemberAdmin;
 use App\Services\MemberRequests;
 use App\Services\SiteSettings;
+use App\Support\AdminRole;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
@@ -78,7 +79,7 @@ class UsersTable
                             }
                             self::report($failed, __('Access changed.'));
                         })->deselectRecordsAfterCompletion(),
-                    BulkAction::make('bulkGroup')->label(__('Add to a group'))->icon(Heroicon::OutlinedUserGroup)
+                    BulkAction::make('bulkGroup')->label(__('Add to a group'))->icon(Heroicon::OutlinedUserGroup)->visible(fn () => AdminRole::full())
                         ->schema([Select::make('group')->label(__('Group'))->required()->options(fn () => MemberGroup::orderBy('name')->pluck('name', 'id')->all())])
                         ->action(function (Collection $records, array $data) {
                             $group = MemberGroup::findOrFail($data['group']);
@@ -89,7 +90,7 @@ class UsersTable
                             Audit::log('group.members_added', $group, ['count' => $records->count()]);
                             Notification::make()->title(__('Added to :group.', ['group' => $group->name]))->success()->send();
                         })->deselectRecordsAfterCompletion(),
-                    BulkAction::make('bulkUngroup')->label(__('Remove from a group'))->icon(Heroicon::OutlinedUserMinus)
+                    BulkAction::make('bulkUngroup')->label(__('Remove from a group'))->icon(Heroicon::OutlinedUserMinus)->visible(fn () => AdminRole::full())
                         ->schema([Select::make('group')->label(__('Group'))->required()->options(fn () => MemberGroup::orderBy('name')->pluck('name', 'id')->all())])
                         ->action(function (Collection $records, array $data) {
                             foreach (self::members($records) as $user) {

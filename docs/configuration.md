@@ -67,6 +67,28 @@ and `{date}` are filled in; an empty field uses Clubarr's own text.
 
 Admin → System → API keys. See [api.md](api.md).
 
+## Front page
+
+Settings → Front page: off by default (the address goes to sign-in). On,
+visitors see your name, logo and text, a Sign in button, Apply to join and
+the waiting list when they are open, and, if you choose, posters of the
+newest titles (without names) and the servers' status with planned
+maintenance. Signed-in members go straight to their page.
+
+## Planned maintenance
+
+Servers → Maintenance → Plan maintenance: a server (or all), from and to,
+and a note. "Tell the members now" sends a mail and a Discord message and
+shows a banner until it ends. While it lasts, "server down" alerts for it
+are not sent.
+
+## Moderators
+
+Members → (an admin) → Admin role: Moderator. Moderators handle members,
+invitations, requests, applications, problems and messages. They don't see
+settings, servers, groups, API keys or the log, can't change admins, and
+can't export members.
+
 ## Messages to members
 
 Admin → Messages → New message: a title and text, to all members or one
@@ -128,7 +150,9 @@ password links or reminders.
 Admin → Settings → Invitations: the welcome text on every invitation page,
 the reminder (days; 0 = off), and members inviting friends (a number a
 month and the template their invitations copy). Templates are made under
-Invitations → New → "Save as a template instead". **Many at once** on the
+Invitations → New → "Save as a template instead". With "I approve each
+invitation first", a member's invitation works (and is mailed) only after you
+approve it under Invitations. **Many at once** on the
 invitations list mails a personal single-use link to each email.
 
 ## Automation
@@ -166,7 +190,8 @@ sign out everywhere else.
 ## Applications
 
 Settings → Invitations → Apply to join: open the public `/apply` page and
-choose the template an approved application's invitation copies. The
+choose the template an approved application's invitation copies, and add
+your own questions (one per line, at most 5). The
 sign-in page then shows "Apply to join". Applications are under
 Admin → Applications.
 
