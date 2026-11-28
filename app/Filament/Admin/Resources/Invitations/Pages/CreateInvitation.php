@@ -20,7 +20,7 @@ class CreateInvitation extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         return DB::transaction(function () use ($data) {
-            $invitation = new Invitation(collect($data)->only(['label', 'expires_at', 'max_uses', 'access_days'])->all());
+            $invitation = new Invitation(collect($data)->only(['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit'])->all());
             $invitation->created_by = Auth::id();
             $this->code = $invitation->assignCode();
             $invitation->save();
@@ -34,6 +34,7 @@ class CreateInvitation extends CreateRecord
     protected function getCreatedNotification(): ?Notification
     {
         InvitationResource::showCode((string) $this->code);
+        InvitationResource::sendLink((string) $this->code, $this->data['send_to'] ?? null, $this->data['greeting'] ?? null);
 
         return null;
     }

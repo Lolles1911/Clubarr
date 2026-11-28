@@ -75,6 +75,27 @@ class JoinTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    public function test_the_invitations_limits_go_to_the_member_and_the_more_generous_one_stays(): void
+    {
+        $this->fakeJellyfin();
+        [$invitation, $code] = $this->invitation(['max_streams' => 2, 'request_limit' => 5, 'max_uses' => 5]);
+        $this->join($code);
+        $user = User::where('email', 'anna@example.com')->sole();
+        $this->assertSame([2, 5], [$user->max_streams, $user->request_limit]);
+
+        // A second invitation with lower limits does not lower them; "none" lifts them.
+        $second = new Invitation(['max_uses' => 1, 'max_streams' => 1, 'request_limit' => null]);
+        $secondCode = $second->assignCode();
+        $second->save();
+        $other = MediaServer::create(['type' => ServerType::Jellyfin, 'name' => 'Second', 'url' => 'http://jf2.local', 'api_key' => 'k']);
+        $second->mediaServers()->attach($other->id);
+        Http::fake(['jf2.local/Users/New' => Http::response(['Id' => 'n2']), 'jf2.local/Users/n2' => Http::response(['Id' => 'n2', 'Policy' => []]), 'jf2.local/Users/n2/Policy' => Http::response(null, 204)]);
+        $this->actingAs($user);
+        Livewire::test(Join::class, ['code' => $secondCode])->fillForm(['username' => 'anna', 'password' => 'Anna-pass-123', 'password_confirmation' => 'Anna-pass-123'])->call('join');
+
+        $this->assertSame([2, null], [$user->fresh()->max_streams, $user->fresh()->request_limit]);
+    }
+
     public function test_a_used_up_invitation_cannot_be_used_again(): void
     {
         $this->fakeJellyfin();

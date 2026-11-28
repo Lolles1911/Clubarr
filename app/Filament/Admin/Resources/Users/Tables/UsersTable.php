@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Users\Tables;
 use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
+use App\Services\DiscordSync;
 use App\Services\MemberAccounts;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -63,6 +64,7 @@ class UsersTable
                             $record->forceFill(['disabled_at' => now()])->save();
                             Audit::log('member.disabled', $record);
                             self::report(app(AccessManager::class)->disableAll($record, 'disabled by admin'), __('Disabled.'));
+                            app(DiscordSync::class)->sync($record);
                         }),
                     Action::make('enable')->label(__('Enable'))->icon(Heroicon::OutlinedPlayCircle)->color('success')
                         ->visible(fn (User $record) => $record->disabled_at !== null)
@@ -71,6 +73,7 @@ class UsersTable
                             Audit::log('member.enabled', $record);
                             $failed = $record->hasAccessExpired() ? [] : app(AccessManager::class)->enableAll($record);
                             self::report($failed, __('Enabled.'));
+                            app(DiscordSync::class)->sync($record);
                         }),
                     Action::make('passwordLink')->label(__('Send password link'))->icon(Heroicon::OutlinedEnvelope)
                         ->requiresConfirmation()->modalDescription(__('The member gets a mail with a link to choose a new password for Clubarr.'))
@@ -85,6 +88,8 @@ class UsersTable
                         ->requiresConfirmation()->modalDescription(__('Their users are removed from the servers (Plex: the share), and their Clubarr account is deleted. This can\'t be undone.'))
                         ->action(function (User $record) {
                             $failed = app(AccessManager::class)->removeAll($record);
+                            // Takes the Discord role when no server user is left.
+                            app(DiscordSync::class)->sync($record);
                             if ($failed !== []) {
                                 self::report($failed, '');
 

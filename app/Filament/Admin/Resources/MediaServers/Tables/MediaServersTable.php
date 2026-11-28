@@ -4,25 +4,21 @@ namespace App\Filament\Admin\Resources\MediaServers\Tables;
 
 use App\MediaServers\Data\RemoteUser;
 use App\MediaServers\MediaServerException;
+use App\Models\Claim;
 use App\Models\MediaServer;
-use App\Models\ServerAccount;
-use App\Models\User;
-use App\Services\Audit;
-use App\Services\MemberAccounts;
 use App\Services\ServerSync;
+use App\Services\UserImport;
+use App\Support\Copy;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
-use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Notifications\Notification;
-use Filament\Schemas\Components\Utilities\Get;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
+use Illuminate\Support\HtmlString;
 
 class MediaServersTable
 {
@@ -31,22 +27,28 @@ class MediaServersTable
         return $table
             ->columns([
                 TextColumn::make('name')->label(__('Name'))->searchable()->weight('medium')
-                    ->description(fn (MediaServer $record) => $record->type->label()),
+                    ->description(fn (MediaServer $record) => $record->type->label().($record->setting('version') ? ' · '.$record->setting('version') : '')),
                 TextColumn::make('url')->label(__('Address'))->limit(40)->color('gray'),
                 TextColumn::make('libraries_count')->counts('libraries')->label(__('Libraries')),
-                TextColumn::make('accounts_count')->counts('accounts')->label(__('Members')),
+                TextColumn::make('accounts_count')->counts('accounts')->label(__('Members'))
+                    ->formatStateUsing(fn (MediaServer $record, $state) => $record->capacity ? $state.' / '.$record->capacity : $state),
                 IconColumn::make('is_enabled')->label(__('In use'))->boolean(),
                 TextColumn::make('last_error')->label(__('Last check'))->wrap()
                     ->state(fn (MediaServer $record) => $record->last_checked_at === null ? '—' : ($record->last_error ?? __('OK, :time', ['time' => $record->last_checked_at->diffForHumans()])))
                     ->color(fn (MediaServer $record) => $record->last_error ? 'danger' : 'success'),
             ])
             ->recordActions([
-                Action::make('check')->label(__('Check'))->icon(Heroicon::OutlinedArrowPath)
+                Action::make('sync')->label(__('Sync'))->icon(Heroicon::OutlinedArrowPath)
                     ->action(function (MediaServer $record) {
                         try {
-                            app(ServerSync::class)->check($record);
-                            $count = app(ServerSync::class)->syncLibraries($record);
-                            Notification::make()->title(__('Connected. :count libraries found.', ['count' => $count]))->success()->send();
+                            $sync = app(ServerSync::class);
+                            $sync->check($record);
+                            $libraries = $sync->syncLibraries($record);
+                            $users = $sync->syncUsers($record);
+                            Notification::make()->title(__('Synced.'))->success()
+                                ->body(__(':libraries libraries; :changed members updated.', ['libraries' => $libraries, 'changed' => $users['changed']])
+                                    .($users['missing'] > 0 ? ' '.__(':count members\' users are no longer on the server.', ['count' => $users['missing']]) : ''))
+                                ->send();
                         } catch (MediaServerException $e) {
                             Notification::make()->title(__('Could not connect'))->body($e->getMessage())->danger()->send();
                         }
@@ -59,44 +61,51 @@ class MediaServersTable
     }
 
     /**
-     * Links a user that already exists on the server to a member: an existing
-     * one, or a new one who gets a mail to choose their password.
+     * Brings users that already exist on the server into Clubarr, many at a
+     * time (UserImport): a mail when the server knows their email, else a
+     * personal link to send them.
      */
     private static function importAction(): Action
     {
-        return Action::make('import')->label(__('Import user'))->icon(Heroicon::OutlinedUserPlus)
-            ->modalDescription(__('Link a user that already exists on this server to a member, so they can sign in to Clubarr. Server administrators are not listed.'))
+        return Action::make('import')->label(__('Import users'))->icon(Heroicon::OutlinedUserPlus)
+            ->modalDescription(__('Users who already exist on this server get a Clubarr account. With an email the server knows (Plex, Silo) they get a mail to choose their password; otherwise (Jellyfin, Emby) you get a personal link to send each of them. Server administrators are not listed.'))
+            ->modalSubmitActionLabel(__('Import'))
             ->schema(fn (MediaServer $record) => [
-                Select::make('remote')->label(__('User on the server'))->required()->searchable()
-                    ->options(fn () => collect(self::unlinkedUsers($record))->mapWithKeys(fn (RemoteUser $u) => [$u->id => $u->username.($u->email ? ' ('.$u->email.')' : '')])->all()),
-                Select::make('member')->label(__('Existing member'))->searchable()->live()
-                    ->options(fn () => User::query()->whereDoesntHave('serverAccounts', fn ($q) => $q->where('media_server_id', $record->id))->orderBy('name')->limit(500)->pluck('email', 'id')->all())
-                    ->helperText(__('Or leave empty and make a new member below.')),
-                TextInput::make('name')->label(__('Name of the new member'))->maxLength(100)->required(fn (Get $get) => blank($get('member')))->hidden(fn (Get $get) => filled($get('member'))),
-                TextInput::make('email')->label(__('Email of the new member'))->email()->maxLength(190)
-                    // A plain rule: Filament's unique() would leave out the action's record (the server), not a user.
-                    ->rule(Rule::unique('users', 'email'))
-                    ->required(fn (Get $get) => blank($get('member')))->hidden(fn (Get $get) => filled($get('member')))
-                    ->helperText(__('They get a mail with a link to choose their password.')),
+                CheckboxList::make('remote')->label(__('Users on the server'))->required()->bulkToggleable()->searchable()->columns(2)
+                    ->options(fn () => collect(self::unlinkedUsers($record))->mapWithKeys(fn (RemoteUser $u) => [$u->id => $u->username.($u->email ? ' ('.$u->email.')' : '')])->all())
+                    ->noSearchResultsMessage(__('Nobody to import: every user is linked already.')),
             ])
             ->action(function (MediaServer $record, array $data) {
-                $remote = collect(self::unlinkedUsers($record))->first(fn (RemoteUser $u) => $u->id === (string) $data['remote']);
-                if ($remote === null) {
-                    Notification::make()->title(__('That user can\'t be imported (an administrator, or already linked).'))->danger()->send();
-
-                    return;
-                }
-                $user = DB::transaction(function () use ($record, $data, $remote) {
-                    $user = filled($data['member'] ?? null) ? User::findOrFail((int) $data['member']) : app(MemberAccounts::class)->create((string) $data['name'], (string) $data['email']);
-                    ServerAccount::create(['user_id' => $user->id, 'media_server_id' => $record->id, 'remote_id' => $remote->id, 'remote_username' => $remote->username,
-                        'status' => $remote->isDisabled ? 'disabled' : 'active']);
-
-                    return $user;
-                });
+                $chosen = array_map('strval', (array) ($data['remote'] ?? []));
+                $users = array_values(array_filter(self::unlinkedUsers($record), fn (RemoteUser $u) => in_array($u->id, $chosen, true)));
                 Cache::forget('clubarr:remote-users:'.$record->id);
-                Audit::log('account.imported', $user, ['server' => $record->name, 'remote_username' => $remote->username]);
-                Notification::make()->title(__(':user is linked to :member.', ['user' => $remote->username, 'member' => $user->email]))->success()->send();
+                $rows = app(UserImport::class)->import($record, $users);
+                self::showImport($rows);
             });
+    }
+
+    /** @param list<array{username: string, result: string, link: ?string}> $rows */
+    private static function showImport(array $rows): void
+    {
+        $counts = array_count_values(array_column($rows, 'result'));
+        $links = array_values(array_filter($rows, fn ($r) => $r['link'] !== null));
+        $lines = [__(':count imported.', ['count' => count($rows)])];
+        if ($counts['mailed'] ?? 0) {
+            $lines[] = __(':count got a mail to choose their password.', ['count' => $counts['mailed']]);
+        }
+        if ($counts['linked'] ?? 0) {
+            $lines[] = __(':count were linked to the member with their email.', ['count' => $counts['linked']]);
+        }
+        if ($counts['failed'] ?? 0) {
+            $lines[] = __(':count failed; see the log.', ['count' => $counts['failed']]);
+        }
+        $text = implode("\n", array_map(fn ($r) => $r['username'].': '.$r['link'], $links));
+        $notification = Notification::make()->title(__('Import done'))->success()->persistent()
+            ->body(new HtmlString(nl2br(e(implode("\n", $lines).($links !== [] ? "\n\n".__('Send each their link (valid :days days, once):', ['days' => Claim::DAYS])."\n".$text : '')))));
+        if ($links !== []) {
+            $notification->actions([Action::make('copyAll')->label(__('Copy all links'))->button()->alpineClickHandler(Copy::handler($text))]);
+        }
+        $notification->send();
     }
 
     /** @return list<RemoteUser> users on the server that no member has, without administrators */
@@ -110,7 +119,7 @@ class MediaServersTable
                 return [];
             }
         });
-        $users = array_map(fn (array $row) => RemoteUser::fromArray($row), is_array($rows) ? array_filter($rows, 'is_array') : []);
+        $users = array_map(fn (array $row) => RemoteUser::fromArray($row), $rows);
         $linked = $server->accounts()->whereNotNull('remote_id')->pluck('remote_id')->all();
 
         return array_values(array_filter($users, fn (RemoteUser $u) => ! $u->isAdmin && $u->id !== '' && ! in_array($u->id, $linked, true)));

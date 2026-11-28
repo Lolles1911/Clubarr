@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AccountStatus;
 use App\Enums\ServerType;
 use App\MediaServers\Contracts\MediaServerDriver;
 use App\MediaServers\DriverFactory;
@@ -18,12 +19,13 @@ use Illuminate\Support\Carbon;
  * @property string $api_key
  * @property array<string, mixed>|null $settings
  * @property bool $is_enabled
+ * @property int|null $capacity
  * @property Carbon|null $last_checked_at
  * @property string|null $last_error
  */
 class MediaServer extends Model
 {
-    protected $fillable = ['type', 'name', 'url', 'public_url', 'api_key', 'settings', 'is_enabled'];
+    protected $fillable = ['type', 'name', 'url', 'public_url', 'api_key', 'settings', 'is_enabled', 'capacity'];
 
     protected $hidden = ['api_key'];
 
@@ -34,6 +36,7 @@ class MediaServer extends Model
             'api_key' => 'encrypted',
             'settings' => 'array',
             'is_enabled' => 'boolean',
+            'capacity' => 'integer',
             'last_checked_at' => 'datetime',
         ];
     }
@@ -48,6 +51,17 @@ class MediaServer extends Model
     public function accounts(): HasMany
     {
         return $this->hasMany(ServerAccount::class);
+    }
+
+    /** Members on it now (active, or still to finish a Silo link or Plex share). */
+    public function seatsTaken(): int
+    {
+        return $this->accounts()->whereIn('status', [AccountStatus::Active, AccountStatus::Pending])->count();
+    }
+
+    public function isFull(): bool
+    {
+        return $this->capacity !== null && $this->seatsTaken() >= $this->capacity;
     }
 
     public function driver(): MediaServerDriver

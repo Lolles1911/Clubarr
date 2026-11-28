@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AccountStatus;
 use Database\Factories\UserFactory;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
@@ -30,6 +31,11 @@ use SensitiveParameter;
  * @property Carbon|null $last_login_at
  * @property string|null $app_authentication_secret
  * @property array<string>|null $app_authentication_recovery_codes
+ * @property int|null $max_streams
+ * @property int|null $request_limit
+ * @property int|null $seerr_user_id
+ * @property string|null $discord_id
+ * @property string|null $discord_username
  */
 class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasName
 {
@@ -53,6 +59,9 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'expiry_warned_at' => 'datetime',
             'disabled_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'max_streams' => 'integer',
+            'request_limit' => 'integer',
+            'seerr_user_id' => 'integer',
         ];
     }
 
@@ -60,6 +69,19 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     public function serverAccounts(): HasMany
     {
         return $this->hasMany(ServerAccount::class);
+    }
+
+    /** @return HasMany<MediaRequest, $this> */
+    public function mediaRequests(): HasMany
+    {
+        return $this->hasMany(MediaRequest::class);
+    }
+
+    /** Has access now: not disabled, not ended, and at least one user on a server. */
+    public function hasActiveAccess(): bool
+    {
+        return $this->disabled_at === null && ! $this->hasAccessExpired()
+            && $this->serverAccounts()->where('status', AccountStatus::Active)->exists();
     }
 
     public function canAccessPanel(Panel $panel): bool

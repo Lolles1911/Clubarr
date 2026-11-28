@@ -24,6 +24,7 @@ class Redeemer
      */
     public function redeem(Invitation $invitation, ?User $existing, ?array $newAccount, string $username, ?string $serverPassword, ?array $plex): User
     {
+        self::checkSeats($invitation, $existing);
         $this->reserve($invitation);
         $user = $existing ?? new User(['name' => $newAccount['name'], 'email' => $newAccount['email'], 'password' => $newAccount['password']]);
 
@@ -48,6 +49,9 @@ class Redeemer
                 } elseif ($user->exists) {
                     $user->access_expires_at = null;
                 }
+                // The invitation's limits; a member keeps the more generous one (null = none).
+                $user->max_streams = self::generous($user->exists ? $user->max_streams : 0, $invitation->max_streams, $user->exists);
+                $user->request_limit = self::generous($user->exists ? $user->request_limit : 0, $invitation->request_limit, $user->exists);
                 $user->save();
                 $this->access->record($user, $invitation, $made);
             });
@@ -59,6 +63,7 @@ class Redeemer
         }
 
         Audit::log('invitation.redeemed', $invitation, ['servers' => array_map(fn ($r) => $r['server']->name, $made)], $user->id);
+        app(DiscordSync::class)->sync($user);
         if ($existing === null) {
             try {
                 $user->notify(new Welcome);
@@ -68,6 +73,30 @@ class Redeemer
         }
 
         return $user;
+    }
+
+    /** Throws when a server the visitor doesn't have yet is full (waiting-list invitations hold their seat). */
+    public static function checkSeats(Invitation $invitation, ?User $existing): void
+    {
+        if ($invitation->from_waitlist) {
+            return;
+        }
+        $have = $existing?->serverAccounts()->pluck('media_server_id')->all() ?? [];
+        foreach ($invitation->mediaServers as $server) {
+            if (! in_array($server->id, $have, true) && Waitlist::isFull($server)) {
+                throw new InvitationProblem(__(':server is full right now.', ['server' => $server->name]), full: true);
+            }
+        }
+    }
+
+    /** The more generous of two limits; null means no limit. A new member just gets the invitation's. */
+    private static function generous(?int $current, ?int $offered, bool $existing): ?int
+    {
+        if (! $existing || $current === null || $offered === null) {
+            return $existing && $current === null ? null : $offered;
+        }
+
+        return max($current, $offered);
     }
 
     private function reserve(Invitation $invitation): void

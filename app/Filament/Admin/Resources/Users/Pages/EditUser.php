@@ -18,6 +18,8 @@ class EditUser extends EditRecord
         /** @var User $record */
         $record->fill(collect($data)->only(['name', 'email'])->all());
         $record->access_expires_at = $data['access_expires_at'] ?? null;
+        $record->max_streams = filled($data['max_streams'] ?? null) ? (int) $data['max_streams'] : null;
+        $record->request_limit = filled($data['request_limit'] ?? null) ? (int) $data['request_limit'] : null;
         if ($record->isDirty('access_expires_at')) {
             $record->expiry_warned_at = null;
         }

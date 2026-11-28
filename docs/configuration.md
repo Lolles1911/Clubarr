@@ -28,6 +28,32 @@ Point the proxy at port 8080 and set `APP_URL`, `TRUSTED_PROXIES` and
 `SESSION_SECURE_COOKIE=true`. Clubarr sends its own security headers; the
 proxy should not add a conflicting `Content-Security-Policy`.
 
+## Tracearr, Seerr and Discord
+
+All under Admin → Settings; **Test Tracearr, Seerr and Discord** checks them.
+
+- **Tracearr**: its address and a public API key (Tracearr → Settings →
+  Data & API, starts with `trr_pub_`). Gives My devices, stream limits,
+  numbers and posters.
+- **Overseerr / Jellyseerr**: its address and API key (Seerr → Settings →
+  General). Members request as their own Seerr user, so it must be connected
+  to the same Jellyfin/Emby or Plex. If Seerr has "CSRF Protection" on, turn
+  it off (Settings → Network), or API calls are refused.
+- **Discord**: an application at discord.com/developers with a bot. Add the
+  redirect shown under Settings (`<APP_URL>/discord/callback`) under OAuth2,
+  invite the bot to your server with **Manage Roles**, and put the bot's
+  role above the members' role. Enter the application ID, client secret,
+  bot token, your server's ID and the role's ID (Discord → Settings →
+  Advanced → Developer Mode, then right-click → Copy ID).
+
+## Member limit and waiting list
+
+Set **Members at most** on a server. Under Settings → Waiting list choose
+the invitation the waiting list copies (its servers, libraries and limits).
+Share `<APP_URL>/waitlist`. Every 10 minutes, when there is room, the first
+in line gets an invitation by mail, valid 48 hours; unused, it goes to the
+next. A waiting-list invitation keeps its seat while it is valid.
+
 ## Mail
 
 Admin → Settings → Mail: an SMTP server (STARTTLS on 587 or TLS on 465), the

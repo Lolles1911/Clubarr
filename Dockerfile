@@ -2,7 +2,8 @@
 # Clubarr: one container with nginx, PHP-FPM, the scheduler and the queue.
 # Everything that must be kept lives in /config.
 
-FROM composer:2.8 AS vendor
+# PHP code is the same on every platform: install it natively, once.
+FROM --platform=$BUILDPLATFORM composer:2.8 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction --no-progress --ignore-platform-reqs
@@ -10,7 +11,9 @@ COPY . .
 RUN composer dump-autoload --no-dev --classmap-authoritative --no-interaction \
  && find vendor -type d -name .git -prune -exec rm -rf {} +
 
-FROM php:8.3-fpm-alpine3.20
+# Alpine's own PHP packages: built already for every platform, so nothing is
+# compiled here (an arm64 image builds in minutes instead of ~20).
+FROM alpine:3.20
 
 ARG VERSION=dev
 LABEL org.opencontainers.image.title="Clubarr" \
@@ -19,15 +22,16 @@ LABEL org.opencontainers.image.title="Clubarr" \
       org.opencontainers.image.source="https://github.com/Lolles1911/clubarr" \
       org.opencontainers.image.version="${VERSION}"
 
-RUN apk add --no-cache nginx supervisor su-exec shadow tzdata icu-libs libzip sqlite-libs libpq \
- && apk add --no-cache --virtual .build $PHPIZE_DEPS icu-dev libzip-dev sqlite-dev postgresql-dev linux-headers \
- && docker-php-ext-install -j"$(nproc)" intl pdo_mysql pdo_pgsql pdo_sqlite opcache pcntl zip bcmath \
- && apk del .build \
- && rm -rf /var/cache/apk/* /tmp/* \
+RUN apk add --no-cache nginx supervisor su-exec shadow tzdata ca-certificates \
+      php83 php83-fpm php83-bcmath php83-ctype php83-curl php83-dom php83-fileinfo php83-iconv php83-intl \
+      php83-mbstring php83-opcache php83-openssl php83-pcntl php83-pdo php83-pdo_mysql php83-pdo_pgsql \
+      php83-pdo_sqlite php83-phar php83-posix php83-session php83-simplexml php83-sodium php83-sqlite3 \
+      php83-tokenizer php83-xml php83-xmlreader php83-xmlwriter php83-zip \
+ && ln -sf /usr/bin/php83 /usr/bin/php \
  && addgroup -g 1000 clubarr && adduser -D -H -u 1000 -G clubarr -s /sbin/nologin clubarr
 
-COPY docker/php.ini /usr/local/etc/php/conf.d/zz-clubarr.ini
-COPY docker/php-fpm.conf /usr/local/etc/php-fpm.d/zz-clubarr.conf
+COPY docker/php.ini /etc/php83/conf.d/zz-clubarr.ini
+COPY docker/php-fpm.conf /etc/php83/php-fpm.d/zz-clubarr.conf
 COPY docker/nginx.conf /etc/nginx/nginx.conf
 COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh /usr/local/bin/clubarr-entrypoint

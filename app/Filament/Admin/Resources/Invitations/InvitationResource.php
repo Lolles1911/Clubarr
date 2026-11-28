@@ -8,6 +8,10 @@ use App\Filament\Admin\Resources\Invitations\Pages\ListInvitations;
 use App\Filament\Admin\Resources\Invitations\Schemas\InvitationForm;
 use App\Filament\Admin\Resources\Invitations\Tables\InvitationsTable;
 use App\Models\Invitation;
+use App\Notifications\InvitationLink;
+use App\Services\Audit;
+use App\Services\SiteSettings;
+use App\Support\Copy;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -15,7 +19,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
-use Illuminate\Support\Js;
+use Illuminate\Support\HtmlString;
 
 class InvitationResource extends Resource
 {
@@ -65,15 +69,35 @@ class InvitationResource extends Resource
         $link = self::link($code);
         Notification::make()
             ->title(__('Copy the invitation link now'))
-            ->body(__('It is shown only this once.')."\n\n".$link)
+            ->body(new HtmlString(e(__('It is shown only this once.')).'<br><br>'.e($link)))
             ->success()
             ->persistent()
             ->actions([
                 Action::make('copy')->label(__('Copy link'))->button()
-                    // Js::from() is safe inside an HTML attribute (no raw quotes).
-                    ->alpineClickHandler('navigator.clipboard.writeText('.Js::from($link).'); $tooltip('.Js::from(__('Copied')).')'),
+                    ->alpineClickHandler(Copy::handler($link)),
             ])
             ->send();
+    }
+
+    /** Mails the link, if an address was given; says so when mail is not set up. */
+    public static function sendLink(string $code, ?string $email, ?string $greeting): void
+    {
+        if (blank($email)) {
+            return;
+        }
+        if (app(SiteSettings::class)->get('mail_enabled') !== '1') {
+            Notification::make()->title(__('The link was not mailed: set up mail under Settings first.'))->warning()->send();
+
+            return;
+        }
+        try {
+            \Illuminate\Support\Facades\Notification::route('mail', (string) $email)->notify(new InvitationLink(self::link($code), $greeting));
+            Audit::log('invitation.mailed', null, ['to' => $email]);
+            Notification::make()->title(__('The link was mailed to :email.', ['email' => $email]))->success()->send();
+        } catch (\Throwable $e) {
+            report($e);
+            Notification::make()->title(__('The link could not be mailed.'))->danger()->send();
+        }
     }
 
     /**

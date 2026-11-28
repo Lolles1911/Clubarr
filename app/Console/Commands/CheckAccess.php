@@ -9,6 +9,8 @@ use App\Notifications\AccessEnded;
 use App\Notifications\AccessEndingSoon;
 use App\Services\AccessManager;
 use App\Services\Audit;
+use App\Services\DiscordSync;
+use App\Services\SiteSettings;
 use Illuminate\Console\Command;
 use Throwable;
 
@@ -23,7 +25,7 @@ class CheckAccess extends Command
 
     protected $description = 'Warn about and end expired access; pick up taken Silo links and Plex shares';
 
-    public function handle(AccessManager $access): int
+    public function handle(AccessManager $access, DiscordSync $discord): int
     {
         $warnDays = (int) config('clubarr.expiry_warning_days');
         User::members()->whereNull('disabled_at')->whereNull('expiry_warned_at')->whereNotNull('access_expires_at')
@@ -36,17 +38,21 @@ class CheckAccess extends Command
         $ended = 0;
         User::members()->whereNotNull('access_expires_at')->where('access_expires_at', '<=', now())
             ->whereHas('serverAccounts', fn ($q) => $q->where('status', AccountStatus::Active))
-            ->each(function (User $user) use ($access, &$ended) {
+            ->each(function (User $user) use ($access, $discord, &$ended) {
                 $failed = $access->disableAll($user, 'access ended');
                 Audit::log('member.access_ended', $user, $failed !== [] ? ['failed' => $failed] : []);
                 if ($failed === []) {
                     $this->send($user, new AccessEnded);
+                    $discord->tell($user, __('Your access to :site has ended', ['site' => app(SiteSettings::class)->get('site_name')]).'.');
                 }
                 $ended++;
             });
 
         ServerAccount::with('mediaServer')->where('status', AccountStatus::Pending)->where('created_at', '>=', now()->subDays(30))
             ->each(fn (ServerAccount $account) => $access->refreshPending($account));
+
+        // Discord roles follow access (also after changes made elsewhere).
+        User::members()->whereNotNull('discord_id')->each(fn (User $user) => $discord->sync($user));
 
         $this->info('Access checked; '.$ended.' ended.');
 

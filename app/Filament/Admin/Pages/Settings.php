@@ -3,6 +3,10 @@
 namespace App\Filament\Admin\Pages;
 
 use App\Http\Middleware\ApplySiteLocale;
+use App\Integrations\Discord;
+use App\Integrations\Seerr;
+use App\Integrations\Tracearr;
+use App\Models\Invitation;
 use App\Services\Audit;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
@@ -56,7 +60,9 @@ class Settings extends Page
         $values = app(SiteSettings::class)->all() + SiteSettings::DEFAULTS;
         $values['mail_enabled'] = ($values['mail_enabled'] ?? '0') === '1';
         $values['admin_2fa_required'] = ($values['admin_2fa_required'] ?? '1') !== '0';
-        unset($values['mail_password']); // never sent to the browser
+        foreach (SiteSettings::SECRET as $secret) {
+            unset($values[$secret]); // never sent to the browser
+        }
         $this->form->fill($values);
     }
 
@@ -74,6 +80,35 @@ class Settings extends Page
                 Toggle::make('admin_2fa_required')->label(__('Require two-factor sign-in for admins'))
                     ->helperText(__('Recommended. Admins can change members\' access and see server keys; with this on, a stolen password is not enough. Admins without it set up are asked to on their next sign-in.')),
             ]),
+            Section::make('Tracearr')->columns(2)->collapsible()
+                ->description(__('What members watch: My devices, stream limits, numbers and posters.'))->schema([
+                    TextInput::make('tracearr_url')->label(__('Address'))->url()->maxLength(255)->placeholder('http://192.168.1.10:3000'),
+                    TextInput::make('tracearr_api_key')->label(__('API key'))->password()->revealable()->maxLength(500)->autocomplete('off')
+                        ->helperText(__('Tracearr → Settings → Data & API (starts with "trr_pub_"). Stored encrypted; leave empty to keep it.')),
+                ]),
+            Section::make(__('Requests (Overseerr / Jellyseerr)'))->columns(2)->collapsible()->schema([
+                TextInput::make('seerr_url')->label(__('Address'))->url()->maxLength(255)->placeholder('http://192.168.1.10:5055'),
+                TextInput::make('seerr_api_key')->label(__('API key'))->password()->revealable()->maxLength(500)->autocomplete('off')
+                    ->helperText(__('Seerr → Settings → General. Stored encrypted; leave empty to keep it.')),
+            ]),
+            Section::make('Discord')->columns(2)->collapsible()
+                ->description(__('Members can link Discord and get a role while they have access. Make an application at discord.com/developers, add a bot to your server with "Manage Roles", and add this redirect: :url', ['url' => Discord::redirectUrl()]))->schema([
+                    TextInput::make('discord_client_id')->label(__('Application (client) ID'))->maxLength(32)->regex('/^\d*$/'),
+                    TextInput::make('discord_client_secret')->label(__('Client secret'))->password()->revealable()->maxLength(200)->autocomplete('off')
+                        ->helperText(__('Stored encrypted; leave empty to keep it.')),
+                    TextInput::make('discord_bot_token')->label(__('Bot token'))->password()->revealable()->maxLength(200)->autocomplete('off')
+                        ->helperText(__('Stored encrypted; leave empty to keep it.')),
+                    TextInput::make('discord_guild_id')->label(__('Server ID'))->maxLength(32)->regex('/^\d*$/'),
+                    TextInput::make('discord_role_id')->label(__('Role for members (ID)'))->maxLength(32)->regex('/^\d*$/')
+                        ->helperText(__('The bot\'s own role must be above it.')),
+                ]),
+            Section::make(__('Waiting list'))->collapsible()
+                ->description(__('When a server with "Members at most" has room, the first in line gets an invitation by mail, valid 48 hours. The public page is /waitlist.'))->schema([
+                    Select::make('waitlist_template_id')->label(__('Invitations copy'))
+                        ->options(fn () => Invitation::where('from_waitlist', false)->latest()->limit(200)->get()->mapWithKeys(fn ($i) => [$i->id => ($i->label ?: $i->code_hint.'…').' · '.$i->mediaServers()->pluck('name')->implode(', ')])->all())
+                        ->placeholder(__('Off'))
+                        ->helperText(__('Servers, libraries and limits are taken from this invitation. Empty: no waiting list.')),
+                ]),
             Section::make(__('Mail'))->columns(2)->description(__('For welcome mails, password links and access reminders.'))->schema([
                 Toggle::make('mail_enabled')->label(__('Send mail'))->live()->columnSpanFull(),
                 TextInput::make('mail_host')->label(__('SMTP server'))->maxLength(190)->required(fn (Get $get) => $get('mail_enabled')),
@@ -96,6 +131,7 @@ class Settings extends Page
                 ->footer([Actions::make([
                     Action::make('save')->label(__('Save'))->submit('save'),
                     Action::make('testMail')->label(__('Send a test mail to me'))->color('gray')->action(fn () => $this->testMail()),
+                    Action::make('testServices')->label(__('Test Tracearr, Seerr and Discord'))->color('gray')->action(fn () => $this->testServices()),
                 ])]),
         ]);
     }
@@ -106,8 +142,10 @@ class Settings extends Page
         $data['mail_enabled'] = ! empty($data['mail_enabled']) ? '1' : '0';
         $was = app(SiteSettings::class)->get('admin_2fa_required');
         $data['admin_2fa_required'] = ! empty($data['admin_2fa_required']) ? '1' : '0';
-        if (blank($data['mail_password'] ?? null)) {
-            unset($data['mail_password']);
+        foreach (SiteSettings::SECRET as $secret) {
+            if (blank($data[$secret] ?? null)) {
+                unset($data[$secret]); // empty: keep the stored one
+            }
         }
         app(SiteSettings::class)->set($data);
         Audit::log('settings.saved', null, ['keys' => array_keys($data)]);
@@ -115,6 +153,25 @@ class Settings extends Page
             Audit::log($data['admin_2fa_required'] === '1' ? 'security.admin_2fa_required' : 'security.admin_2fa_optional');
         }
         Notification::make()->title(__('Saved.'))->success()->send();
+    }
+
+    protected function testServices(): void
+    {
+        $this->save();
+        $results = [];
+        foreach ([
+            'Tracearr' => fn () => ($t = Tracearr::fromSettings()) ? __(':count servers', ['count' => count($t->servers())]) : null,
+            'Seerr' => fn () => ($s = Seerr::fromSettings()) ? 'v'.$s->version() : null,
+            'Discord' => fn () => ($d = Discord::fromSettings()) ? __('bot :name', ['name' => $d->botName()]) : null,
+        ] as $name => $check) {
+            try {
+                $result = $check();
+                $results[] = $name.': '.($result === null ? __('not set up') : __('OK').' ('.$result.')');
+            } catch (Throwable $e) {
+                $results[] = $name.': '.mb_substr($e->getMessage(), 0, 200);
+            }
+        }
+        Notification::make()->title(__('Test'))->body(implode("\n", $results))->info()->persistent()->send();
     }
 
     protected function testMail(): void

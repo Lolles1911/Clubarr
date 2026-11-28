@@ -41,6 +41,31 @@ class PlexLogin
         return is_string($token) && $token !== '' ? $token : null;
     }
 
+    /**
+     * The Plex servers the account owns, with every address plex.tv knows
+     * for each (local ones first): [name, address, local].
+     *
+     * @return list<array{name: string, uri: string, local: bool}>
+     */
+    public function servers(string $token): array
+    {
+        $rows = [];
+        foreach ($this->http($token)->json('GET', '/api/v2/resources', ['includeHttps' => 1, 'includeRelay' => 0]) as $resource) {
+            if (! is_array($resource) || ! str_contains((string) ($resource['provides'] ?? ''), 'server') || empty($resource['owned'])) {
+                continue;
+            }
+            foreach ($resource['connections'] ?? [] as $connection) {
+                $uri = (string) ($connection['uri'] ?? '');
+                if (is_array($connection) && empty($connection['relay']) && preg_match('~^https?://~', $uri)) {
+                    $rows[] = ['name' => (string) ($resource['name'] ?? 'Plex'), 'uri' => $uri, 'local' => ! empty($connection['local'])];
+                }
+            }
+        }
+        usort($rows, fn ($a, $b) => [$b['local'], $a['name']] <=> [$a['local'], $b['name']]);
+
+        return $rows;
+    }
+
     public function identity(string $token): PlexIdentity
     {
         $user = $this->http($token)->json('GET', '/api/v2/user');

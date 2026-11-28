@@ -19,6 +19,13 @@ Silo servers.** Self-hosted, one Docker container. *Beta.*
   everything.
 - **Automatic**: access that ends pauses the users on the servers, with a
   mail a few days before.
+- **Tracearr**: members see what plays on their users (and stop it), their
+  devices, hours watched and posters; a limit on streams at the same time.
+- **Requests** through Overseerr/Jellyseerr, with a weekly limit per member.
+- **Discord**: members link their account and get a role while they have
+  access.
+- **Member limit per server** and a **waiting list** that invites the next
+  in line by itself.
 - English and Danish.
 
 ## Install

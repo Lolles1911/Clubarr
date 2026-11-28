@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Http\Middleware\RequireAdminTwoFactor;
+use Filament\Actions\Action;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
@@ -26,6 +27,9 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Admin/Pages'), for: 'App\Filament\Admin\Pages')
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\Filament\Admin\Widgets')
             ->pages([Dashboard::class])
+            ->userMenuItems([
+                'members' => Action::make('members')->label(fn () => __('My access'))->icon('heroicon-o-play-circle')->url(fn () => url('/')),
+            ])
             ->databaseNotifications(false);
     }
 }

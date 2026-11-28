@@ -7,6 +7,7 @@ use App\Enums\ServerType;
 use App\Filament\Admin\Resources\MediaServers\Pages\ListMediaServers;
 use App\Filament\App\Pages\Join;
 use App\MediaServers\Contracts\CreatesUsers;
+use App\Models\Claim;
 use App\Models\Invitation;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
@@ -89,7 +90,7 @@ class AllServersTest extends TestCase
                 'silo.local/api/v2/libraries' => Http::response(['items' => [['id' => 1, 'name' => 'Movies'], ['id' => 2, 'name' => 'TV']]]),
                 'silo.local/api/v2/admin/users*' => Http::response(['items' => [
                     ['id' => 1, 'username' => 'owner', 'role' => 'admin', 'enabled' => true],
-                    ['id' => 'old1', 'username' => 'grandma', 'role' => 'user', 'enabled' => true],
+                    ['id' => 'old1', 'username' => 'grandma', 'email' => 'grandma@example.com', 'role' => 'user', 'enabled' => true],
                 ], 'page' => ['has_more' => false]]),
                 'silo.local/api/v2/admin/invitations' => Http::response(['invitation' => ['id' => 9], 'claim_url' => 'https://silo.local/claim/abc']),
             ],
@@ -108,22 +109,28 @@ class AllServersTest extends TestCase
     }
 
     #[DataProvider('servers')]
-    public function test_import_lists_ordinary_users_and_links_one(ServerType $type): void
+    public function test_bulk_import_mails_when_the_email_is_known_else_makes_a_link(ServerType $type): void
     {
         $this->fakeServer($type);
         $server = $this->server($type);
         $this->actingAs($this->admin);
         Filament::setCurrentPanel('admin');
 
-        // An administrator is refused (Plex: the owner is never in the share list).
-        Livewire::test(ListMediaServers::class)->callAction(TestAction::make('import')->table($server), ['remote' => 'admin0', 'name' => 'X', 'email' => 'x@example.com']);
-        $this->assertSame(0, ServerAccount::count());
+        // The administrator ("admin0" / "owner") is not offered: sending it anyway imports nothing.
+        Livewire::test(ListMediaServers::class)->callAction(TestAction::make('import')->table($server), ['remote' => ['admin0']]);
+        $this->assertSame([0, 0], [ServerAccount::count(), Claim::count()]);
+        Livewire::test(ListMediaServers::class)->callAction(TestAction::make('import')->table($server), ['remote' => ['old1']])->assertHasNoFormErrors();
 
-        Livewire::test(ListMediaServers::class)
-            ->callAction(TestAction::make('import')->table($server), ['remote' => 'old1', 'name' => 'Grandma', 'email' => 'grandma@example.com'])
-            ->assertHasNoFormErrors();
-        $account = ServerAccount::sole();
-        $this->assertSame(['old1', 'grandma', AccountStatus::Active], [$account->remote_id, $account->remote_username, $account->status], $type->label());
+        $knowsEmail = in_array($type, [ServerType::Plex, ServerType::Silo], true);
+        if ($knowsEmail) {
+            $account = ServerAccount::sole();
+            $this->assertSame(['old1', 'grandma', AccountStatus::Active], [$account->remote_id, $account->remote_username, $account->status], $type->label());
+            $this->assertSame(0, Claim::count());
+        } else {
+            $this->assertSame(0, ServerAccount::count(), 'no account before the person claims it');
+            $claim = Claim::sole();
+            $this->assertSame(['old1', 'grandma'], [$claim->remote_id, $claim->remote_username], $type->label());
+        }
     }
 
     #[DataProvider('servers')]

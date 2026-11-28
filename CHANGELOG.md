@@ -3,6 +3,68 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.2.0-beta (2026-11-28)
+
+### Tracearr
+- **My devices** (members): what plays on their users now, with **Stop**, and
+  their devices of the last 30 days.
+- **Streams at the same time**: a limit on the invitation, given to the
+  member (and changeable per member). Every minute, streams over it are
+  stopped, newest first, with a message on the screen (Plex).
+- **My access** shows hours watched (7 and 30 days), plays, and posters:
+  **Continue watching**, **Popular now** and **New on the server**. Posters
+  are served by Clubarr, only those it listed; browsers never talk to
+  Tracearr or the media servers.
+
+### Requests (Overseerr / Jellyseerr)
+- **Requests** page: search, request a movie or a whole show, and follow
+  your requests. Made as the member's own Seerr user (found by their
+  Jellyfin/Emby or Plex user), so Seerr's own rules and approval apply.
+- **Requests per week**: a limit on the invitation, given to the member.
+- TMDB posters are served through Clubarr as well.
+
+### Discord
+- Members can **link Discord** on My access (only their ID and name are
+  read). The bot gives them a role while they have access and takes it away
+  when it ends, with a direct message. Checked every hour.
+
+### Member limit and waiting list
+- **Members at most** per server. When a server is full, invitations wait
+  and the visitor is pointed to the **waiting list** (/waitlist).
+- When there is room, the first in line gets an invitation by mail, valid
+  48 hours, copied from an invitation you choose (servers, libraries,
+  limits). Unused, it goes to the next. Admin → Waiting list shows everyone,
+  with **Invite now**.
+
+### Media servers and invitations
+- **Import users** takes many at once. Users the server knows the email of
+  (Plex, Silo) get a mail to choose their password (or are linked to the
+  member with that email). Jellyfin and Emby don't keep emails, so you get a
+  **personal link** for each (valid 30 days, once) with **Copy all links**;
+  opening it, they make their account and are linked to their existing user.
+- **Test** on the server form checks the address and key before saving.
+- **Sync** (was "Check"): tests the server, reads the libraries, and brings
+  members' users up to date (paused or active as on the server, new names);
+  it says how many users are no longer on the server. The version is shown.
+- **Plex: Sign in with Plex** on the server form, then **Choose server**:
+  your Plex servers with their addresses (local first) are listed, and the
+  address and token are filled in for you.
+- Invitations: **Used by** shows who joined with each; the link can be
+  **mailed** with a few words when it is made, or with **New link**.
+- **Copy link** works on plain http addresses too (like a LAN IP), where
+  browsers don't allow the clipboard API.
+- Admins have **Admin** in their menu on the members' side (and **My access**
+  in the admin), so signing in at either place works.
+
+### Other
+- **Settings**: Tracearr, Seerr, Discord and the waiting list, with one
+  button to test them all. All keys and tokens are stored encrypted and are
+  never sent to the browser.
+- When an existing member redeems another invitation, they keep the more
+  generous limits.
+- The Docker image uses Alpine's own PHP packages and builds in minutes
+  instead of ~20 (arm64 included), and is built only for releases.
+
 ## 0.1.1-beta (2026-11-28)
 
 - **Import user works.** The list of users on the server could not be loaded

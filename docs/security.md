@@ -27,6 +27,12 @@ See [SECURITY.md](../SECURITY.md).
   take the last one. If making a user on a server fails, everything made so
   far is removed again and the use is given back.
 
+## Personal links (Import users)
+
+- Like invitation codes: random, stored only as a hash, shown once, used
+  once (under a row lock), valid 30 days, and refused once the server user
+  is linked to someone. Lookups are rate limited.
+
 ## Media servers
 
 - API keys, the mail password, two-factor secrets and Silo links are
@@ -39,6 +45,22 @@ See [SECURITY.md](../SECURITY.md).
   setting a password, Clubarr reads the user and refuses an administrator.
 - Plex: the member's Plex token is used once, while signing up, kept only in
   the encrypted session, and never stored.
+
+## Tracearr, Seerr and Discord
+
+- Their keys and tokens are encrypted like the media server keys, and calls
+  go through the same client (no redirects, short timeouts, safe errors).
+- A member only ever sees and stops their own streams; the stream ID they
+  send is checked against their own.
+- Requests are made as the member's own Seerr user, within their weekly
+  limit, and only when they have access.
+- Posters and TMDB pictures are served by Clubarr (only listed posters, and
+  TMDB file names checked), so members' browsers don't contact other hosts.
+- Discord linking uses a one-time state in the session against forged
+  callbacks, asks only for "identify", and uses the token once; an account
+  linked to someone else is refused.
+- The waiting list page says the same whether an email is on the list or
+  not, is rate limited, and ignores bots (a hidden field).
 
 ## First start
 

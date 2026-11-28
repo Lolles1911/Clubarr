@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\InvitationProblem;
 use App\Services\PlexLogin;
 use App\Services\Redeemer;
+use App\Services\Waitlist;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
@@ -73,6 +74,13 @@ class Join extends SimplePage
             }
         }
         $this->form->fill();
+        if (($invitation = $this->invitation()) !== null) {
+            try {
+                Redeemer::checkSeats($invitation, ($u = Filament::auth()->user()) instanceof User ? $u : null);
+            } catch (InvitationProblem $e) {
+                $this->fullNotice($e);
+            }
+        }
     }
 
     #[Unexposed]
@@ -251,7 +259,7 @@ class Join extends SimplePage
                 $plex,
             );
         } catch (InvitationProblem $e) {
-            Notification::make()->title($e->getMessage())->danger()->send();
+            $this->fullNotice($e);
 
             return null;
         } catch (MediaServerException $e) {
@@ -272,6 +280,17 @@ class Join extends SimplePage
         Notification::make()->title(__('Welcome! Here is how to start watching.'))->success()->send();
 
         return redirect()->to(MyAccess::getUrl(panel: 'app'));
+    }
+
+    /** Tells the visitor why, with the way onto the waiting list when a server is full. */
+    protected function fullNotice(InvitationProblem $e): void
+    {
+        $notice = Notification::make()->title($e->getMessage())->danger()->persistent();
+        if ($e->full && Waitlist::enabled()) {
+            $notice->body(__('Put yourself on the waiting list, and you get an invitation by mail when there is room.'))
+                ->actions([Action::make('waitlist')->label(__('Join the waiting list'))->button()->url(route('filament.app.waitlist'))]);
+        }
+        $notice->send();
     }
 
     /** The invitation, while it can still be used. */

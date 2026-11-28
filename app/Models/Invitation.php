@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -22,6 +23,9 @@ use Illuminate\Support\Str;
  * @property int|null $max_uses
  * @property int $uses
  * @property int|null $access_days
+ * @property int|null $max_streams
+ * @property int|null $request_limit
+ * @property bool $from_waitlist
  * @property Carbon|null $revoked_at
  * @property-read Collection<int, MediaServer> $mediaServers
  */
@@ -30,7 +34,7 @@ class Invitation extends Model
     /** Letters and digits that can't be mistaken for each other. */
     private const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
-    protected $fillable = ['label', 'expires_at', 'max_uses', 'access_days'];
+    protected $fillable = ['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit'];
 
     protected function casts(): array
     {
@@ -40,6 +44,9 @@ class Invitation extends Model
             'max_uses' => 'integer',
             'uses' => 'integer',
             'access_days' => 'integer',
+            'max_streams' => 'integer',
+            'request_limit' => 'integer',
+            'from_waitlist' => 'boolean',
         ];
     }
 
@@ -124,6 +131,12 @@ class Invitation extends Model
     public function mediaServers(): BelongsToMany
     {
         return $this->belongsToMany(MediaServer::class)->withPivot('library_ids');
+    }
+
+    /** @return HasMany<ServerAccount, $this> the users made with this invitation */
+    public function accounts(): HasMany
+    {
+        return $this->hasMany(ServerAccount::class);
     }
 
     /** @return BelongsTo<User, $this> */

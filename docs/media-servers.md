@@ -14,8 +14,15 @@ administrators.**
 - **Address Clubarr uses** is how Clubarr reaches the server (often a LAN
   address). **Address members open** is what they get as "Open" (not used for
   Plex: members use app.plex.tv).
-- **Import user** (on the server's row) links a user that already exists on
-  the server to a member, so existing users can sign in to Clubarr too.
+- **Test** on the form checks the address and key before you save. **Sync**
+  on a server's row reads the libraries and updates members' users.
+- **Plex**: press **Sign in with Plex**, approve in the window, then
+  **Choose server**: the address and token are filled in.
+- **Import users** (on the server's row) brings users that already exist on
+  the server into Clubarr, many at once. With an email the server knows
+  (Plex, Silo), they get a mail to choose their password. Without (Jellyfin,
+  Emby), you get a personal link for each to send them; it works once, for
+  30 days, and is stored only as a hash.
 - Silo links and Plex shares that the member hasn't taken yet show as
   "Waiting for the member"; Clubarr notices when they are taken.
 

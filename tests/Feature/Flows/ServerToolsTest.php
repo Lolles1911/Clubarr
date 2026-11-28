@@ -1,0 +1,111 @@
+<?php
+
+namespace Tests\Feature\Flows;
+
+use App\Enums\AccountStatus;
+use App\Enums\ServerType;
+use App\Filament\Admin\Resources\Invitations\Pages\CreateInvitation;
+use App\Filament\Admin\Resources\MediaServers\Pages\CreateMediaServer;
+use App\Filament\Admin\Resources\MediaServers\Pages\ListMediaServers;
+use App\Models\Invitation;
+use App\Models\MediaServer;
+use App\Models\ServerAccount;
+use App\Models\User;
+use App\Notifications\InvitationLink;
+use App\Services\PlexLogin;
+use App\Services\SiteSettings;
+use Filament\Actions\Testing\TestAction;
+use Filament\Facades\Filament;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Notification;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+class ServerToolsTest extends TestCase
+{
+    use RefreshDatabase;
+
+    private User $admin;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        app(SiteSettings::class)->set(['admin_2fa_required' => '0']);
+        $this->admin = new User(['name' => 'Admin', 'email' => 'admin@example.com', 'password' => 'Admin-pass-1234']);
+        $this->admin->is_admin = true;
+        $this->admin->save();
+        $this->actingAs($this->admin);
+        Filament::setCurrentPanel('admin');
+    }
+
+    public function test_the_test_button_checks_without_saving(): void
+    {
+        Http::fake([
+            'jf.local/System/Info' => Http::response(['ServerName' => 'Home', 'Version' => '10.11.0', 'Id' => 's1']),
+            'jf.local/Library/MediaFolders' => Http::response(['Items' => [['Id' => 'a', 'Name' => 'Movies']]]),
+        ]);
+        Livewire::test(CreateMediaServer::class)
+            ->fillForm(['type' => 'jellyfin', 'name' => 'Home', 'url' => 'http://jf.local', 'api_key' => 'k'])
+            ->callAction(TestAction::make('test')->schemaComponent('serverActions'))
+            ->assertNotified('Connected to Home.');
+        $this->assertSame(0, MediaServer::count());
+    }
+
+    public function test_sync_updates_members_from_the_server_and_remembers_the_version(): void
+    {
+        $server = MediaServer::create(['type' => ServerType::Jellyfin, 'name' => 'Home', 'url' => 'http://jf.local', 'api_key' => 'k']);
+        $member = User::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'x']);
+        $paused = ServerAccount::create(['user_id' => $member->id, 'media_server_id' => $server->id, 'remote_id' => 'u1', 'remote_username' => 'anna', 'status' => AccountStatus::Active]);
+        $other = User::create(['name' => 'B', 'email' => 'b@example.com', 'password' => 'x']);
+        ServerAccount::create(['user_id' => $other->id, 'media_server_id' => $server->id, 'remote_id' => 'gone', 'remote_username' => 'bob', 'status' => AccountStatus::Active]);
+        Http::fake([
+            'jf.local/System/Info' => Http::response(['ServerName' => 'Home', 'Version' => '10.11.2', 'Id' => 's1']),
+            'jf.local/Library/MediaFolders' => Http::response(['Items' => []]),
+            'jf.local/Users' => Http::response([['Id' => 'u1', 'Name' => 'anna2', 'Policy' => ['IsDisabled' => true]]]),
+        ]);
+
+        Livewire::test(ListMediaServers::class)->callAction(TestAction::make('sync')->table($server))->assertNotified();
+
+        $this->assertSame([AccountStatus::Disabled, 'anna2'], [$paused->fresh()->status, $paused->fresh()->remote_username]);
+        $this->assertSame('10.11.2', $server->fresh()->setting('version'));
+    }
+
+    public function test_plex_servers_come_from_the_account_local_first_without_relays(): void
+    {
+        Http::fake(['plex.tv/api/v2/resources*' => Http::response([
+            ['name' => 'Phone', 'provides' => 'player', 'owned' => true, 'connections' => []],
+            ['name' => 'Friend', 'provides' => 'server', 'owned' => false, 'connections' => [['uri' => 'http://10.0.0.9:32400', 'local' => true]]],
+            ['name' => 'WaffleHub', 'provides' => 'server', 'owned' => true, 'connections' => [
+                ['uri' => 'https://1-2-3-4.abc.plex.direct:32400', 'local' => false, 'relay' => false],
+                ['uri' => 'http://192.168.1.235:32400', 'local' => true, 'relay' => false],
+                ['uri' => 'https://relay.plex.direct:8443', 'local' => false, 'relay' => true],
+            ]],
+        ])]);
+
+        $servers = app(PlexLogin::class)->servers('owner-token');
+
+        $this->assertSame(['http://192.168.1.235:32400', 'https://1-2-3-4.abc.plex.direct:32400'], array_column($servers, 'uri'));
+    }
+
+    public function test_an_invitation_link_can_be_mailed_when_mail_is_set_up(): void
+    {
+        Notification::fake();
+        app(SiteSettings::class)->set(['mail_enabled' => '1']);
+        $server = MediaServer::create(['type' => ServerType::Jellyfin, 'name' => 'Home', 'url' => 'http://jf.local', 'api_key' => 'k']);
+
+        Livewire::test(CreateInvitation::class)
+            ->fillForm(['servers' => [$server->id], 'max_uses' => 1, 'send_to' => 'friend@example.com', 'greeting' => 'Velkommen!'])
+            ->call('create')->assertHasNoFormErrors();
+
+        Notification::assertSentOnDemand(InvitationLink::class, fn ($n, $channels, $notifiable) => $notifiable->routes['mail'] === 'friend@example.com');
+        $this->assertSame(1, Invitation::count());
+    }
+
+    public function test_admins_get_a_way_to_the_admin_from_the_members_side(): void
+    {
+        $this->get('/')->assertSee(url('/admin'), false);
+        $member = User::create(['name' => 'M', 'email' => 'm@example.com', 'password' => 'x']);
+        $this->actingAs($member)->get('/')->assertDontSee(url('/admin'), false);
+    }
+}

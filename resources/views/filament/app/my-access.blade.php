@@ -59,6 +59,51 @@
         @endforeach
     </div>
 
+    @php($stats = $this->stats())
+    @if ($stats !== null && $accounts->isNotEmpty())
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:1rem">
+            @foreach ([[__('Watched, 7 days'), __(':hours h', ['hours' => $stats['hours7']])], [__('Watched, 30 days'), __(':hours h', ['hours' => $stats['hours30']])], [__('Plays, 30 days'), $stats['plays30']]] as [$label, $value])
+                <x-filament::section :compact="true">
+                    <div style="opacity:.7;font-size:.8rem">{{ $label }}</div>
+                    <div style="font-size:1.5rem;font-weight:700">{{ $value }}</div>
+                </x-filament::section>
+            @endforeach
+        </div>
+        @php($rows = $this->posterRows())
+        @foreach (['continue' => __('Continue watching'), 'popular' => __('Popular now'), 'new' => __('New on the server')] as $row => $heading)
+            @if ($rows[$row] !== [])
+                <div>
+                    <h2 style="font-weight:700;font-size:1.05rem;margin:.25rem 0 .6rem">{{ $heading }}</h2>
+                    <div style="display:flex;gap:.75rem;overflow-x:auto;padding-bottom:.4rem">
+                        @foreach ($rows[$row] as $item)
+                            <div style="flex:0 0 7.5rem">
+                                <img src="{{ route('filament.app.poster', ['key' => $item['key']]) }}" alt="{{ $item['title'] }}" loading="lazy" onerror="this.parentNode.style.display='none'" style="width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:.6rem;background:rgba(127,127,127,.18)">
+                                @isset($item['percent'])<div style="height:4px;border-radius:4px;background:rgba(127,127,127,.3);margin-top:.3rem"><div style="height:100%;width:{{ (int) $item['percent'] }}%;background:#8b5cf6;border-radius:4px"></div></div>@endisset
+                                <div style="font-size:.8rem;margin-top:.3rem;line-height:1.25">{{ $item['title'] }}</div>
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
+        @endforeach
+    @endif
+
+    @if ($this->discordEnabled())
+        <x-filament::section :heading="__('Discord')" :compact="true">
+            @if ($member->discord_id)
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+                    <span>{{ __('Linked as :name.', ['name' => $member->discord_username]) }}</span>
+                    <form method="POST" action="{{ route('filament.app.discord.disconnect') }}">@csrf<x-filament::button type="submit" color="gray" size="sm">{{ __('Unlink') }}</x-filament::button></form>
+                </div>
+            @else
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+                    <span style="opacity:.8">{{ __('Link your Discord account to get the members\' role on our Discord.') }}</span>
+                    <x-filament::button tag="a" :href="route('filament.app.discord.connect')" size="sm">{{ __('Link Discord') }}</x-filament::button>
+                </div>
+            @endif
+        </x-filament::section>
+    @endif
+
     @if ($this->helpText())
         <x-filament::section :heading="__('Getting started')">
             <div style="font-size:.9rem;line-height:1.6">{!! nl2br(e($this->helpText())) !!}</div>

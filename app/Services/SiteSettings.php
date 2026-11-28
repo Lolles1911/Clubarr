@@ -14,7 +14,7 @@ use Throwable;
  */
 class SiteSettings
 {
-    public const SECRET = ['mail_password'];
+    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token'];
 
     public const DEFAULTS = [
         'site_name' => 'Clubarr',
@@ -30,6 +30,20 @@ class SiteSettings
         'help_text' => '',
         // Admins must use two-factor sign-in ('1') or may ('0').
         'admin_2fa_required' => '1',
+        // Tracearr: what plays, devices, stream limits, posters.
+        'tracearr_url' => '',
+        'tracearr_api_key' => '',
+        // Overseerr/Jellyseerr: requests.
+        'seerr_url' => '',
+        'seerr_api_key' => '',
+        // Discord: members link their account and get a role.
+        'discord_client_id' => '',
+        'discord_client_secret' => '',
+        'discord_bot_token' => '',
+        'discord_guild_id' => '',
+        'discord_role_id' => '',
+        // Waiting list: the invitation its invitations copy ('' = off).
+        'waitlist_template_id' => '',
     ];
 
     private ?array $values = null;

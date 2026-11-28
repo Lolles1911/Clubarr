@@ -9,7 +9,9 @@ use App\Models\ServerAccount;
 use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
+use App\Services\DiscordSync;
 use App\Services\SiteSettings;
+use App\Services\Watching;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
@@ -77,6 +79,32 @@ class MyAccess extends Dashboard
         $user = Filament::auth()->user();
 
         return $user;
+    }
+
+    /** @return array{hours7: float, hours30: float, plays30: int}|null */
+    #[Unexposed]
+    public function stats(): ?array
+    {
+        $watching = app(Watching::class);
+
+        return $watching->enabled() ? $watching->statsOf($this->member()) : null;
+    }
+
+    /** @return array{continue: list<array>, popular: list<array>, new: list<array>} */
+    #[Unexposed]
+    public function posterRows(): array
+    {
+        try {
+            return app(Watching::class)->posterRows($this->member());
+        } catch (Throwable) {
+            return ['continue' => [], 'popular' => [], 'new' => []];
+        }
+    }
+
+    #[Unexposed]
+    public function discordEnabled(): bool
+    {
+        return app(DiscordSync::class)->enabled();
     }
 
     #[Unexposed]

@@ -31,6 +31,10 @@ class UserForm
                 DateTimePicker::make('access_expires_at')->label(__('Access ends'))->seconds(false)
                     ->helperText(__('Empty: no end. Changing it does not pause or resume users by itself; use the actions in the list.'))
                     ->hiddenOn('create'),
+                TextInput::make('max_streams')->label(__('Streams at the same time'))->numeric()->minValue(1)->maxValue(50)
+                    ->helperText(__('Needs Tracearr. Empty: no limit.'))->hiddenOn('create'),
+                TextInput::make('request_limit')->label(__('Requests per week'))->numeric()->minValue(0)->maxValue(1000)
+                    ->helperText(__('Needs Seerr. Empty: no limit.'))->hiddenOn('create'),
             ]),
         ]);
     }
