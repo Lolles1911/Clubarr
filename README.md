@@ -27,6 +27,16 @@ Silo servers.** Self-hosted, one Docker container. *Beta.*
   access.
 - **Member limit per server** and a **waiting list** that invites the next
   in line by itself.
+- **A front page for members**: a greeting, a button per server, and big
+  posters of what is new on their libraries (straight from Jellyfin, Emby
+  and Plex).
+- **Messages** to all members or one server's: by mail, Discord and a banner
+  on their page.
+- **Alerts for you** in a Discord channel (new member, server down, waiting
+  list, stream limit, new version), each on or off.
+- **Backups**: every night in `/config/backups`, and a password-locked file
+  to download; restore from either.
+- **Your look**: your logo and accent colour.
 - English and Danish.
 
 ## Install

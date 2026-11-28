@@ -300,6 +300,7 @@ class Settings extends Page
         $fromFile = $name === 'restoreFile';
 
         return Action::make($name)->label($fromFile ? __('Restore from a file') : __('Restore one'))->color('danger')->icon('heroicon-m-arrow-uturn-left')
+            ->visible(fn () => $fromFile || Backups::list() !== [])
             ->modalDescription(__('Everything in Clubarr is replaced by the backup. The current data is copied to the automatic backups first.'))
             ->schema(array_merge($fromFile ? [
                 FileUpload::make('file')->label(__('Backup file (.clubarr)'))->required()->storeFiles(false)->maxSize(512000),

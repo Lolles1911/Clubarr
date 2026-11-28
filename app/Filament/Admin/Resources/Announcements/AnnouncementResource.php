@@ -82,10 +82,10 @@ class AnnouncementResource extends Resource
         return $table->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('title')->label(__('Title'))->description(fn (Announcement $r) => mb_strimwidth($r->body, 0, 90, '…'))->wrap(),
-                TextColumn::make('mediaServer.name')->label(__('To'))->placeholder(__('All members')),
-                IconColumn::make('by_mail')->label(__('Mail'))->boolean(),
-                IconColumn::make('by_discord')->label('Discord')->boolean(),
-                TextColumn::make('banner_until')->label(__('Banner'))
+                TextColumn::make('mediaServer.name')->visibleFrom('sm')->label(__('To'))->placeholder(__('All members')),
+                IconColumn::make('by_mail')->visibleFrom('md')->label(__('Mail'))->boolean(),
+                IconColumn::make('by_discord')->visibleFrom('md')->label('Discord')->boolean(),
+                TextColumn::make('banner_until')->visibleFrom('sm')->label(__('Banner'))
                     ->state(fn (Announcement $r) => ! $r->as_banner ? '—' : ($r->banner_until === null ? __('Until ended') : ($r->banner_until->isPast() ? __('Ended') : __('Until :date', ['date' => $r->banner_until->translatedFormat('j M H:i')])))),
                 TextColumn::make('sent_at')->label(__('Sent'))->since()
                     ->description(fn (Announcement $r) => $r->by_mail || $r->by_discord ? __(':mail mails, :discord Discord', ['mail' => $r->mailed, 'discord' => $r->discorded]) : null),

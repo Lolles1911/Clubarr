@@ -54,6 +54,26 @@ See [SECURITY.md](../SECURITY.md).
   address only gets a plain request for Plex's `/identity`, public networks
   are never scanned, and only the server's ID and version are read.
 
+## Backups, alerts and branding
+
+- A downloaded backup is encrypted with AES-256-GCM, its key made from the
+  admin's password with PBKDF2-SHA256 (600,000 rounds). The password is never
+  stored; a wrong one changes nothing. Restoring checks the file is an intact
+  Clubarr database first, keeps a copy of the current one, signs everyone
+  out, and moves the backup's secrets to this installation's key.
+- The admin alert webhook is stored encrypted and must be a
+  `https://discord.com/api/webhooks/…` address; nothing else is called.
+  Alerts never mention anyone (`allowed_mentions` is empty).
+- Messages to members are plain text: shown and mailed as written, never as
+  HTML.
+- Posters from the media servers go through Clubarr, only to members of that
+  server; the members' page never waits for a media server (the lists are
+  fetched in the background).
+- A logo is only PNG, JPEG or WebP (no SVG, which can carry scripts), checked
+  as a picture, at most 300 KB.
+- The update check only reads GitHub's public list of releases, and can be
+  turned off.
+
 ## Tracearr, Seerr and Discord
 
 - Their keys and tokens are encrypted like the media server keys, and calls

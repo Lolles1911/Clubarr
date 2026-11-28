@@ -3,6 +3,31 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.3.0-beta (2026-11-28)
+
+### For members
+- **A new front page**: a greeting, a big button per server to start
+  watching, and posters of what is **new on the server**, straight from
+  Jellyfin, Emby and Plex (only from the member's own libraries; no Tracearr
+  needed). With Tracearr, "Continue watching" and "Popular now" too.
+- **Better on phones**: buttons fill the width, posters scroll sideways, and
+  the admin tables leave out the less important columns on small screens.
+
+### For admins
+- **Messages to members**: by mail, as a Discord message and/or as a banner
+  on their page until a date; to everyone or one server's members.
+- **Notifications** in a Discord channel (a webhook), each event on or off:
+  new member, a media server down and back (checked every 5 minutes),
+  someone on the waiting list, a stream stopped for the limit, a new
+  Clubarr version.
+- **Backups**: a copy of the database every night in `/config/backups` (the
+  newest 7 are kept), and a password-locked file to download. Restore from
+  either; a backup from another machine works without moving any key.
+- **New version** notice on the dashboard (GitHub's public releases, daily;
+  can be turned off).
+- **Your logo and accent colour** under Settings → General.
+- Settings has two new tabs: **Notifications** and **Backup**.
+
 ## 0.2.3-beta (2026-11-28)
 
 ### Plex

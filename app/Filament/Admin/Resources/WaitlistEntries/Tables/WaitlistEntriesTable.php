@@ -32,8 +32,8 @@ class WaitlistEntriesTable
                     ->color(fn (string $state) => match ($state) {
                         'waiting' => 'warning', 'invited' => 'info', 'joined' => 'success', default => 'gray'
                     }),
-                TextColumn::make('created_at')->label(__('Since'))->since()->sortable(),
-                TextColumn::make('invited_at')->label(__('Invited'))->since()->placeholder('—'),
+                TextColumn::make('created_at')->visibleFrom('md')->label(__('Since'))->since()->sortable(),
+                TextColumn::make('invited_at')->visibleFrom('md')->label(__('Invited'))->since()->placeholder('—'),
             ])
             ->filters([SelectFilter::make('status')->label(__('Status'))->options(self::statuses())])
             ->recordActions([

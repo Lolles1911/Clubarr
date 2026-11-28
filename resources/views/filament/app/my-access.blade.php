@@ -121,7 +121,7 @@
 
     @php($stats = $this->stats())
     @if ($stats !== null && $accounts->isNotEmpty())
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:1rem">
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem">
             @foreach ([[__('Watched, 7 days'), __(':hours h', ['hours' => $stats['hours7']])], [__('Watched, 30 days'), __(':hours h', ['hours' => $stats['hours30']])], [__('Plays, 30 days'), $stats['plays30']]] as [$label, $value])
                 <x-filament::section :compact="true">
                     <div style="opacity:.7;font-size:.8rem">{{ $label }}</div>
