@@ -127,6 +127,38 @@ class ServerToolsTest extends TestCase
         Http::assertNotSent(fn ($r) => $r->hasHeader('X-Plex-Token') && ! str_starts_with($r->url(), 'https://plex.tv/'));
     }
 
+    public function test_sign_in_with_plex_like_tracearr_and_the_token_never_reaches_the_browser(): void
+    {
+        $token = 'owner-token-'.str_repeat('x', 20);
+        Http::fake([
+            'plex.tv/api/v2/pins/42*' => Http::sequence()->push(['id' => 42])->push(['id' => 42, 'authToken' => $token]),
+            'plex.tv/api/v2/pins*' => Http::response(['id' => 42, 'code' => 'abcd']),
+            'plex.tv/api/v2/user' => Http::response(['id' => 1, 'username' => 'owner']),
+            'plex.tv/api/v2/resources*' => Http::response([['name' => 'WaffleHub', 'provides' => 'server', 'owned' => true, 'productVersion' => '1.43',
+                'connections' => [['uri' => 'http://192.168.1.235:32401', 'local' => true]]]]),
+            'http://192.168.1.235:32401/identity' => Http::response(['MediaContainer' => ['machineIdentifier' => 'm1', 'version' => '1.43']]),
+            'http://192.168.1.235:32401/' => Http::response(['MediaContainer' => ['machineIdentifier' => 'm1', 'friendlyName' => 'WaffleHub', 'version' => '1.43']]),
+            'plex.tv/api/v2/servers/m1' => Http::response(['librarySections' => [['id' => 11, 'title' => 'Movies']]]),
+            '*' => Http::response('', 404),
+        ]);
+
+        $page = Livewire::test(CreateMediaServer::class)
+            ->fillForm(['type' => 'plex'])
+            ->callAction(TestAction::make('plexSignIn')->schemaComponent('serverActions'));
+        $page->call('plexCheck'); // not approved yet
+        $this->assertFalse(session()->has('admin.plex.token'));
+        $page->call('plexCheck')->assertNotified('Signed in with Plex as owner.');
+
+        $page->callAction(TestAction::make('plexFind')->schemaComponent('serverActions'), ['server' => 'http://192.168.1.235:32401'])
+            ->assertSchemaStateSet(['url' => 'http://192.168.1.235:32401', 'name' => 'WaffleHub', 'api_key' => null])
+            ->assertDontSee($token);
+
+        $page->call('create')->assertHasNoFormErrors();
+
+        $this->assertSame($token, MediaServer::sole()->api_key);
+        $this->assertFalse(session()->has('admin.plex.token'));
+    }
+
     public function test_an_invitation_link_can_be_mailed_when_mail_is_set_up(): void
     {
         Notification::fake();

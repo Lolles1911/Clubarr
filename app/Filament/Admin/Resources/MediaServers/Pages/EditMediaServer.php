@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MediaServers\Pages;
 
+use App\Filament\Admin\Resources\MediaServers\Concerns\SignsInWithPlex;
 use App\Filament\Admin\Resources\MediaServers\MediaServerResource;
 use App\MediaServers\MediaServerException;
 use App\Models\MediaServer;
@@ -14,11 +15,14 @@ use Illuminate\Database\Eloquent\Model;
 
 class EditMediaServer extends EditRecord
 {
+    use SignsInWithPlex;
+
     protected static string $resource = MediaServerResource::class;
 
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var MediaServer $record */
+        $data = $this->withPlexToken($data);
         $changed = (clone $record)->fill($data);
         if ($record->url !== $changed->url || array_key_exists('api_key', $data)) {
             try {
@@ -30,6 +34,7 @@ class EditMediaServer extends EditRecord
         }
         $record->update($data);
         Audit::log('server.updated', $record, ['name' => $record->name, 'key_changed' => array_key_exists('api_key', $data)]);
+        $this->forgetPlexSignIn();
 
         return $record;
     }

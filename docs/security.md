@@ -47,6 +47,9 @@ See [SECURITY.md](../SECURITY.md).
   the encrypted session, and never stored. A member who types their Plex
   email instead gets a normal Plex invitation, which they must accept
   themselves; Clubarr never sees their Plex account.
+- **Sign in with Plex** on the server form keeps the token plex.tv gives
+  in the encrypted session until the server is saved; it is never put in
+  the form, so it never reaches the browser.
 - **Find Plex** (admins only): with a token, it asks plex.tv (the only place
   the token goes) for the account's servers, then tries each address. Without
   one, it asks the addresses of one private network (the one Clubarr is

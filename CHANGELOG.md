@@ -3,6 +3,16 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.3.1-beta (2026-11-28)
+
+### Plex, like Tracearr
+- **Sign in with Plex** is back on the server form, for the token: approve
+  Clubarr on plex.tv, and **Find Plex** lists your servers with every
+  address Plex knows. No token to look up and paste. On a phone, come back
+  to the Clubarr tab after approving; it carries on by itself.
+- The token never goes into the form (or the browser): it waits in the
+  encrypted session until the server is saved.
+
 ## 0.3.0-beta (2026-11-28)
 
 ### For members

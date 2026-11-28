@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MediaServers\Pages;
 
+use App\Filament\Admin\Resources\MediaServers\Concerns\SignsInWithPlex;
 use App\Filament\Admin\Resources\MediaServers\MediaServerResource;
 use App\MediaServers\MediaServerException;
 use App\Models\MediaServer;
@@ -14,11 +15,13 @@ use Illuminate\Database\Eloquent\Model;
 /** A server is only saved when Clubarr can reach it with the key. */
 class CreateMediaServer extends CreateRecord
 {
+    use SignsInWithPlex;
+
     protected static string $resource = MediaServerResource::class;
 
     protected function handleRecordCreation(array $data): Model
     {
-        $server = new MediaServer($data);
+        $server = new MediaServer($this->withPlexToken($data));
         try {
             app(ServerSync::class)->check($server);
         } catch (MediaServerException $e) {
@@ -33,6 +36,7 @@ class CreateMediaServer extends CreateRecord
             Notification::make()->title(__('Connected, but the libraries could not be read'))->body($e->getMessage())->warning()->send();
         }
         Audit::log('server.created', $server, ['name' => $server->name, 'type' => $server->type->value]);
+        $this->forgetPlexSignIn();
 
         return $server;
     }
