@@ -17,15 +17,46 @@ use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\HtmlString;
+use Livewire\Attributes\Locked;
 
 class ListInvitations extends ListRecords
 {
     protected static string $resource = InvitationResource::class;
 
     public const MANY_MAX = 100;
+
+    /** A link just made, shown once at the top (Copy, Share, QR). */
+    #[Locked]
+    public ?string $shareLink = null;
+
+    public function mount(): void
+    {
+        parent::mount();
+        $flashed = session('clubarr.share');
+        $this->shareLink = is_string($flashed) ? $flashed : null;
+    }
+
+    public function closeShare(): void
+    {
+        $this->shareLink = null;
+    }
+
+    public function getSubheading(): string|Htmlable|null
+    {
+        if ($this->shareLink === null) {
+            return null;
+        }
+
+        return new HtmlString('<div style="margin-top:1rem;padding:1rem 1.1rem;border-radius:.75rem;border:1px solid color-mix(in oklab,var(--primary-500) 45%,transparent);background:color-mix(in oklab,var(--primary-500) 10%,transparent)">'
+            .'<div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;margin-bottom:.6rem"><strong>'.e(__('Here is the invitation link')).'</strong>'
+            .'<button type="button" wire:click="closeShare" style="opacity:.7;font-size:.85rem">'.e(__('Close')).'</button></div>'
+            .'<p style="font-size:.85rem;opacity:.8;margin-bottom:.6rem">'.e(__('It is shown only this once.')).'</p>'
+            .InvitationResource::shareBox($this->shareLink)->toHtml().'</div>');
+    }
 
     protected function getHeaderActions(): array
     {

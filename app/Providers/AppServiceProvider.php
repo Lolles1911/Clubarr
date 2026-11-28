@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\ApplySiteLocale;
 use App\MediaServers\DriverFactory;
 use App\Models\User;
 use App\Services\SetupState;
@@ -9,6 +10,7 @@ use App\Services\SiteMail;
 use App\Services\SiteSettings;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -25,12 +27,32 @@ class AppServiceProvider extends ServiceProvider
     {
         Password::defaults(fn () => Password::min(10)->letters()->numbers());
 
-        $this->app->booted(fn () => app(SiteMail::class)->apply());
+        $this->app->booted(function () {
+            app(SiteMail::class)->apply();
+            // Mails and messages from scheduled commands use the site's language too (web requests: ApplySiteLocale).
+            if ($this->app->runningInConsole() && ! $this->app->runningUnitTests()) {
+                $this->applySiteLocale();
+            }
+        });
+        // The queue worker runs for long: each job gets the current settings, mail set-up and language.
+        Queue::before(function () {
+            app(SiteSettings::class)->refresh();
+            app(SiteMail::class)->apply();
+            $this->applySiteLocale();
+        });
 
         Event::listen(Login::class, function (Login $event) {
             if ($event->user instanceof User) {
                 $event->user->forceFill(['last_login_at' => now()])->saveQuietly();
             }
         });
+    }
+
+    private function applySiteLocale(): void
+    {
+        $locale = app(SiteSettings::class)->get('locale');
+        if (isset(ApplySiteLocale::LOCALES[$locale])) {
+            app()->setLocale($locale);
+        }
     }
 }

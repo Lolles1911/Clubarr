@@ -17,8 +17,7 @@ use Filament\Pages\Page;
 use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\HtmlString;
+use Livewire\Attributes\Locked;
 use RuntimeException;
 
 /** Members invite friends, within the admin's monthly number and template. */
@@ -33,6 +32,15 @@ class InviteFriend extends Page
     protected string $view = 'filament.app.invite-friend';
 
     protected static ?string $slug = 'invite';
+
+    /** The link just made, shown once (Copy, Share, QR). */
+    #[Locked]
+    public ?string $shareLink = null;
+
+    public function closeShare(): void
+    {
+        $this->shareLink = null;
+    }
 
     #[Unexposed]
     public static function getNavigationLabel(): string
@@ -99,12 +107,8 @@ class InviteFriend extends Page
 
                     return;
                 }
-                $site = (string) app(SiteSettings::class)->get('site_name');
-                Notification::make()->title(__('Here is the invitation link'))->success()->persistent()
-                    ->body(new HtmlString('<p style="margin-bottom:.6rem">'.e(__('It is shown only this once, and works for :days days.', ['days' => MemberInvites::VALID_DAYS])).'</p>'
-                        .Blade::render('<x-share-link :link="$link" :title="$title" :text="$text" />', ['link' => route('filament.app.join', ['code' => $code]), 'title' => $site,
-                            'text' => __(':name invites you to :site! Open the link to join:', ['name' => $this->member()->name, 'site' => $site])])))
-                    ->send();
+                $this->shareLink = route('filament.app.join', ['code' => $code]);
+                Notification::make()->title(__('Here is the invitation link'))->success()->send();
                 foreach ($sent as $result) {
                     Notification::make()->title($result['text'])->{$result['ok'] ? 'success' : 'warning'}()->send();
                 }

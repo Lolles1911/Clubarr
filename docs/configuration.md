@@ -98,3 +98,11 @@ Admin → Settings → Mail: an SMTP server (STARTTLS on 587 or TLS on 465), the
 user name and password, and a from address. **Send a test mail to me** checks
 it. Without mail, Clubarr works, but members don't get welcome mails,
 password links or reminders.
+
+## Invitations
+
+Admin → Settings → Invitations: the welcome text on every invitation page,
+the reminder (days; 0 = off), and members inviting friends (a number a
+month and the template their invitations copy). Templates are made under
+Invitations → New → "Save as a template instead". **Many at once** on the
+invitations list mails a personal single-use link to each email.

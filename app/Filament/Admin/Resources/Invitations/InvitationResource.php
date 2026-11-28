@@ -63,24 +63,28 @@ class InvitationResource extends Resource
         return InvitationMaker::link($code);
     }
 
-    /** Shows a new code once, with Copy, Share and a QR code: it is not stored and can't be shown again. */
-    public static function showCode(string $code): void
+    /**
+     * Shows a new link once, at the top of the invitations list, with Copy,
+     * Share and a QR code: the code is not stored and can't be shown again.
+     * (Not in a notification: those may not hold buttons.)
+     */
+    public static function showCode(string $code, mixed $livewire = null): void
     {
-        Notification::make()
-            ->title(__('Here is the invitation link'))
-            ->body(self::shareBox($code))
-            ->success()
-            ->persistent()
-            ->send();
+        if ($livewire instanceof ListInvitations) {
+            $livewire->shareLink = self::link($code);
+        } else {
+            session()->flash('clubarr.share', self::link($code)); // shown by the list page after the redirect
+        }
+        Notification::make()->title(__('Here is the invitation link'))->body(__('Copy, share or show it as a QR code at the top of the page. It is shown only this once.'))->success()->send();
     }
 
-    public static function shareBox(string $code): HtmlString
+    public static function shareBox(string $link): HtmlString
     {
         $site = (string) app(SiteSettings::class)->get('site_name');
 
-        return new HtmlString('<p style="margin-bottom:.6rem">'.e(__('It is shown only this once.')).'</p>'.Blade::render(
+        return new HtmlString(Blade::render(
             '<x-share-link :link="$link" :title="$title" :text="$text" />',
-            ['link' => self::link($code), 'title' => $site, 'text' => __('You are invited to :site! Open the link to join:', ['site' => $site])],
+            ['link' => $link, 'title' => $site, 'text' => __('You are invited to :site! Open the link to join:', ['site' => $site])],
         ));
     }
 

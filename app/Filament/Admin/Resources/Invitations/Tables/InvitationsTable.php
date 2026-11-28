@@ -70,13 +70,13 @@ class InvitationsTable
                     ->modalHeading(fn (Invitation $record) => __('New invitation from ":template"', ['template' => $record->label ?: __('Template')]))
                     ->fillForm(fn (Invitation $record) => ['greeting' => $record->greeting, 'expires_at' => now()->addDays(7)->startOfHour()])
                     ->schema(self::sendFields(withNote: true))
-                    ->action(function (Invitation $record, array $data) {
+                    ->action(function (Invitation $record, array $data, $livewire) {
                         [$settings, $pivot] = app(InvitationMaker::class)->setupOf($record);
                         $user = Auth::user();
                         [$invitation, $code] = app(InvitationMaker::class)->create(
                             ['label' => $data['label'] ?? null, 'expires_at' => $data['expires_at'] ?? null, 'greeting' => $data['greeting'] ?? null] + $settings,
                             $pivot, $user instanceof User ? $user : null);
-                        InvitationResource::showCode($code);
+                        InvitationResource::showCode($code, $livewire);
                         InvitationResource::sendLink($invitation, $code, $data['send_to'] ?? null, $data['send_discord'] ?? null);
                     }),
                 ActionGroup::make([
@@ -85,11 +85,11 @@ class InvitationsTable
                         ->modalDescription(__('The old link stops working, and you get a new one to copy.'))
                         ->schema(self::sendFields(withNote: false))
                         ->fillForm(fn (Invitation $record) => ['greeting' => $record->greeting])
-                        ->action(function (Invitation $record, array $data) {
+                        ->action(function (Invitation $record, array $data, $livewire) {
                             $code = $record->assignCode();
                             $record->forceFill(['greeting' => $data['greeting'] ?? null, 'reminder_link' => null, 'reminded_at' => null])->save();
                             Audit::log('invitation.new_code', $record);
-                            InvitationResource::showCode($code);
+                            InvitationResource::showCode($code, $livewire);
                             InvitationResource::sendLink($record, $code, $data['send_to'] ?? null, $data['send_discord'] ?? null);
                         }),
                     Action::make('revoke')->label(__('Withdraw'))->icon(Heroicon::OutlinedNoSymbol)->color('danger')

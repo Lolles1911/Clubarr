@@ -57,6 +57,20 @@ See [SECURITY.md](../SECURITY.md).
   address only gets a plain request for Plex's `/identity`, public networks
   are never scanned, and only the server's ID and version are read.
 
+## Invitations
+
+- Codes are only stored as hashes. A link mailed to someone is kept
+  encrypted only for the one reminder, and removed after it, or when the
+  invitation is used or ends.
+- The QR code is made in the browser; the link is never sent to another
+  service to draw it.
+- Members inviting friends choose only who and the words: servers,
+  libraries, how long and limits come from the admin's template. Their
+  monthly number is checked under a lock, and the action is rate limited.
+- Posters on an invitation page come from that invitation's servers and
+  libraries only, and only the ones that page listed for that visitor.
+- Greetings and welcome texts are plain text everywhere (page and mail).
+
 ## Backups, alerts and branding
 
 - A downloaded backup is encrypted with AES-256-GCM, its key made from the

@@ -82,6 +82,12 @@ class SiteSettings
         $this->forget();
     }
 
+    /** Reads the settings again on next use (a long-running queue worker between jobs). */
+    public function refresh(): void
+    {
+        $this->values = null;
+    }
+
     public function forget(): void
     {
         $this->values = null;

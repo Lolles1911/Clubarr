@@ -1,4 +1,11 @@
 <x-filament-panels::page>
+    @if ($shareLink)
+        <x-filament::section :heading="__('Here is the invitation link')" :description="__('It is shown only this once, and works for :days days.', ['days' => \App\Services\MemberInvites::VALID_DAYS])">
+            <x-slot name="afterHeader"><x-filament::link tag="button" wire:click="closeShare" color="gray">{{ __('Close') }}</x-filament::link></x-slot>
+            @php($site = (string) app(\App\Services\SiteSettings::class)->get('site_name'))
+            <x-share-link :link="$shareLink" :title="$site" :text="__(':name invites you to :site! Open the link to join:', ['name' => $this->member()->name, 'site' => $site])" />
+        </x-filament::section>
+    @endif
     <x-filament::section>
         <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem">
             <div>
