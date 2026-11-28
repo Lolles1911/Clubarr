@@ -47,12 +47,29 @@ See [SECURITY.md](../SECURITY.md).
   the encrypted session, and never stored. A member who types their Plex
   email instead gets a normal Plex invitation, which they must accept
   themselves; Clubarr never sees their Plex account.
+- **Sign in with Plex** on the server form keeps the token plex.tv gives
+  in the encrypted session until the server is saved; it is never put in
+  the form, so it never reaches the browser.
 - **Find Plex** (admins only): with a token, it asks plex.tv (the only place
   the token goes) for the account's servers, then tries each address. Without
   one, it asks the addresses of one private network (the one Clubarr is
   opened on, e.g. 192.168.1.x) on ports 32400 and 32401. Either way an
   address only gets a plain request for Plex's `/identity`, public networks
   are never scanned, and only the server's ID and version are read.
+
+## Invitations
+
+- Codes are only stored as hashes. A link mailed to someone is kept
+  encrypted only for the one reminder, and removed after it, or when the
+  invitation is used or ends.
+- The QR code is made in the browser; the link is never sent to another
+  service to draw it.
+- Members inviting friends choose only who and the words: servers,
+  libraries, how long and limits come from the admin's template. Their
+  monthly number is checked under a lock, and the action is rate limited.
+- Posters on an invitation page come from that invitation's servers and
+  libraries only, and only the ones that page listed for that visitor.
+- Greetings and welcome texts are plain text everywhere (page and mail).
 
 ## Backups, alerts and branding
 

@@ -49,6 +49,13 @@ class SiteSettings
         // Alerts to the admins' Discord channel: the webhook (secret) and the events, comma separated.
         'alerts_webhook_url' => '',
         'alerts_events' => null,
+        // Invitations: the welcome text on the invitation page, a reminder
+        // mail after this many days when unused (0 = off), and members
+        // inviting friends (invitations a month; 0 = off) from a template.
+        'invite_welcome' => '',
+        'invite_reminder_days' => '3',
+        'member_invites_per_month' => '0',
+        'member_invite_template_id' => '',
         // Ask GitHub once a day for a newer Clubarr ('1') or not ('0').
         'update_check' => '1',
     ];
@@ -73,6 +80,12 @@ class SiteSettings
             Setting::updateOrCreate(['key' => $key], ['value' => $value !== null && $value !== '' && in_array($key, self::SECRET, true) ? Crypt::encryptString($value) : $value]);
         }
         $this->forget();
+    }
+
+    /** Reads the settings again on next use (a long-running queue worker between jobs). */
+    public function refresh(): void
+    {
+        $this->values = null;
     }
 
     public function forget(): void

@@ -26,6 +26,14 @@ use Illuminate\Support\Str;
  * @property int|null $max_streams
  * @property int|null $request_limit
  * @property bool $from_waitlist
+ * @property string|null $greeting
+ * @property bool $is_template
+ * @property string|null $sent_to
+ * @property Carbon|null $sent_at
+ * @property Carbon|null $reminded_at
+ * @property string|null $reminder_link
+ * @property bool $by_member
+ * @property int|null $created_by
  * @property Carbon|null $revoked_at
  * @property-read Collection<int, MediaServer> $mediaServers
  */
@@ -34,7 +42,9 @@ class Invitation extends Model
     /** Letters and digits that can't be mistaken for each other. */
     private const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
-    protected $fillable = ['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit'];
+    protected $fillable = ['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting'];
+
+    protected $hidden = ['code_hash', 'reminder_link'];
 
     protected function casts(): array
     {
@@ -47,6 +57,11 @@ class Invitation extends Model
             'max_streams' => 'integer',
             'request_limit' => 'integer',
             'from_waitlist' => 'boolean',
+            'is_template' => 'boolean',
+            'by_member' => 'boolean',
+            'sent_at' => 'datetime',
+            'reminded_at' => 'datetime',
+            'reminder_link' => 'encrypted',
         ];
     }
 
@@ -96,6 +111,7 @@ class Invitation extends Model
     public function problem(): ?string
     {
         return match (true) {
+            $this->is_template => __('This invitation code is not valid.'),
             $this->revoked_at !== null => __('This invitation has been withdrawn.'),
             $this->expires_at !== null && $this->expires_at->isPast() => __('This invitation has expired.'),
             $this->max_uses !== null && $this->uses >= $this->max_uses => __('This invitation has already been used.'),
@@ -122,7 +138,7 @@ class Invitation extends Model
      */
     public static function applyUsable(Builder $query): Builder
     {
-        return $query->whereNull('revoked_at')
+        return $query->whereNull('revoked_at')->where('is_template', false)
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->where(fn ($q) => $q->whereNull('max_uses')->orWhereColumn('uses', '<', 'max_uses'));
     }
@@ -148,8 +164,13 @@ class Invitation extends Model
     /** @return array<int, string>|null the pivot's library IDs for a server */
     public function libraryIdsFor(MediaServer $server): ?array
     {
-        $ids = $server->pivot->library_ids ?? null;
-        $ids = is_string($ids) ? json_decode($ids, true) : $ids;
+        return self::libraryIds($server->pivot->library_ids ?? null);
+    }
+
+    /** @return array<int, string>|null library IDs as stored on the pivot (JSON), null = all */
+    public static function libraryIds(mixed $raw): ?array
+    {
+        $ids = is_string($raw) ? json_decode($raw, true) : $raw;
 
         return is_array($ids) && $ids !== [] ? array_values(array_map('strval', $ids)) : null;
     }

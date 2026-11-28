@@ -46,6 +46,22 @@ enum ServerType: string
         return is_subclass_of($this->driver(), $contract);
     }
 
+    /**
+     * Where to get the app: [label, address]. On a TV, the app is found by
+     * its name in the TV's own app store.
+     *
+     * @return list<array{0: string, 1: string}>
+     */
+    public function apps(): array
+    {
+        return match ($this) {
+            self::Jellyfin => [['iPhone & iPad', 'https://apps.apple.com/app/jellyfin-mobile/id1480192618'], ['Android', 'https://play.google.com/store/apps/details?id=org.jellyfin.mobile']],
+            self::Emby => [['iPhone & iPad', 'https://apps.apple.com/app/emby/id992180193'], ['Android', 'https://play.google.com/store/apps/details?id=com.mb.android']],
+            self::Plex => [['iPhone & iPad', 'https://apps.apple.com/app/plex-watch-live-tv-and-movies/id383457673'], ['Android', 'https://play.google.com/store/apps/details?id=com.plexapp.android']],
+            self::Silo => [],
+        };
+    }
+
     /** What the admin enters as the key. */
     public function keyLabel(): string
     {

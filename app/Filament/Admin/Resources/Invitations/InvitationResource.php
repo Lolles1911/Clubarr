@@ -8,17 +8,17 @@ use App\Filament\Admin\Resources\Invitations\Pages\ListInvitations;
 use App\Filament\Admin\Resources\Invitations\Schemas\InvitationForm;
 use App\Filament\Admin\Resources\Invitations\Tables\InvitationsTable;
 use App\Models\Invitation;
-use App\Notifications\InvitationLink;
-use App\Services\Audit;
+use App\Models\User;
+use App\Services\InvitationMaker;
 use App\Services\SiteSettings;
-use App\Support\Copy;
 use BackedEnum;
-use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
 
 class InvitationResource extends Resource
@@ -60,43 +60,39 @@ class InvitationResource extends Resource
 
     public static function link(string $code): string
     {
-        return route('filament.app.join', ['code' => $code]);
+        return InvitationMaker::link($code);
     }
 
-    /** Shows a new code once: it is not stored and can't be shown again. */
-    public static function showCode(string $code): void
+    /**
+     * Shows a new link once, at the top of the invitations list, with Copy,
+     * Share and a QR code: the code is not stored and can't be shown again.
+     * (Not in a notification: those may not hold buttons.)
+     */
+    public static function showCode(string $code, mixed $livewire = null): void
     {
-        $link = self::link($code);
-        Notification::make()
-            ->title(__('Copy the invitation link now'))
-            ->body(new HtmlString(e(__('It is shown only this once.')).'<br><br>'.e($link)))
-            ->success()
-            ->persistent()
-            ->actions([
-                Action::make('copy')->label(__('Copy link'))->button()
-                    ->alpineClickHandler(Copy::handler($link)),
-            ])
-            ->send();
+        if ($livewire instanceof ListInvitations) {
+            $livewire->shareLink = self::link($code);
+        } else {
+            session()->flash('clubarr.share', self::link($code)); // shown by the list page after the redirect
+        }
+        Notification::make()->title(__('Here is the invitation link'))->body(__('Copy, share or show it as a QR code at the top of the page. It is shown only this once.'))->success()->send();
     }
 
-    /** Mails the link, if an address was given; says so when mail is not set up. */
-    public static function sendLink(string $code, ?string $email, ?string $greeting): void
+    public static function shareBox(string $link): HtmlString
     {
-        if (blank($email)) {
-            return;
-        }
-        if (app(SiteSettings::class)->get('mail_enabled') !== '1') {
-            Notification::make()->title(__('The link was not mailed: set up mail under Settings first.'))->warning()->send();
+        $site = (string) app(SiteSettings::class)->get('site_name');
 
-            return;
-        }
-        try {
-            \Illuminate\Support\Facades\Notification::route('mail', (string) $email)->notify(new InvitationLink(self::link($code), $greeting));
-            Audit::log('invitation.mailed', null, ['to' => $email]);
-            Notification::make()->title(__('The link was mailed to :email.', ['email' => $email]))->success()->send();
-        } catch (\Throwable $e) {
-            report($e);
-            Notification::make()->title(__('The link could not be mailed.'))->danger()->send();
+        return new HtmlString(Blade::render(
+            '<x-share-link :link="$link" :title="$title" :text="$text" />',
+            ['link' => $link, 'title' => $site, 'text' => __('You are invited to :site! Open the link to join:', ['site' => $site])],
+        ));
+    }
+
+    /** Sends the link by mail and/or Discord, and says how it went. */
+    public static function sendLink(Invitation $invitation, string $code, ?string $email, ?string $discordId): void
+    {
+        foreach (app(InvitationMaker::class)->send($invitation, $code, $email, $discordId, Auth::user() instanceof User ? Auth::user() : null) as $result) {
+            Notification::make()->title($result['text'])->{$result['ok'] ? 'success' : 'warning'}()->send();
         }
     }
 

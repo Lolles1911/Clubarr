@@ -4,12 +4,12 @@ namespace App\Filament\Admin\Resources\Invitations\Pages;
 
 use App\Filament\Admin\Resources\Invitations\InvitationResource;
 use App\Models\Invitation;
-use App\Services\Audit;
+use App\Models\User;
+use App\Services\InvitationMaker;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class CreateInvitation extends CreateRecord
 {
@@ -19,22 +19,30 @@ class CreateInvitation extends CreateRecord
 
     protected function handleRecordCreation(array $data): Model
     {
-        return DB::transaction(function () use ($data) {
-            $invitation = new Invitation(collect($data)->only(['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit'])->all());
-            $invitation->created_by = Auth::id();
-            $this->code = $invitation->assignCode();
-            $invitation->save();
-            $invitation->mediaServers()->sync(InvitationResource::pivotFor((array) $data['servers'], (array) ($data['libraries'] ?? [])));
-            Audit::log('invitation.created', $invitation, ['label' => $invitation->label, 'servers' => (array) $data['servers']]);
+        $template = ! empty($data['is_template']);
+        if ($template) {
+            $data['expires_at'] = null;
+        }
+        $user = Auth::user();
+        [$invitation, $this->code] = app(InvitationMaker::class)->create(
+            $data,
+            InvitationResource::pivotFor((array) $data['servers'], (array) ($data['libraries'] ?? [])),
+            $user instanceof User ? $user : null,
+            template: $template,
+        );
 
-            return $invitation;
-        });
+        return $invitation;
     }
 
     protected function getCreatedNotification(): ?Notification
     {
+        /** @var Invitation $invitation */
+        $invitation = $this->getRecord();
+        if ($invitation->is_template) {
+            return Notification::make()->title(__('Template saved.'))->success();
+        }
         InvitationResource::showCode((string) $this->code);
-        InvitationResource::sendLink((string) $this->code, $this->data['send_to'] ?? null, $this->data['greeting'] ?? null);
+        InvitationResource::sendLink($invitation, (string) $this->code, $this->data['send_to'] ?? null, $this->data['send_discord'] ?? null);
 
         return null;
     }

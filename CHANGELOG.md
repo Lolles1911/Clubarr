@@ -3,6 +3,46 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.4.0-beta (2026-11-28)
+
+### Invitations
+- **The invitation page is a short guide**: 1) welcome: your greeting (and
+  who invites), the site's welcome text, what they get and posters of what
+  is new on those servers; 2) the account; then 3) **Get started**: per
+  server, the app for iPhone/iPad and Android (and the TV hint), how to sign
+  in, and a button to watch in the browser.
+- **A greeting per invitation**, shown on the page and in the mail.
+- **A proper invitation mail** with your logo and colour, the greeting, the
+  servers and a big button. Mails from scheduled jobs and the queue now use
+  the site's language too.
+- **Share it your way**: after making an invitation you get the link with
+  Copy, Share (the phone's own share menu) and a QR code (made in the
+  browser, downloadable). Or send it as a **Discord message** to a user ID.
+- **Templates**: save a set-up (servers, libraries, limits, greeting) and
+  make invitations from it with one click.
+- **Many at once**: paste emails; everyone gets their own single-use link
+  by mail, from a template.
+- **Members invite friends** (Settings → Invitations): a number a month,
+  one person each, valid 7 days, always with your template's set-up. You
+  see who invited whom.
+- **Reminders**: an invitation mailed to someone and not used gets one
+  reminder after the days you set (default 3). Whoever made an invitation
+  gets a mail when it is used.
+
+### Fixed
+- The "Open" filter on the invitations list failed.
+- The queue worker now reads changed settings before each job.
+
+## 0.3.1-beta (2026-11-28)
+
+### Plex, like Tracearr
+- **Sign in with Plex** is back on the server form, for the token: approve
+  Clubarr on plex.tv, and **Find Plex** lists your servers with every
+  address Plex knows. No token to look up and paste. On a phone, come back
+  to the Clubarr tab after approving; it carries on by itself.
+- The token never goes into the form (or the browser): it waits in the
+  encrypted session until the server is saved.
+
 ## 0.3.0-beta (2026-11-28)
 
 ### For members

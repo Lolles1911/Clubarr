@@ -12,11 +12,13 @@ use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\HtmlString;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 /** What the admin panel and the members' panel have in common. */
@@ -31,6 +33,10 @@ final class PanelDefaults
             ->brandLogoHeight('2.25rem')
             ->darkMode(true)
             ->favicon(asset('clubarr-icon.svg'))
+            // QR codes and sharing for invitation links (made in the browser; see public/js).
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => new HtmlString(
+                '<script src="'.e(asset('js/qrcode.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'
+                .'<script src="'.e(asset('js/clubarr-share.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'))
             ->defaultAvatarProvider(InitialsAvatar::class)
             ->login()
             ->passwordReset()

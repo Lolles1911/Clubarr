@@ -16,13 +16,15 @@ administrators.**
   Plex: members use app.plex.tv).
 - **Test** on the form checks the address and key before you save. **Sync**
   on a server's row reads the libraries and updates members' users.
-- **Plex**: paste the server owner's Plex token and press **Find Plex**:
-  plex.tv lists your servers with every address it knows (including Plex's
-  own `*.plex.direct` addresses, which have a real https certificate), and
-  Clubarr tries each one and shows which it can reach and how fast. Choose
-  one, then **Test**. Without a token, **Find Plex** looks on the network
-  Clubarr is opened on (ports 32400 and 32401). You can always type the
-  address yourself, e.g. `http://192.168.1.10:32400`.
+- **Plex**, like Tracearr: press **Sign in with Plex** and approve Clubarr
+  on plex.tv (on a phone, come back to the Clubarr tab afterwards). Then
+  **Find Plex** lists your servers with every address Plex knows (including
+  Plex's own `*.plex.direct` addresses), tried from Clubarr with how fast
+  each answers. Choose one and save; the token from the sign-in is used.
+  Prefer the server's fixed LAN address (e.g. `http://192.168.1.10:32400`)
+  over a Docker one (`172.17.…`), which can change when containers restart.
+  You can also paste a token yourself, and without one **Find Plex** looks
+  on the network Clubarr is opened on (ports 32400 and 32401).
 - **Plex members** either press **Sign in with Plex** (the share is accepted
   for them), or type their Plex email or user name; then Plex sends them an
   invitation to accept, and Clubarr marks them active once they have.
