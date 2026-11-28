@@ -24,6 +24,8 @@ class SiteSettings
         'locale' => 'en',
         // The look: streaming | midnight | classic (see Theme).
         'theme' => 'streaming',
+        // Animations in the themes and the burst on an invitation ('1') or none ('0').
+        'animations' => '1',
         'mail_enabled' => '0',
         'mail_host' => '',
         'mail_port' => '587',

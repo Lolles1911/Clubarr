@@ -85,6 +85,7 @@ class Settings extends Page
         $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
         $values['member_invites_approval'] = ($values['member_invites_approval'] ?? '0') === '1';
         $values['link_existing'] = ($values['link_existing'] ?? '1') !== '0';
+        $values['animations'] = ($values['animations'] ?? '1') !== '0';
         $values['switch_servers'] = array_values(array_filter(explode(',', (string) ($values['switch_servers'] ?? ''))));
         $values['apply_packages'] = array_values(array_filter((array) json_decode((string) ($values['apply_packages'] ?? ''), true), 'is_array'));
         foreach (['landing_enabled' => '0', 'landing_posters' => '0', 'landing_status' => '1'] as $key => $default) {
@@ -110,6 +111,8 @@ class Settings extends Page
                         ->helperText(__('Shown to members on their page: which apps to use, house rules, where to ask. Plain text.')),
                     Select::make('theme')->label(__('Theme'))->options(Theme::options())->required()->columnSpanFull()
                         ->helperText(__('The look of every page, for members and admins. Your accent colour and logo are used in all of them.')),
+                    Toggle::make('animations')->label(__('Animations'))->columnSpanFull()
+                        ->helperText(__('Cards and posters glide in, and confetti when someone opens an invitation and joins. Phones set to "reduce motion" never get them.')),
                     ColorPicker::make('brand_color')->label(__('Accent colour'))->regex('/^#[0-9a-fA-F]{6}$/')
                         ->helperText(__('Buttons and links, for admins and members. Empty: the theme\'s own.')),
                     FileUpload::make('logo')->label(__('Logo'))->image()->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])->maxSize(300)->storeFiles(false)
@@ -303,6 +306,7 @@ class Settings extends Page
         $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
         $data['member_invites_approval'] = ! empty($data['member_invites_approval']) ? '1' : '0';
         $data['link_existing'] = ! empty($data['link_existing']) ? '1' : '0';
+        $data['animations'] = ! empty($data['animations']) ? '1' : '0';
         $data['switch_servers'] = implode(',', array_map('intval', (array) ($data['switch_servers'] ?? [])));
         $data['apply_packages'] = json_encode(array_values(array_map(fn ($p) => ['label' => (string) ($p['label'] ?? ''), 'description' => (string) ($p['description'] ?? ''), 'template_id' => (int) ($p['template_id'] ?? 0)],
             array_filter((array) ($data['apply_packages'] ?? []), 'is_array')))) ?: '[]';

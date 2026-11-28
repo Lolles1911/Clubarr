@@ -1,5 +1,5 @@
 {{-- The first step of an invitation: who invites, the greeting, what you get, and what is waiting. --}}
-<div style="display:flex;flex-direction:column;gap:1rem">
+<div style="display:flex;flex-direction:column;gap:1rem" data-clubarr-celebrate="">
     @if (filled($welcome['greeting']))
         <figure style="margin:0;padding:.9rem 1rem;border-radius:.75rem;border-left:4px solid var(--primary-500);background:rgba(127,127,127,.1)">
             <blockquote style="margin:0;font-size:.95rem;line-height:1.55">{!! nl2br(e($welcome['greeting'])) !!}</blockquote>
