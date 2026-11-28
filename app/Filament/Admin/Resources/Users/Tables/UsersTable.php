@@ -5,19 +5,28 @@ namespace App\Filament\Admin\Resources\Users\Tables;
 use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
-use App\Services\DiscordSync;
 use App\Services\MemberAccounts;
+use App\Services\MemberAdmin;
+use App\Services\MemberRequests;
+use App\Services\SiteSettings;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkAction;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Throwable;
 
@@ -45,38 +54,62 @@ class UsersTable
                 TernaryFilter::make('is_admin')->label(__('Admins')),
                 TernaryFilter::make('disabled')->label(__('Disabled'))->nullable()->attribute('disabled_at'),
             ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    BulkAction::make('bulkEnd')->label(__('Change access end'))->icon(Heroicon::OutlinedCalendarDays)
+                        ->schema([
+                            TextInput::make('days')->label(__('Add days'))->numeric()->minValue(1)->maxValue(3650)->helperText(__('From today, or from their end if later.')),
+                            DateTimePicker::make('until')->label(__('Or set the end to'))->seconds(false),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $failed = [];
+                            foreach (self::members($records) as $user) {
+                                $until = filled($data['until'] ?? null) ? Carbon::parse($data['until'])
+                                    : (filled($data['days'] ?? null) ? ($user->access_expires_at?->isFuture() ? $user->access_expires_at->copy() : now())->addDays((int) $data['days']) : null);
+                                $failed = array_merge($failed, app(MemberAdmin::class)->setEnd($user, $until));
+                            }
+                            self::report($failed, __('Access changed.'));
+                        })->deselectRecordsAfterCompletion(),
+                    BulkAction::make('bulkDisable')->label(__('Disable'))->icon(Heroicon::OutlinedPauseCircle)->color('warning')->requiresConfirmation()
+                        ->action(fn (Collection $records) => self::report(self::members($records)->flatMap(fn (User $u) => app(MemberAdmin::class)->disable($u))->all(), __('Disabled.')))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('bulkEnable')->label(__('Enable'))->icon(Heroicon::OutlinedPlayCircle)->color('success')
+                        ->action(fn (Collection $records) => self::report(self::members($records)->flatMap(fn (User $u) => app(MemberAdmin::class)->enable($u))->all(), __('Enabled.')))
+                        ->deselectRecordsAfterCompletion(),
+                    BulkAction::make('bulkMessage')->label(__('Send a message'))->icon(Heroicon::OutlinedEnvelope)
+                        ->visible(fn () => app(SiteSettings::class)->get('mail_enabled') === '1')
+                        ->schema([
+                            TextInput::make('subject')->label(__('Title'))->required()->maxLength(120),
+                            Textarea::make('body')->label(__('Message'))->required()->rows(5)->maxLength(4000),
+                        ])
+                        ->action(function (Collection $records, array $data) {
+                            $sent = 0;
+                            foreach (self::members($records) as $user) {
+                                MemberRequests::tell($user, (string) $data['subject'], (string) $data['body']);
+                                $sent++;
+                            }
+                            Audit::log('message.mailed_selected', null, ['members' => $sent, 'title' => $data['subject']]);
+                            Notification::make()->title(__('Sent to :count members.', ['count' => $sent]))->success()->send();
+                        })->deselectRecordsAfterCompletion(),
+                    BulkAction::make('bulkRemove')->label(__('Remove'))->icon(Heroicon::OutlinedTrash)->color('danger')->requiresConfirmation()
+                        ->modalDescription(__('Their users are removed from the servers (Plex: the share), and their Clubarr accounts are deleted. This can\'t be undone.'))
+                        ->action(fn (Collection $records) => self::report(self::members($records)->flatMap(fn (User $u) => app(MemberAdmin::class)->remove($u))->all(), __('Removed.')))
+                        ->deselectRecordsAfterCompletion(),
+                ]),
+            ])
             ->recordActions([
                 ActionGroup::make([
                     Action::make('extend')->label(__('Change access end'))->icon(Heroicon::OutlinedCalendarDays)
                         ->schema([DateTimePicker::make('until')->label(__('Access ends'))->seconds(false)->helperText(__('Empty: no end.'))])
                         ->fillForm(fn (User $record) => ['until' => $record->access_expires_at])
-                        ->action(function (User $record, array $data) {
-                            $record->forceFill(['access_expires_at' => $data['until'] ?? null, 'expiry_warned_at' => null])->save();
-                            Audit::log('member.access_changed', $record, ['until' => $data['until'] ?? null]);
-                            if (! $record->hasAccessExpired() && $record->disabled_at === null) {
-                                self::report(app(AccessManager::class)->enableAll($record), __('Access changed.'));
-                            } else {
-                                Notification::make()->title(__('Access changed.'))->success()->send();
-                            }
-                        }),
+                        ->action(fn (User $record, array $data) => self::report(app(MemberAdmin::class)->setEnd($record, filled($data['until'] ?? null) ? Carbon::parse($data['until']) : null), __('Access changed.'))),
                     Action::make('disable')->label(__('Disable'))->icon(Heroicon::OutlinedPauseCircle)->color('warning')
                         ->visible(fn (User $record) => $record->disabled_at === null && ! $record->is(Auth::user()))
                         ->requiresConfirmation()->modalDescription(__('The member can\'t sign in, and their users on the servers are paused.'))
-                        ->action(function (User $record) {
-                            $record->forceFill(['disabled_at' => now()])->save();
-                            Audit::log('member.disabled', $record);
-                            self::report(app(AccessManager::class)->disableAll($record, 'disabled by admin'), __('Disabled.'));
-                            app(DiscordSync::class)->sync($record);
-                        }),
+                        ->action(fn (User $record) => self::report(app(MemberAdmin::class)->disable($record), __('Disabled.'))),
                     Action::make('enable')->label(__('Enable'))->icon(Heroicon::OutlinedPlayCircle)->color('success')
                         ->visible(fn (User $record) => $record->disabled_at !== null)
-                        ->action(function (User $record) {
-                            $record->forceFill(['disabled_at' => null])->save();
-                            Audit::log('member.enabled', $record);
-                            $failed = $record->hasAccessExpired() ? [] : app(AccessManager::class)->enableAll($record);
-                            self::report($failed, __('Enabled.'));
-                            app(DiscordSync::class)->sync($record);
-                        }),
+                        ->action(fn (User $record) => self::report(app(MemberAdmin::class)->enable($record), __('Enabled.'))),
                     Action::make('passwordLink')->label(__('Send password link'))->icon(Heroicon::OutlinedEnvelope)
                         ->requiresConfirmation()->modalDescription(__('The member gets a mail with a link to choose a new password for Clubarr.'))
                         ->action(function (User $record) {
@@ -85,6 +118,29 @@ class UsersTable
                             Notification::make()->title(__('Sent.'))->success()->send();
                         }),
                     EditAction::make(),
+                    Action::make('libraries')->label(__('Libraries'))->icon(Heroicon::OutlinedRectangleStack)
+                        ->visible(fn (User $record) => $record->serverAccounts->isNotEmpty())
+                        ->modalDescription(__('What they see on each server. All ticked = all libraries, also new ones.'))
+                        ->fillForm(fn (User $record) => ['libs' => $record->serverAccounts->mapWithKeys(fn ($a) => [$a->id => $a->library_ids ?? $a->mediaServer->libraries()->pluck('external_id')->all()])->all()])
+                        ->schema(fn (User $record) => $record->serverAccounts->map(fn ($a) => CheckboxList::make('libs.'.$a->id)->label($a->mediaServer->name)->columns(2)->bulkToggleable()
+                            ->options($a->mediaServer->libraries()->orderBy('name')->pluck('name', 'external_id')->all()))->all())
+                        ->action(function (User $record, array $data) {
+                            $failed = [];
+                            foreach ($record->serverAccounts()->with('mediaServer.libraries')->get() as $account) {
+                                $all = $account->mediaServer->libraries->pluck('external_id')->map(fn ($id) => (string) $id)->sort()->values()->all();
+                                $chosen = collect($data['libs'][$account->id] ?? [])->map(fn ($id) => (string) $id)->intersect($all)->sort()->values()->all();
+                                $new = $chosen === $all ? null : $chosen;
+                                if ($new === ($account->library_ids === null ? null : collect($account->library_ids)->map(fn ($id) => (string) $id)->sort()->values()->all())) {
+                                    continue; // unchanged
+                                }
+                                try {
+                                    app(AccessManager::class)->changeLibraries($account, $new);
+                                } catch (Throwable $e) {
+                                    $failed[] = $account->mediaServer->name.': '.mb_substr($e->getMessage(), 0, 200);
+                                }
+                            }
+                            self::report($failed, __('Libraries changed.'));
+                        }),
                     Action::make('removeServer')->label(__('Remove from a server'))->icon(Heroicon::OutlinedServerStack)->color('danger')
                         ->visible(fn (User $record) => $record->serverAccounts->isNotEmpty())
                         ->modalDescription(__('Their user on that server is deleted (Plex: the share). Their Clubarr account and other servers stay.'))
@@ -108,21 +164,15 @@ class UsersTable
                     Action::make('remove')->label(__('Remove'))->icon(Heroicon::OutlinedTrash)->color('danger')
                         ->visible(fn (User $record) => ! $record->is(Auth::user()))
                         ->requiresConfirmation()->modalDescription(__('Their users are removed from the servers (Plex: the share), and their Clubarr account is deleted. This can\'t be undone.'))
-                        ->action(function (User $record) {
-                            $failed = app(AccessManager::class)->removeAll($record);
-                            // Takes the Discord role when no server user is left.
-                            app(DiscordSync::class)->sync($record);
-                            if ($failed !== []) {
-                                self::report($failed, '');
-
-                                return;
-                            }
-                            Audit::log('member.removed', null, ['email' => $record->email]);
-                            $record->delete();
-                            Notification::make()->title(__('Removed.'))->success()->send();
-                        }),
+                        ->action(fn (User $record) => self::report(app(MemberAdmin::class)->remove($record), __('Removed.'))),
                 ]),
             ]);
+    }
+
+    /** The chosen members, never the admin doing it. @return \Illuminate\Support\Collection<int, User> */
+    private static function members(Collection $records): \Illuminate\Support\Collection
+    {
+        return $records->filter(fn ($u) => $u instanceof User && ! $u->is(Auth::user()))->values()->toBase();
     }
 
     private static function report(array $failed, string $ok): void
