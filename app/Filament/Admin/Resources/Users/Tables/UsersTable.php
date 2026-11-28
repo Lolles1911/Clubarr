@@ -49,7 +49,7 @@ class UsersTable
                     ->state(fn (User $record) => $record->serverAccounts->map(fn ($a) => $a->mediaServer->name)->all())
                     ->color(fn (User $record, string $state) => $record->serverAccounts->first(fn ($a) => $a->mediaServer->name === $state)?->status->color() ?? 'gray'),
                 TextColumn::make('groups.name')->label(__('Groups'))->badge()->visibleFrom('lg')
-                    ->color(fn (User $record, string $state) => $record->groups->firstWhere('name', $state)?->color ?? 'gray'),
+                    ->color(fn (User $record, string $state) => $record->groups->firstWhere('name', $state)->color ?? 'gray'),
                 TextColumn::make('access_expires_at')->visibleFrom('sm')->label(__('Access ends'))->date('j M Y')->placeholder(__('No end'))->sortable()
                     ->color(fn (User $record) => $record->hasAccessExpired() ? 'danger' : null),
                 TextColumn::make('role')->visibleFrom('md')->label(__('Role'))->badge()
