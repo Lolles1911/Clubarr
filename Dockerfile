@@ -3,7 +3,7 @@
 # Everything that must be kept lives in /config.
 
 # PHP code is the same on every platform: install it natively, once.
-FROM --platform=$BUILDPLATFORM composer:2.8 AS vendor
+FROM --platform=$BUILDPLATFORM composer:2.10 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist --no-interaction --no-progress --ignore-platform-reqs
