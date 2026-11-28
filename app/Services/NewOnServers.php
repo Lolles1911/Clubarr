@@ -84,7 +84,7 @@ class NewOnServers
         }
         usort($rows, fn ($a, $b) => $b['added'] <=> $a['added']);
 
-        return array_map(fn ($r) => ['title' => $r['title'], 'year' => $r['year'], 'server' => $r['server']], array_slice(array_values($rows), 0, 30));
+        return array_map(fn ($r) => ['title' => $r['title'], 'year' => $r['year'], 'server' => $r['server']], array_slice($rows, 0, 30));
     }
 
     /**

@@ -77,7 +77,7 @@ class ServerSync
 
                 continue;
             }
-            if ($user->lastSeen !== null && $account->user !== null) {
+            if ($user->lastSeen !== null) {
                 self::seen($account->user, $user->lastSeen);
             }
             $status = $user->isDisabled ? AccountStatus::Disabled : AccountStatus::Active;
