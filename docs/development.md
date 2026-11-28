@@ -25,7 +25,7 @@ vendor/bin/phpstan        # static analysis (Larastan)
 | `app/Console/Commands/` | `clubarr:check-access` (hourly), `clubarr:check-servers` (every 5 minutes; also fetches "New on the server"), `clubarr:stream-limits`, `clubarr:waitlist`, `clubarr:backup` (nightly), `clubarr:check-update` (daily), `clubarr:setup-token`. |
 | `app/Jobs/` | Queued work: admin alerts (Discord webhook) and messages to members. |
 | `docker/` | The container: entrypoint, nginx, PHP-FPM, supervisord. |
-| `lang/da.json` | Danish. A test fails if a text has no translation. |
+| `lang/da.json` | Danish, for most texts; newer ones show in English until translated. A test checks the placeholders of the lines there. |
 
 ## Adding a server type
 
@@ -46,4 +46,4 @@ vendor/bin/phpstan        # static analysis (Larastan)
   log or exceptions.
 - Every change to members or servers goes through a service and is logged
   with `Audit::log()`.
-- Texts in English with `__()`, Danish in `lang/da.json`.
+- Texts in English with `__()`. A Danish line in `lang/da.json` is welcome but not required.

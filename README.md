@@ -40,7 +40,7 @@ Silo servers.** Self-hosted, one Docker container. *Beta.*
 - **Backups**: every night in `/config/backups`, and a password-locked file
   to download; restore from either.
 - **Your look**: your logo and accent colour.
-- English and Danish.
+- English, and Danish for most of it.
 
 ## Install
 
