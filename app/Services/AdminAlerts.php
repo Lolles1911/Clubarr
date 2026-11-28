@@ -21,6 +21,7 @@ class AdminAlerts
         'server_down' => ['server.down', 'server.up'],
         'sync' => ['account.gone_on_server', 'server.sync_held'],
         'waitlist_joined' => ['waitlist.joined'],
+        'asks' => ['extension.requested', 'problem.reported', 'access.requested'],
         'stream_limit' => ['stream.limit'],
         'new_version' => ['clubarr.new_version'],
     ];
@@ -36,6 +37,7 @@ class AdminAlerts
             'server_down' => __('A media server stops answering, and when it is back'),
             'sync' => __('A user was deleted on a media server (and the access removed here)'),
             'waitlist_joined' => __('Someone joins the waiting list'),
+            'asks' => __('A member asks for more time or reports a problem, or someone applies to join'),
             'stream_limit' => __('A stream is stopped for being over the limit'),
             'new_version' => __('A new Clubarr version is out'),
         ];
@@ -70,6 +72,9 @@ class AdminAlerts
             'server.up' => __(':server answers again.', ['server' => $subject?->getAttribute('name')], $locale),
             'account.gone_on_server' => __(':name was deleted on :server; the access is removed in Clubarr.', ['name' => $subject?->getAttribute('name') ?? (string) ($meta['remote_username'] ?? '?'), 'server' => (string) ($meta['server'] ?? '?')], $locale),
             'server.sync_held' => __(':server seems to miss :count users at once. Nothing was removed; check the server.', ['server' => $subject?->getAttribute('name'), 'count' => $meta['missing'] ?? '?'], $locale),
+            'extension.requested' => __(':name asks for more time.', ['name' => $subject?->getAttribute('name')], $locale),
+            'problem.reported' => __(':name reports a problem: :subject', ['name' => (string) ($meta['member'] ?? '?'), 'subject' => (string) ($meta['subject'] ?? '')], $locale),
+            'access.requested' => __(':name applies to join.', ['name' => (string) ($meta['name'] ?? '?')], $locale),
             'waitlist.joined' => __('On the waiting list: :name', ['name' => $subject instanceof WaitlistEntry ? ($subject->name ?: $subject->email) : '?'], $locale),
             'stream.limit' => __(':name was over :limit streams; Clubarr stopped ":title".', ['name' => $subject?->getAttribute('name'), 'limit' => $meta['limit'] ?? '?', 'title' => (string) ($meta['title'] ?? '')], $locale),
             'clubarr.new_version' => __('Clubarr :version is out (you have :current): :url', ['version' => $meta['version'] ?? '?', 'current' => config('clubarr.version'), 'url' => $meta['url'] ?? ''], $locale),

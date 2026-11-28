@@ -10,5 +10,6 @@ Schedule::command('clubarr:sync-servers')->everyFifteenMinutes()->withoutOverlap
 Schedule::command('clubarr:check-update')->dailyAt('04:17');
 Schedule::command('clubarr:backup')->dailyAt('03:41');
 Schedule::command('clubarr:invite-reminders')->hourly()->withoutOverlapping();
+Schedule::command('clubarr:weekly-new')->weeklyOn(1, '09:23');
 Schedule::command('queue:prune-failed --hours=720')->daily();
 Schedule::command('auth:clear-resets')->hourly();

@@ -63,6 +63,31 @@ class NewOnServers
     }
 
     /**
+     * Titles added on the member's servers and libraries since a moment (for the weekly mail).
+     *
+     * @return list<array{title: string, year: int|null, server: string}>
+     */
+    public function addedSince(User $user, \DateTimeInterface $since): array
+    {
+        $rows = [];
+        foreach ($user->serverAccounts()->with('mediaServer')->where('status', AccountStatus::Active)->get() as $account) {
+            $server = $account->mediaServer;
+            if ($server->is_enabled === false || ! $server->type->can(ListsRecentlyAdded::class)) {
+                continue;
+            }
+            $libraries = $account->library_ids === null ? null : array_values(array_map('strval', $account->library_ids));
+            foreach (Cache::get(self::cacheKey($server->id, $libraries), []) as $item) {
+                if ($item['added'] > $since->getTimestamp()) {
+                    $rows[$item['title']] = ['title' => $item['title'], 'year' => $item['year'], 'server' => $server->name, 'added' => $item['added']];
+                }
+            }
+        }
+        usort($rows, fn ($a, $b) => $b['added'] <=> $a['added']);
+
+        return array_map(fn ($r) => ['title' => $r['title'], 'year' => $r['year'], 'server' => $r['server']], array_slice(array_values($rows), 0, 30));
+    }
+
+    /**
      * "What is waiting for you" on an invitation page: the newest from the
      * invitation's servers and libraries. The keys are remembered in the
      * visitor's session; only those posters can be fetched (guestPoster()).
