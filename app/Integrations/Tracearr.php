@@ -11,7 +11,7 @@ use App\Services\SiteSettings;
  * Tracearr): what plays now, stopping a stream, plays, and what was added.
  * Tracearr watches Plex, Jellyfin and Emby (and Silo from Tracearr 3.3).
  */
-class Tracearr
+class Tracearr implements WatchSource
 {
     private ServerHttp $http;
 
@@ -76,6 +76,23 @@ class Tracearr
         } while ($cursor !== null && count($rows) < $max);
 
         return $rows;
+    }
+
+    /** Tracearr's poster path for a title from "recently added". */
+    public function addedPoster(array $row): ?string
+    {
+        $id = (string) ($row['rating_key'] ?? '');
+        $server = (string) ($row['server_id'] ?? '');
+        if ($id === '' || $server === '') {
+            return null;
+        }
+        $path = match (strtolower((string) ($row['server_type'] ?? ''))) {
+            'plex' => '/library/metadata/'.$id.'/thumb',
+            'silo' => '/content/'.$id.'/poster',
+            default => '/Items/'.$id.'/Images/Primary',
+        };
+
+        return '/api/v1/images/proxy?'.http_build_query(['server' => $server, 'url' => $path, 'width' => 300, 'height' => 450, 'fallback' => 'poster']);
     }
 
     /**

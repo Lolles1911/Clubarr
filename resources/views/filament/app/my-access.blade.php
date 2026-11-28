@@ -84,6 +84,46 @@
         @endif
     @endforeach
 
+    @php($soon = $this->comingSoon())
+    @if ($soon !== [])
+        <section>
+            <h2 class="clubarr-row-title">{{ __('Coming soon') }}</h2>
+            <div class="clubarr-row">
+                @foreach ($soon as $item)
+                    <figure class="clubarr-poster">
+                        @if ($item['tmdb'])
+                            <img src="{{ route('filament.app.tmdb', ['file' => $item['tmdb']]) }}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">
+                        @else
+                            <div style="width:100%;aspect-ratio:2/3;border-radius:.65rem;background:rgba(127,127,127,.18);display:flex;align-items:center;justify-content:center;padding:.5rem;text-align:center;font-size:.8rem;font-weight:600">{{ $item['title'] }}</div>
+                        @endif
+                        <figcaption>{{ $item['title'] }} <span>{{ $item['detail'] }} · {{ \Illuminate\Support\Carbon::parse($item['date'])->translatedFormat('j M') }}</span></figcaption>
+                    </figure>
+                @endforeach
+            </div>
+        </section>
+    @endif
+
+    @php($requests = $member->seerr_access ? $member->mediaRequests()->latest()->limit(4)->get() : collect())
+    @php($invites = \App\Services\MemberInvites::allowed($member) ? \App\Services\MemberInvites::remaining($member) : null)
+    @if ($requests->isNotEmpty() || $invites !== null)
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,18rem),1fr));gap:1rem">
+            @if ($requests->isNotEmpty())
+                <x-filament::section :heading="__('Your latest requests')" :compact="true">
+                    @foreach ($requests as $request)
+                        <div style="display:flex;justify-content:space-between;font-size:.85rem;padding:.2rem 0"><span>{{ $request->title }}</span><span style="opacity:.6">{{ $request->created_at->translatedFormat('j M') }}</span></div>
+                    @endforeach
+                    <div style="margin-top:.4rem"><x-filament::link :href="\App\Filament\App\Pages\Requests::getUrl(panel: 'app')" size="sm">{{ __('All requests') }}</x-filament::link></div>
+                </x-filament::section>
+            @endif
+            @if ($invites !== null)
+                <x-filament::section :heading="__('Invite a friend')" :compact="true">
+                    <p style="font-size:.88rem">{{ $invites === 0 ? __('You have no invitations left this month.') : ($invites === 1 ? __('You can invite 1 more person this month.') : __('You can invite :count more people this month.', ['count' => $invites])) }}</p>
+                    @if ($invites > 0)<div style="margin-top:.4rem"><x-filament::link :href="\App\Filament\App\Pages\InviteFriend::getUrl(panel: 'app')" size="sm">{{ __('Make an invitation') }}</x-filament::link></div>@endif
+                </x-filament::section>
+            @endif
+        </div>
+    @endif
+
     @if ($accounts->isNotEmpty())
         <h2 class="clubarr-row-title" style="margin-bottom:-.5rem">{{ __('Your servers') }}</h2>
     @endif

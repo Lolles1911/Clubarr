@@ -6,6 +6,7 @@ use App\Filament\Admin\NavigationGroup;
 use App\Http\Middleware\ApplySiteLocale;
 use App\Integrations\Discord;
 use App\Integrations\Seerr;
+use App\Integrations\Tautulli;
 use App\Integrations\Tracearr;
 use App\Jobs\SendAdminAlert;
 use App\Models\Invitation;
@@ -13,6 +14,7 @@ use App\Services\AdminAlerts;
 use App\Services\Audit;
 use App\Services\Backups;
 use App\Services\Branding;
+use App\Services\ComingSoon;
 use App\Services\SingleSignOn;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
@@ -152,6 +154,19 @@ class Settings extends Page
                             TextInput::make('tracearr_api_key')->label(__('API key'))->password()->revealable()->maxLength(500)->autocomplete('off')
                                 ->helperText(__('Tracearr → Settings → Data & API (starts with "trr_pub_"). Stored encrypted; leave empty to keep it.')),
                         ])->footerActions([$this->testAction('Tracearr')]),
+                    Section::make('Tautulli')->key('tautulli')->columns(2)
+                        ->description(__('For Plex, instead of Tracearr (Tracearr is used when both are set up): what members watch, stream limits, numbers and posters.'))->schema([
+                            TextInput::make('tautulli_url')->label(__('Address'))->url()->maxLength(255)->placeholder('http://192.168.1.10:8181'),
+                            TextInput::make('tautulli_api_key')->label(__('API key'))->password()->revealable()->maxLength(200)->autocomplete('off')
+                                ->helperText(__('Tautulli → Settings → Web Interface → API key. Stored encrypted; leave empty to keep it.')),
+                        ])->footerActions([$this->testAction('Tautulli')]),
+                    Section::make('Sonarr & Radarr')->key('arr')->columns(2)
+                        ->description(__('"Coming soon" on the members\' page: episodes and films expected in the next two weeks.'))->schema([
+                            TextInput::make('sonarr_url')->label(__('Sonarr address'))->url()->maxLength(255)->placeholder('http://192.168.1.10:8989'),
+                            TextInput::make('sonarr_api_key')->label(__('Sonarr API key'))->password()->revealable()->maxLength(200)->autocomplete('off')->helperText(__('Stored encrypted; leave empty to keep it.')),
+                            TextInput::make('radarr_url')->label(__('Radarr address'))->url()->maxLength(255)->placeholder('http://192.168.1.10:7878'),
+                            TextInput::make('radarr_api_key')->label(__('Radarr API key'))->password()->revealable()->maxLength(200)->autocomplete('off')->helperText(__('Stored encrypted; leave empty to keep it.')),
+                        ])->footerActions([$this->testAction('Arr')]),
                     Section::make(__('Requests (Overseerr / Jellyseerr)'))->columns(2)->schema([
                         TextInput::make('seerr_url')->label(__('Address'))->url()->maxLength(255)->placeholder('http://192.168.1.10:5055'),
                         TextInput::make('seerr_api_key')->label(__('API key'))->password()->revealable()->maxLength(500)->autocomplete('off')
@@ -305,7 +320,7 @@ class Settings extends Page
     /**
      * A "Test" button for one integration: saves first, then asks the service.
      *
-     * @param  'Tracearr'|'Seerr'|'Discord'  $name
+     * @param  'Tracearr'|'Seerr'|'Discord'|'Tautulli'|'Arr'  $name
      */
     private function testAction(string $name): Action
     {
@@ -313,7 +328,7 @@ class Settings extends Page
             ->action(fn () => $this->testService($name));
     }
 
-    /** @param  'Tracearr'|'Seerr'|'Discord'  $name */
+    /** @param  'Tracearr'|'Seerr'|'Discord'|'Tautulli'|'Arr'  $name */
     protected function testService(string $name): void
     {
         $this->save();
@@ -321,6 +336,8 @@ class Settings extends Page
             'Tracearr' => fn () => ($t = Tracearr::fromSettings()) ? __(':count servers', ['count' => count($t->servers())]) : null,
             'Seerr' => fn () => ($s = Seerr::fromSettings()) ? 'v'.$s->version() : null,
             'Discord' => fn () => ($d = Discord::fromSettings()) ? __('bot :name', ['name' => $d->botName()]) : null,
+            'Tautulli' => fn () => ($t = Tautulli::fromSettings()) ? 'v'.$t->version() : null,
+            'Arr' => fn () => ComingSoon::enabled() ? __(':count coming', ['count' => count(app(ComingSoon::class)->fetch())]) : null,
         };
         try {
             $result = $check();

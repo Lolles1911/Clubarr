@@ -14,7 +14,7 @@ use Throwable;
  */
 class SiteSettings
 {
-    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token', 'alerts_webhook_url', 'oidc_client_secret'];
+    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token', 'alerts_webhook_url', 'oidc_client_secret', 'tautulli_api_key', 'sonarr_api_key', 'radarr_api_key'];
 
     public const DEFAULTS = [
         'site_name' => 'Clubarr',
@@ -35,6 +35,14 @@ class SiteSettings
         // Tracearr: what plays, devices, stream limits, posters.
         'tracearr_url' => '',
         'tracearr_api_key' => '',
+        // Tautulli (Plex), used when Tracearr is not set up.
+        'tautulli_url' => '',
+        'tautulli_api_key' => '',
+        // Sonarr and Radarr: "coming soon" for members.
+        'sonarr_url' => '',
+        'sonarr_api_key' => '',
+        'radarr_url' => '',
+        'radarr_api_key' => '',
         // Overseerr/Jellyseerr: requests.
         'seerr_url' => '',
         'seerr_api_key' => '',

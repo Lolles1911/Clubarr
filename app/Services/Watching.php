@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Enums\AccountStatus;
+use App\Integrations\Tautulli;
 use App\Integrations\Tracearr;
+use App\Integrations\WatchSource;
 use App\Models\ServerAccount;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
@@ -18,9 +20,9 @@ use Throwable;
  */
 class Watching
 {
-    public function __construct(private ?Tracearr $tracearr = null)
+    public function __construct(private ?WatchSource $tracearr = null)
     {
-        $this->tracearr ??= Tracearr::fromSettings();
+        $this->tracearr ??= Tracearr::fromSettings() ?? Tautulli::fromSettings();
     }
 
     public function enabled(): bool
@@ -122,6 +124,82 @@ class Watching
         uasort($top, fn ($a, $b) => [count($b['people']), $b['plays']] <=> [count($a['people']), $a['plays']]);
 
         return array_map(fn ($t) => ['title' => $t['title'], 'plays' => $t['plays'], 'people' => count($t['people'])], array_slice(array_values($top), 0, $limit));
+    }
+
+    /** @return list<array<string, mixed>> everyone's plays of the last 365 days (kept 6 hours), for the year and the stats */
+    public function yearPlays(): array
+    {
+        if (! $this->enabled()) {
+            return [];
+        }
+
+        return Cache::remember('clubarr:watch:year', 6 * 3600, function () {
+            try {
+                return $this->tracearr->history(now()->subDays(365)->getTimestamp(), 40000);
+            } catch (Throwable $e) {
+                Log::info('Clubarr: year of plays not read: '.$e->getMessage());
+
+                return [];
+            }
+        });
+    }
+
+    /**
+     * Numbers for a set of plays (everyone's, or one member's).
+     *
+     * @param  list<array<string, mixed>>  $plays
+     * @return array{hours: float, plays: int, days: array<string, float>, hours_of_day: array<int, float>, weekdays: array<int, float>, platforms: array<string, int>, titles: list<array{title: string, hours: float, plays: int}>, people: array<string, float>, first: ?int, last: ?int}
+     */
+    public static function summarize(array $plays, int $days = 30): array
+    {
+        $since = now()->subDays($days - 1)->startOfDay();
+        $byDay = [];
+        for ($d = $since->copy(); $d->lte(now()); $d->addDay()) {
+            $byDay[$d->toDateString()] = 0.0;
+        }
+        $hoursOfDay = array_fill(0, 24, 0.0);
+        $weekdays = array_fill(1, 7, 0.0);
+        $platforms = $titles = $people = [];
+        $total = 0.0;
+        $first = $last = null;
+        foreach ($plays as $play) {
+            $at = strtotime((string) ($play['started_at'] ?? '')) ?: 0;
+            $hours = max(0, (int) ($play['duration_ms'] ?? $play['watched_ms'] ?? 0)) / 3600000;
+            $total += $hours;
+            $first = $first === null ? $at : min($first, $at);
+            $last = $last === null ? $at : max($last, $at);
+            $date = date('Y-m-d', $at);
+            if (isset($byDay[$date])) {
+                $byDay[$date] += $hours;
+            }
+            $hoursOfDay[(int) date('G', $at)] += $hours;
+            $weekdays[(int) date('N', $at)] += $hours;
+            $platform = trim((string) ($play['platform'] ?? $play['device'] ?? '')) ?: '?';
+            $platforms[$platform] = ($platforms[$platform] ?? 0) + 1;
+            $title = ($play['media_type'] ?? '') === 'episode' ? (string) ($play['show_title'] ?? '') : (string) ($play['media_title'] ?? '');
+            if ($title !== '' && ($play['media_type'] ?? '') !== 'track') {
+                $titles[$title] ??= ['title' => $title, 'hours' => 0.0, 'plays' => 0];
+                $titles[$title]['hours'] += $hours;
+                $titles[$title]['plays']++;
+            }
+            $people[self::keyOf($play)] = ($people[self::keyOf($play)] ?? 0) + $hours;
+        }
+        usort($titles, fn ($a, $b) => $b['hours'] <=> $a['hours']);
+        arsort($platforms);
+        arsort($people);
+
+        return ['hours' => round($total, 1), 'plays' => count($plays), 'days' => array_map(fn ($h) => round($h, 1), $byDay),
+            'hours_of_day' => array_map(fn ($h) => round($h, 1), $hoursOfDay), 'weekdays' => array_map(fn ($h) => round($h, 1), $weekdays),
+            'platforms' => array_slice($platforms, 0, 8, true), 'titles' => array_map(fn ($t) => ['title' => $t['title'], 'hours' => round($t['hours'], 1), 'plays' => $t['plays']], array_slice($titles, 0, 10)),
+            'people' => array_map(fn ($h) => round($h, 1), $people), 'first' => $first, 'last' => $last];
+    }
+
+    /** @return list<array<string, mixed>> one member's plays of the last 365 days */
+    public function yearPlaysOf(User $user): array
+    {
+        $keys = self::keysOf($user);
+
+        return array_values(array_filter($this->yearPlays(), fn (array $p) => isset($keys[self::keyOf($p)])));
     }
 
     /** @return list<array<string, mixed>> the member's plays of the last 30 days, newest first */
@@ -248,7 +326,7 @@ class Watching
         uasort($popular, fn ($a, $b) => count($b['people']) <=> count($a['people']));
         $new = Cache::remember('clubarr:tracearr:new', 3600, function () {
             try {
-                return array_map(fn (array $row) => ['title' => (string) ($row['title'] ?? ''), 'path' => self::addedPoster($row) ?? ''],
+                return array_map(fn (array $row) => ['title' => (string) ($row['title'] ?? ''), 'path' => $this->tracearr->addedPoster($row) ?? ''],
                     $this->tracearr->recentlyAdded(now()->subDays(45)->getTimestamp(), 40));
             } catch (Throwable) {
                 return [];
@@ -260,23 +338,6 @@ class Watching
             'popular' => $this->allow(array_map(fn ($p) => ['title' => $p['title'], 'path' => $p['path']], array_slice(array_values($popular), 0, 20))),
             'new' => $this->allow(array_slice($new, 0, 20)),
         ];
-    }
-
-    /** Tracearr's poster path for a title from "recently added". */
-    public static function addedPoster(array $row): ?string
-    {
-        $id = (string) ($row['rating_key'] ?? '');
-        $server = (string) ($row['server_id'] ?? '');
-        if ($id === '' || $server === '') {
-            return null;
-        }
-        $path = match (strtolower((string) ($row['server_type'] ?? ''))) {
-            'plex' => '/library/metadata/'.$id.'/thumb',
-            'silo' => '/content/'.$id.'/poster',
-            default => '/Items/'.$id.'/Images/Primary',
-        };
-
-        return '/api/v1/images/proxy?'.http_build_query(['server' => $server, 'url' => $path, 'width' => 300, 'height' => 450, 'fallback' => 'poster']);
     }
 
     /** Keeps only items with a Tracearr poster, and lists those posters as allowed for /posters/{key}. */
