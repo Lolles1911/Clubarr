@@ -12,6 +12,7 @@ use App\Services\AdminAlerts;
 use App\Services\Audit;
 use App\Services\Backups;
 use App\Services\Branding;
+use App\Services\SingleSignOn;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
 use BackedEnum;
@@ -75,6 +76,9 @@ class Settings extends Page
         $values['mail_enabled'] = ($values['mail_enabled'] ?? '0') === '1';
         $values['admin_2fa_required'] = ($values['admin_2fa_required'] ?? '1') !== '0';
         $values['update_check'] = ($values['update_check'] ?? '1') !== '0';
+        $values['apply_enabled'] = ($values['apply_enabled'] ?? '0') === '1';
+        $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
+        $values['oidc_members'] = ($values['oidc_members'] ?? '0') === '1';
         $values['alerts_events'] = ($values['alerts_events'] ?? null) === null ? array_keys(AdminAlerts::EVENTS) : array_values(array_filter(explode(',', (string) $values['alerts_events']), fn ($e) => isset(AdminAlerts::EVENTS[$e])));
         foreach (SiteSettings::SECRET as $secret) {
             unset($values[$secret]); // never sent to the browser
@@ -107,6 +111,19 @@ class Settings extends Page
                         ->helperText(__('Once a day Clubarr reads the public list of releases on GitHub. Nothing about your Clubarr is sent.')),
                 ]),
                 Tab::make(__('Security'))->key('security')->icon(Heroicon::OutlinedShieldCheck)->schema([
+                    Section::make(__('Single sign-on (OpenID Connect)'))->columns(2)
+                        ->description(__('Sign in with Authentik, Authelia, Keycloak or similar. Only existing accounts can sign in (by a verified email); SSO never makes accounts. Redirect URI for the provider: :url', ['url' => SingleSignOn::redirectUri()]))
+                        ->schema([
+                            Toggle::make('oidc_enabled')->label(__('On'))->columnSpanFull(),
+                            TextInput::make('oidc_issuer')->label(__('Issuer URL'))->url()->maxLength(255)->placeholder('https://auth.example.com/application/o/clubarr')
+                                ->regex('~^https://~')->helperText(__('Must be https. Clubarr reads /.well-known/openid-configuration from it.')),
+                            TextInput::make('oidc_label')->label(__('Button text'))->maxLength(40)->placeholder(__('Sign in with SSO')),
+                            TextInput::make('oidc_client_id')->label(__('Client ID'))->maxLength(200),
+                            TextInput::make('oidc_client_secret')->label(__('Client secret'))->password()->revealable()->maxLength(500)->autocomplete('off')
+                                ->helperText(__('Stored encrypted; leave empty to keep it.')),
+                            Toggle::make('oidc_members')->label(__('Members may use it too'))->columnSpanFull()
+                                ->helperText(__('Off: only admins. Signing in this way skips Clubarr\'s own two-factor step, so require two-factor at the provider.')),
+                        ]),
                     Toggle::make('admin_2fa_required')->label(__('Require two-factor sign-in for admins'))
                         ->helperText(__('Recommended. Admins can change members\' access and see server keys; with this on, a stolen password is not enough. Admins without it set up are asked to on their next sign-in.')),
                 ]),
@@ -159,6 +176,12 @@ class Settings extends Page
                         TextInput::make('invite_reminder_days')->label(__('Remind after'))->numeric()->minValue(0)->maxValue(60)->suffix(__('days'))
                             ->helperText(__('An invitation mailed to someone and not used gets one reminder mail. 0: no reminders.')),
                     ]),
+                    Section::make(__('Apply to join'))->columns(2)
+                        ->description(__('A public page (/apply) where people ask to join. You approve under Applications, and they get an invitation by mail.'))->schema([
+                            Toggle::make('apply_enabled')->label(__('Open'))->columnSpanFull(),
+                            Select::make('apply_template_id')->label(__('Template for approved applications'))->placeholder(__('Choose when approving'))
+                                ->options(fn () => Invitation::where('is_template', true)->orderBy('label')->pluck('label', 'id')->map(fn ($l) => $l ?: __('Template'))->all()),
+                        ]),
                     Section::make(__('Members invite friends'))->columns(2)
                         ->description(__('Members get "Invite a friend": one person per invitation, valid 7 days, with the servers, libraries and limits of the template. You see who invited whom.'))->schema([
                             TextInput::make('member_invites_per_month')->label(__('Invitations per member a month'))->numeric()->minValue(0)->maxValue(50)
@@ -167,6 +190,16 @@ class Settings extends Page
                                 ->options(fn () => Invitation::where('is_template', true)->orderBy('label')->pluck('label', 'id')->map(fn ($l) => $l ?: __('Template'))->all())
                                 ->helperText(__('Make one under Invitations: "Save as a template instead".')),
                         ]),
+                ]),
+                Tab::make(__('Automation'))->key('automation')->icon(Heroicon::OutlinedCog)->schema([
+                    Section::make(__('Inactive members'))->schema([
+                        TextInput::make('inactive_days')->label(__('Pause members who watched nothing for'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days'))
+                            ->helperText(__('They get a mail a week before. Paused frees their seat. Last watched comes from Jellyfin/Emby, or from Tracearr (needed for Plex). 0: off.')),
+                    ]),
+                    Section::make(__('After access ends'))->schema([
+                        TextInput::make('cleanup_days')->label(__('Delete their users on the servers after'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days'))
+                            ->helperText(__('When access ends, users are paused. This deletes them on the servers (Plex: the share) after the days set; the Clubarr account stays. 0: never.')),
+                    ]),
                 ]),
                 Tab::make(__('Notifications'))->key('alerts')->icon(Heroicon::OutlinedBellAlert)->schema([
                     Section::make(__('Discord channel for admins'))
@@ -248,6 +281,9 @@ class Settings extends Page
         $was = app(SiteSettings::class)->get('admin_2fa_required');
         $data['admin_2fa_required'] = ! empty($data['admin_2fa_required']) ? '1' : '0';
         $data['update_check'] = ! empty($data['update_check']) ? '1' : '0';
+        $data['apply_enabled'] = ! empty($data['apply_enabled']) ? '1' : '0';
+        $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
+        $data['oidc_members'] = ! empty($data['oidc_members']) ? '1' : '0';
         // "-" when none is chosen: empty would mean "not set yet", which is all.
         $data['alerts_events'] = implode(',', array_intersect((array) ($data['alerts_events'] ?? []), array_keys(AdminAlerts::EVENTS))) ?: '-';
         foreach (SiteSettings::SECRET as $secret) {

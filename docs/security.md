@@ -71,6 +71,24 @@ See [SECURITY.md](../SECURITY.md).
   libraries only, and only the ones that page listed for that visitor.
 - Greetings and welcome texts are plain text everywhere (page and mail).
 
+## Single sign-on and members' own actions
+
+- SSO is OpenID Connect's code flow with PKCE and a one-time state (10
+  minutes), as a confidential client; the provider must be on https and its
+  discovery document must name the same issuer. Who signed in comes from
+  the provider's userinfo endpoint over https with the access token.
+- Only existing accounts sign in: by the provider's subject once linked,
+  else by an email the provider marks as verified. SSO never makes
+  accounts. Members only when turned on; disabled accounts never.
+- An SSO sign-in skips Clubarr's own two-factor step for that session (the
+  provider should require it). The client secret is stored encrypted.
+- Deleting one's own account needs the current password; their users on
+  the servers are deleted first, and if that fails nothing is deleted.
+- /apply answers the same whether an email is known, has a hidden bot trap
+  and a rate limit, and gives nothing until an admin approves.
+- Problem reports and requests only reach the member's own servers and are
+  shown only to them; texts are plain (escaped) everywhere.
+
 ## Backups, alerts and branding
 
 - A downloaded backup is encrypted with AES-256-GCM, its key made from the

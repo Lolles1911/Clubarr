@@ -15,7 +15,13 @@ administrators.**
   address). **Address members open** is what they get as "Open" (not used for
   Plex: members use app.plex.tv).
 - **Test** on the form checks the address and key before you save. **Sync**
-  on a server's row reads the libraries and updates members' users.
+  on a server's row (and automatically every 15 minutes) reads the
+  libraries, sets members' users paused or active as the server says, and
+  counts the server's users that are not in Clubarr. A user deleted on the
+  server loses that access in Clubarr; a member left with none is paused.
+  If most users seem gone at once, nothing is removed and you are told.
+- **Remove from a server** (a member's menu) deletes their user on that one
+  server; **Remove** deletes the member and their users on every server.
 - **Plex**, like Tracearr: press **Sign in with Plex** and approve Clubarr
   on plex.tv (on a phone, come back to the Clubarr tab afterwards). Then
   **Find Plex** lists your servers with every address Plex knows (including

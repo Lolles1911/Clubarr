@@ -11,6 +11,8 @@ final readonly class RemoteUser
         public ?string $email = null,
         public bool $isAdmin = false,
         public bool $isDisabled = false,
+        /** When they last watched or signed in (Unix time), if the server tells. */
+        public ?int $lastSeen = null,
     ) {}
 
     /**

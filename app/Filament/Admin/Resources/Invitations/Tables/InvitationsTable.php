@@ -55,7 +55,7 @@ class InvitationsTable
                     ->state(fn (Invitation $record) => $record->access_days ? __(':days days', ['days' => $record->access_days]) : __('No end')),
                 TextColumn::make('expires_at')->visibleFrom('lg')->label(__('Link valid until'))->dateTime('j M Y, H:i')->placeholder(__('No end'))->sortable(),
                 TextColumn::make('status')->label(__('Status'))->badge()
-                    ->state(fn (Invitation $record) => $record->is_template ? __('Template') : ($record->problem() === null ? __('Open') : ($record->revoked_at ? __('Withdrawn') : ($record->expires_at?->isPast() ? __('Expired') : __('Used up')))))
+                    ->state(fn (Invitation $record) => $record->is_template ? __('Template') : ($record->problem() === null ? __('Open') : ($record->revoked_at ? __('Withdrawn') : ($record->expires_at?->isPast() ? __('Expired') : ($record->max_uses !== null && $record->uses >= $record->max_uses ? __('Used up') : __('No servers'))))))
                     ->color(fn (Invitation $record) => $record->problem() === null ? 'success' : 'gray'),
             ])
             ->filters([

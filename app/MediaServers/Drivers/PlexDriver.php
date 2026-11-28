@@ -2,6 +2,7 @@
 
 namespace App\MediaServers\Drivers;
 
+use App\MediaServers\Contracts\ChangesLibraries;
 use App\MediaServers\Contracts\ListsRecentlyAdded;
 use App\MediaServers\Contracts\MediaServerDriver;
 use App\MediaServers\Contracts\SharesWithPlexAccounts;
@@ -20,7 +21,7 @@ use App\Services\SiteSettings;
  * libraries with it (plex.tv's sharing API, as Plex Web uses it). The key is
  * the owner's Plex token. Tokens always go in headers, never in addresses.
  */
-class PlexDriver implements ListsRecentlyAdded, MediaServerDriver, SharesWithPlexAccounts
+class PlexDriver implements ChangesLibraries, ListsRecentlyAdded, MediaServerDriver, SharesWithPlexAccounts
 {
     private ServerHttp $local;
 
@@ -163,6 +164,20 @@ class PlexDriver implements ListsRecentlyAdded, MediaServerDriver, SharesWithPle
     public function enable(string $remoteId, string $username, ?array $libraryIds): void
     {
         $this->share(new PlexIdentity($remoteId, $username, null), $libraryIds);
+    }
+
+    /** Changes the libraries of an existing share (as Plex Web does). */
+    public function setLibraries(string $remoteId, ?array $libraryIds): void
+    {
+        $libraryIds ??= array_map(fn (LibraryData $l) => $l->id, $this->libraries());
+        $share = collect($this->shares())->first(fn ($s) => (string) ($s['invitedId'] ?? $s['invited']['id'] ?? '') === $remoteId);
+        if ($share === null || ! isset($share['id'])) {
+            throw new MediaServerException(__(':name is not shared with this user (any more).', ['name' => $this->server->name]));
+        }
+        $this->plexTv->send('PUT', '/api/servers/'.rawurlencode($this->machineId()).'/shared_servers/'.rawurlencode((string) $share['id']), json: [
+            'server_id' => $this->machineId(),
+            'shared_server' => ['library_section_ids' => array_map('intval', $libraryIds)],
+        ]);
     }
 
     /** The member keeps their plex.tv account; only the share goes. */

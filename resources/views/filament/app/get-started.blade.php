@@ -36,7 +36,7 @@
                         @endif
                     </li>
                     <li>{{ __('Or watch in the browser:') }}
-                        <div style="margin-top:.4rem"><x-filament::button tag="a" size="sm" :href="$server->type === \App\Enums\ServerType::Plex ? 'https://app.plex.tv' : $server->openUrl()" target="_blank" rel="noopener noreferrer" icon="heroicon-m-play">{{ __('Open :server', ['server' => $server->name]) }}</x-filament::button></div></li>
+                        <div style="margin-top:.4rem"><x-filament::button tag="a" size="sm" :href="$server->watchUrl()" target="_blank" rel="noopener noreferrer" icon="heroicon-m-play">{{ __('Open :server', ['server' => $server->name]) }}</x-filament::button></div></li>
                 </ol>
             </x-filament::section>
         @endforeach

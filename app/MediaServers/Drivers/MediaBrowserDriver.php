@@ -2,6 +2,7 @@
 
 namespace App\MediaServers\Drivers;
 
+use App\MediaServers\Contracts\ChangesLibraries;
 use App\MediaServers\Contracts\CreatesUsers;
 use App\MediaServers\Contracts\ListsRecentlyAdded;
 use App\MediaServers\Contracts\MediaServerDriver;
@@ -18,7 +19,7 @@ use Throwable;
  * Jellyfin and Emby share most of their API (both come from Media Browser).
  * The differences are in the two drivers that extend this one.
  */
-abstract class MediaBrowserDriver implements CreatesUsers, ListsRecentlyAdded, MediaServerDriver
+abstract class MediaBrowserDriver implements ChangesLibraries, CreatesUsers, ListsRecentlyAdded, MediaServerDriver
 {
     protected ServerHttp $http;
 
@@ -185,7 +186,8 @@ abstract class MediaBrowserDriver implements CreatesUsers, ListsRecentlyAdded, M
     private function remoteUser(array $user): RemoteUser
     {
         return new RemoteUser((string) ($user['Id'] ?? ''), (string) ($user['Name'] ?? ''), null,
-            ! empty($user['Policy']['IsAdministrator']), ! empty($user['Policy']['IsDisabled']));
+            ! empty($user['Policy']['IsAdministrator']), ! empty($user['Policy']['IsDisabled']),
+            strtotime((string) ($user['LastActivityDate'] ?? '')) ?: null);
     }
 
     /** Reads why a new user could not be made; a taken name is told apart. */

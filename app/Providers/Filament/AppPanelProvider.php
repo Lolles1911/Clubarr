@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\App\Pages\Apply;
 use App\Filament\App\Pages\ClaimAccount;
 use App\Filament\App\Pages\Join;
 use App\Filament\App\Pages\JoinWaitlist;
@@ -10,12 +11,16 @@ use App\Filament\App\Pages\Setup;
 use App\Http\Controllers\DiscordLinkController;
 use App\Http\Controllers\MediaImageController;
 use App\Http\Controllers\PlexReturnController;
+use App\Http\Controllers\SingleSignOnController;
+use App\Services\Applications;
 use App\Services\Branding;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EditProfile;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\HtmlString;
 
 /**
  * The members' side, at the site's root: sign-in, My access, profile (with
@@ -29,6 +34,9 @@ class AppPanelProvider extends PanelProvider
         return PanelDefaults::apply($panel)
             ->default()
             ->id('app')
+            // On the sign-in page: the way to apply, when it is open.
+            ->renderHook(PanelsRenderHook::AUTH_LOGIN_FORM_AFTER, fn () => Applications::enabled()
+                ? new HtmlString('<p style="text-align:center;font-size:.875rem;margin-top:1rem;opacity:.8">'.e(__('No account yet?')).' <a href="'.e(route('filament.app.apply')).'" style="text-decoration:underline">'.e(__('Apply to join')).'</a></p>') : '')
             ->path('')
             ->profile(EditProfile::class, isSimple: false)
             ->userMenuItems([
@@ -41,6 +49,9 @@ class AppPanelProvider extends PanelProvider
                 Route::get('/join/{code?}', Join::class)->name('join')->where('code', '[A-Za-z0-9\-]{1,80}');
                 Route::get('/setup', Setup::class)->name('setup');
                 Route::get('/waitlist', JoinWaitlist::class)->name('waitlist');
+                Route::get('/apply', Apply::class)->name('apply');
+                Route::get('/sso/redirect', [SingleSignOnController::class, 'redirect'])->name('sso.redirect');
+                Route::get('/sso/callback', [SingleSignOnController::class, 'callback'])->name('sso.callback');
                 Route::get('/plex/return', PlexReturnController::class)->name('plex.return');
                 Route::get('/join-posters/{key}', [MediaImageController::class, 'joinPoster'])->name('join-poster');
                 Route::get('/brand/logo', function () {

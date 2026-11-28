@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\AccountStatus;
+use App\MediaServers\Contracts\ChangesLibraries;
 use App\MediaServers\Contracts\CreatesUsers;
 use App\MediaServers\Contracts\SharesWithPlexAccounts;
 use App\MediaServers\Contracts\UsesClaimLinks;
@@ -143,6 +144,35 @@ class AccessManager
         }
 
         return $failed;
+    }
+
+    /**
+     * Changes which libraries a member has on a server. A paused user only
+     * gets the new choice stored; it is used when they are let back in.
+     *
+     * @param  array<int, string>|null  $libraryIds  null = all
+     */
+    public function changeLibraries(ServerAccount $account, ?array $libraryIds): void
+    {
+        $driver = $account->mediaServer->driver();
+        if ($account->status === AccountStatus::Active && $account->remote_id !== null) {
+            if (! $driver instanceof ChangesLibraries) {
+                throw new MediaServerException(__('Change the libraries on :server itself.', ['server' => $account->mediaServer->name]));
+            }
+            $driver->setLibraries($account->remote_id, $libraryIds);
+        }
+        $account->update(['library_ids' => $libraryIds]);
+        Audit::log('account.libraries_changed', $account, ['server' => $account->mediaServer->name, 'libraries' => $libraryIds === null ? 'all' : count($libraryIds)]);
+    }
+
+    /** Removes one of the member's users from its server (and the record). Throws when the server refuses. */
+    public function removeOne(ServerAccount $account): void
+    {
+        if ($account->remote_id !== null) {
+            $account->mediaServer->driver()->delete($account->remote_id, (string) $account->remote_username);
+        }
+        Audit::log('account.removed', $account->user, ['server' => $account->mediaServer->name, 'remote_username' => $account->remote_username]);
+        $account->delete();
     }
 
     /** Removes the member's users from the servers (and the records). Returns the servers that failed. */

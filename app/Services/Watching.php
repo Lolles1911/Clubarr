@@ -86,6 +86,44 @@ class Watching
         });
     }
 
+    /** @return list<array{who: string, title: string, player: string}> everyone's streams now (kept 30 seconds), for the dashboard */
+    public function everyoneNow(): array
+    {
+        if (! $this->enabled()) {
+            return [];
+        }
+
+        return Cache::remember('clubarr:tracearr:now', 30, function () {
+            try {
+                return array_map(fn (array $s) => [
+                    'who' => (string) ($s['username'] ?? $s['user']['username'] ?? '?'),
+                    'title' => trim(($s['media_type'] ?? '') === 'episode' ? ($s['show_title'] ?? '').' · '.($s['media_title'] ?? '') : (string) ($s['media_title'] ?? '')),
+                    'player' => (string) ($s['player'] ?? $s['device'] ?? $s['platform'] ?? ''),
+                ], $this->tracearr->streams());
+            } catch (Throwable) {
+                return [];
+            }
+        });
+    }
+
+    /** @return list<array{title: string, plays: int, people: int}> most watched in 30 days */
+    public function topTitles(int $limit = 10): array
+    {
+        $top = [];
+        foreach ($this->plays() as $play) {
+            $title = ($play['media_type'] ?? '') === 'episode' ? (string) ($play['show_title'] ?? '') : (string) ($play['media_title'] ?? '');
+            if ($title === '' || ($play['media_type'] ?? '') === 'track') {
+                continue;
+            }
+            $top[$title] ??= ['title' => $title, 'plays' => 0, 'people' => []];
+            $top[$title]['plays']++;
+            $top[$title]['people'][self::keyOf($play)] = true;
+        }
+        uasort($top, fn ($a, $b) => [count($b['people']), $b['plays']] <=> [count($a['people']), $a['plays']]);
+
+        return array_map(fn ($t) => ['title' => $t['title'], 'plays' => $t['plays'], 'people' => count($t['people'])], array_slice(array_values($top), 0, $limit));
+    }
+
     /** @return list<array<string, mixed>> the member's plays of the last 30 days, newest first */
     public function playsOf(User $user): array
     {

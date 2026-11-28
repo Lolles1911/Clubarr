@@ -36,6 +36,11 @@ use SensitiveParameter;
  * @property int|null $seerr_user_id
  * @property string|null $discord_id
  * @property string|null $discord_username
+ * @property bool $digest
+ * @property Carbon|null $digest_sent_at
+ * @property Carbon|null $last_seen_at
+ * @property Carbon|null $inactive_warned_at
+ * @property string|null $oidc_sub
  */
 class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasName
 {
@@ -45,7 +50,7 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     /** Only what a person may set about themselves; is_admin etc. are set explicitly. */
     protected $fillable = ['name', 'email', 'password'];
 
-    protected $hidden = ['password', 'remember_token', 'app_authentication_secret', 'app_authentication_recovery_codes'];
+    protected $hidden = ['password', 'remember_token', 'app_authentication_secret', 'app_authentication_recovery_codes', 'oidc_sub'];
 
     protected function casts(): array
     {
@@ -62,6 +67,10 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'max_streams' => 'integer',
             'request_limit' => 'integer',
             'seerr_user_id' => 'integer',
+            'digest' => 'boolean',
+            'digest_sent_at' => 'datetime',
+            'last_seen_at' => 'datetime',
+            'inactive_warned_at' => 'datetime',
         ];
     }
 

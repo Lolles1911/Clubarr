@@ -14,7 +14,7 @@ use Throwable;
  */
 class SiteSettings
 {
-    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token', 'alerts_webhook_url'];
+    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token', 'alerts_webhook_url', 'oidc_client_secret'];
 
     public const DEFAULTS = [
         'site_name' => 'Clubarr',
@@ -56,6 +56,20 @@ class SiteSettings
         'invite_reminder_days' => '3',
         'member_invites_per_month' => '0',
         'member_invite_template_id' => '',
+        // Automation: pause members who watched nothing for this many days (0 = off);
+        // delete server users this many days after access ended (0 = off).
+        'inactive_days' => '0',
+        'cleanup_days' => '0',
+        // Public "apply to join" page ('1' on), and the template an approved application's invitation copies.
+        'apply_enabled' => '0',
+        'apply_template_id' => '',
+        // Single sign-on (OpenID Connect): on ('1'), the provider, the client, the button, and whether members may use it too.
+        'oidc_enabled' => '0',
+        'oidc_issuer' => '',
+        'oidc_client_id' => '',
+        'oidc_client_secret' => '',
+        'oidc_label' => '',
+        'oidc_members' => '0',
         // Ask GitHub once a day for a newer Clubarr ('1') or not ('0').
         'update_check' => '1',
     ];

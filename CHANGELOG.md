@@ -3,6 +3,57 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.6.0-beta (2026-11-29)
+
+### For members
+- **Ask for more time** in the last 14 days of their access; you approve
+  with a number of days (or decline) under **More time**, and they get a mail.
+- **Help**: "Something doesn't work" (a film that won't play, subtitles,
+  sign-in). You answer under **Problems**; the answer is mailed and shown on
+  their Help page.
+- **A weekly mail** with what is new on their servers, if they turn it on.
+- **Delete my account** (with their password): their users on the servers
+  go too.
+
+### For admins
+- **Dashboard**: members over 12 weeks, who watches now and the most
+  watched (with Tracearr), and the latest events.
+- **Libraries per member**: change what a member sees on each server
+  (Jellyfin, Emby, Plex); Clubarr changes the server.
+- **Many members at once**: change the end date, pause, enable, mail or
+  remove the ones you tick.
+- **Single sign-on** (OpenID Connect: Authentik, Authelia, Keycloak ...)
+  for admins, and members if you want. Only existing accounts can sign in.
+
+### Automatic
+- **Overseerr/Jellyseerr user at once** when someone joins.
+- **Inactive members**: nothing watched for the days you set: a mail a
+  week before, then paused (which frees the seat).
+- **After access ends**: their users on the servers are deleted after the
+  days you set; the Clubarr account stays.
+- **Apply to join** (/apply): people ask, you approve, and they get an
+  invitation by mail from your template.
+
+## 0.5.0-beta (2026-11-28)
+
+### Media servers and Clubarr stay in step
+- **Automatic sync every 15 minutes** (what "Sync" did by hand): libraries,
+  members paused or active as the server says, and the number of users on
+  the server that are not in Clubarr (shown on the server's row).
+- **A user deleted on the server loses that access in Clubarr.** A member
+  left with no servers is paused, not deleted. When most users seem gone at
+  once, nothing is removed (that looks like a server problem) and you are
+  told. Both can be a Discord notification.
+- **Remove from a server** on a member: deletes their user on that one
+  server (Plex: the share); the account and other servers stay. ("Remove"
+  still deletes the member and their users everywhere.)
+- **Invitations to servers that are deleted or switched off** can't be used,
+  and show "No servers".
+- **"Open" on Plex** goes straight to your server in app.plex.tv.
+
+### Other
+- Danish translations are no longer required for new texts.
+
 ## 0.4.0-beta (2026-11-28)
 
 ### Invitations

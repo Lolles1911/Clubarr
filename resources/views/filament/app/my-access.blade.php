@@ -38,6 +38,11 @@
                 @else
                     <p class="clubarr-hero-sub">{{ __('Your access lasts until :date.', ['date' => $member->access_expires_at->translatedFormat(__('j F Y'))]) }}</p>
                 @endif
+                @if (\App\Services\MemberRequests::canAskForTime($member))
+                    <div style="margin-top:.6rem">{{ $this->askForTimeAction }}</div>
+                @elseif (\App\Models\ExtensionRequest::where('user_id', $member->id)->where('status', 'pending')->exists())
+                    <p class="clubarr-hero-sub" style="font-size:.85rem">{{ __('You have asked for more time; you get a mail when it is decided.') }}</p>
+                @endif
             @elseif ($active->isNotEmpty())
                 <p class="clubarr-hero-sub">{{ __('Pick a server and start watching.') }}</p>
             @endif
@@ -46,7 +51,7 @@
             <div class="clubarr-hero-apps">
                 @foreach ($active as $account)
                     @php($server = $account->mediaServer)
-                    <x-filament::button tag="a" size="lg" :href="$server->type === \App\Enums\ServerType::Plex ? 'https://app.plex.tv' : $server->openUrl()" target="_blank" rel="noopener noreferrer" icon="heroicon-m-play">{{ __('Open :server', ['server' => $server->name]) }}</x-filament::button>
+                    <x-filament::button tag="a" size="lg" :href="$server->watchUrl()" target="_blank" rel="noopener noreferrer" icon="heroicon-m-play">{{ __('Open :server', ['server' => $server->name]) }}</x-filament::button>
                 @endforeach
             </div>
         @endif
@@ -152,6 +157,11 @@
             <div style="font-size:.9rem;line-height:1.6">{!! nl2br(e($this->helpText())) !!}</div>
         </x-filament::section>
     @endif
+
+    <div style="display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:flex-end;font-size:.85rem;opacity:.85">
+        {{ $this->digestAction }}
+        {{ $this->deleteAccountAction }}
+    </div>
 
     <x-filament-actions::modals />
 </x-filament-panels::page>

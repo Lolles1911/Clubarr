@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
 use App\Services\DiscordSync;
+use App\Services\MemberRequests;
 use App\Services\NewOnServers;
 use App\Services\SiteSettings;
 use App\Services\Watching;
@@ -18,6 +19,7 @@ use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Dashboard;
@@ -181,6 +183,61 @@ class MyAccess extends Dashboard
                     report($e);
                     Notification::make()->title(__('The password could not be changed right now. Please try again later.'))->danger()->send();
                 }
+            });
+    }
+
+    public function askForTimeAction(): Action
+    {
+        return Action::make('askForTime')->label(__('Ask for more time'))->icon('heroicon-m-clock')->color('gray')
+            ->visible(fn () => MemberRequests::canAskForTime($this->member()))
+            ->schema([Textarea::make('note')->label(__('A few words (optional)'))->rows(2)->maxLength(1000)])
+            ->action(function (array $data) {
+                try {
+                    app(MemberRequests::class)->askForTime($this->member(), $data['note'] ?? null);
+                    Notification::make()->title(__('Asked. You get a mail when it is decided.'))->success()->send();
+                } catch (\RuntimeException $e) {
+                    Notification::make()->title($e->getMessage())->warning()->send();
+                }
+            });
+    }
+
+    public function digestAction(): Action
+    {
+        return Action::make('digest')
+            ->label(fn () => $this->member()->digest ? __('Stop the weekly mail') : __('Get a weekly mail with what is new'))
+            ->icon('heroicon-m-envelope')->color('gray')->link()
+            ->visible(fn () => app(SiteSettings::class)->get('mail_enabled') === '1')
+            ->action(function () {
+                $member = $this->member();
+                $member->forceFill(['digest' => ! $member->digest, 'digest_sent_at' => $member->digest ? $member->digest_sent_at : now()])->save();
+                Audit::log($member->digest ? 'member.digest_on' : 'member.digest_off', $member, [], $member->id);
+                Notification::make()->title($member->digest ? __('You will get a mail on Mondays when there is something new.') : __('No more weekly mails.'))->success()->send();
+            });
+    }
+
+    public function deleteAccountAction(): Action
+    {
+        return Action::make('deleteAccount')->label(__('Delete my account'))->icon('heroicon-m-trash')->color('danger')->link()
+            ->visible(fn () => ! $this->member()->is_admin)
+            ->modalHeading(__('Delete your account?'))
+            ->modalDescription(__('Your users on the servers are deleted too (Plex: the share is removed), and you can no longer watch. This can\'t be undone.'))
+            ->schema([TextInput::make('password')->label(__('Your password'))->password()->required()->currentPassword()])
+            ->action(function () {
+                $member = $this->member();
+                $failed = app(AccessManager::class)->removeAll($member);
+                if ($failed !== []) {
+                    Notification::make()->title(__('Not everything could be removed right now. Please try again later, or ask us.'))->danger()->send();
+
+                    return null;
+                }
+                Audit::log('member.deleted_self', null, ['email' => $member->email]);
+                app(DiscordSync::class)->sync($member->forceFill(['disabled_at' => now()]));
+                Filament::auth()->logout();
+                $member->delete();
+                session()->invalidate();
+                session()->regenerateToken();
+
+                return redirect()->to(Filament::getLoginUrl());
             });
     }
 
