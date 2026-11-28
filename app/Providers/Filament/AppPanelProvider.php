@@ -17,6 +17,8 @@ use App\Http\Middleware\ShowLandingPage;
 use App\Services\Applications;
 use App\Services\Branding;
 use Filament\Actions\Action;
+use Filament\Facades\Filament;
+use Filament\Navigation\NavigationItem;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\View\PanelsRenderHook;
@@ -44,7 +46,14 @@ class AppPanelProvider extends PanelProvider
             ->profile(Profile::class, isSimple: false)
             // A new email is only used once a link mailed to it is opened (when mail is on; see Profile).
             ->emailChangeVerification()
+            // My page (the profile) in the menu too, not only behind the avatar.
+            ->navigationItems([
+                NavigationItem::make('my-page')->label(fn () => __('My page'))->icon('heroicon-o-user-circle')->sort(90)
+                    ->url(fn () => Filament::getPanel('app')->getProfileUrl())
+                    ->isActiveWhen(fn () => request()->routeIs('filament.app.auth.profile')),
+            ])
             ->userMenuItems([
+                'profile' => fn (Action $action) => $action->label(__('My page')),
                 'admin' => Action::make('admin')->label(fn () => __('Admin'))->icon('heroicon-o-shield-check')->url(fn () => url('/admin'))
                     ->visible(fn () => (bool) auth()->user()?->is_admin),
             ])

@@ -174,22 +174,7 @@
                 </x-filament::section>
             @endforeach
         </div>
-    @endif
-
-    @if ($this->discordEnabled())
-        <x-filament::section :heading="__('Discord')" :compact="true">
-            @if ($member->discord_id)
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
-                    <span>{{ __('Linked as :name.', ['name' => $member->discord_username]) }}</span>
-                    <form method="POST" action="{{ route('filament.app.discord.disconnect') }}">@csrf<x-filament::button type="submit" color="gray" size="sm">{{ __('Unlink') }}</x-filament::button></form>
-                </div>
-            @else
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
-                    <span style="opacity:.8">{{ __('Link your Discord account to get the members\' role on our Discord.') }}</span>
-                    <x-filament::button tag="a" :href="route('filament.app.discord.connect')" size="sm">{{ __('Link Discord') }}</x-filament::button>
-                </div>
-            @endif
-        </x-filament::section>
+        <div style="text-align:right;margin-top:-.5rem"><x-filament::link :href="\Filament\Facades\Filament::getPanel('app')->getProfileUrl(['tab' => 'numbers'])" size="sm">{{ __('More numbers') }}</x-filament::link></div>
     @endif
 
     @if ($this->helpText())
@@ -199,8 +184,7 @@
     @endif
 
     <div style="display:flex;flex-wrap:wrap;gap:1.25rem;justify-content:flex-end;font-size:.85rem;opacity:.85">
-        {{ $this->digestAction }}
-        {{ $this->deleteAccountAction }}
+        <x-filament::link :href="\Filament\Facades\Filament::getPanel('app')->getProfileUrl()" icon="heroicon-m-user-circle">{{ __('My page: account, numbers and settings') }}</x-filament::link>
     </div>
 
     <x-filament-actions::modals />

@@ -8,6 +8,7 @@ use App\Filament\Admin\Resources\ExtensionRequests\Pages\ListExtensionRequests;
 use App\Filament\Admin\Resources\ProblemReports\Pages\ListProblemReports;
 use App\Filament\App\Pages\Help;
 use App\Filament\App\Pages\MyAccess;
+use App\Filament\Pages\Auth\Profile;
 use App\Models\ExtensionRequest;
 use App\Models\MediaServer;
 use App\Models\ProblemReport;
@@ -107,10 +108,10 @@ class MemberRequestsTest extends TestCase
             'jf.local/Users/a1' => Http::sequence()->push(['Id' => 'a1', 'Policy' => ['IsAdministrator' => false]])->push(null, 204),
         ]);
         $this->asMember();
-        Livewire::test(MyAccess::class)->callAction('deleteAccount', ['password' => 'wrong'])->assertHasActionErrors(['password']);
+        Livewire::test(Profile::class)->callAction('deleteAccount', ['password' => 'wrong'])->assertHasActionErrors(['password']);
         $this->assertNotNull($this->anna->fresh());
 
-        Livewire::test(MyAccess::class)->callAction('deleteAccount', ['password' => 'Anna-pass-123']);
+        Livewire::test(Profile::class)->callAction('deleteAccount', ['password' => 'Anna-pass-123']);
         $this->assertNull(User::find($this->anna->id));
         Http::assertSent(fn ($r) => $r->method() === 'DELETE');
     }
