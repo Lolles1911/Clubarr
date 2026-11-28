@@ -49,7 +49,7 @@ class Branding
             throw new RuntimeException(__('The logo must be at most :kb KB.', ['kb' => self::MAX_BYTES / 1024]));
         }
         $info = @getimagesizefromstring($bytes);
-        $type = is_array($info) ? (string) ($info['mime'] ?? '') : '';
+        $type = is_array($info) ? $info['mime'] : '';
         if (! in_array($type, ['image/png', 'image/jpeg', 'image/webp'], true) || $info[0] < 16 || $info[1] < 16 || $info[0] > 4000 || $info[1] > 4000) {
             throw new RuntimeException(__('The logo must be a PNG, JPEG or WebP picture.'));
         }

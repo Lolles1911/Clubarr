@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Announcement;
+use App\Models\User;
 use App\Notifications\MemberMessage;
 use App\Services\DiscordSync;
 use App\Services\SiteMail;
@@ -35,7 +36,8 @@ class SendAnnouncement implements ShouldQueue
             app(SiteMail::class)->apply();
         }
         $mailed = $discorded = 0;
-        $announcement->recipients()->chunkById(100, function ($users) use ($announcement, $mail, $discord, &$mailed, &$discorded) {
+        $announcement->recipients()->chunkById(100, function (iterable $users) use ($announcement, $mail, $discord, &$mailed, &$discorded) {
+            /** @var iterable<User> $users */
             foreach ($users as $user) {
                 if ($mail) {
                     try {

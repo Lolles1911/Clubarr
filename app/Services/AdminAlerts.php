@@ -63,7 +63,7 @@ class AdminAlerts
         }
         $locale = (string) app(SiteSettings::class)->get('locale');
         $text = match ($action) {
-            'invitation.redeemed' => __('New member: :name (:servers)', ['name' => User::find($actorId)?->name ?? '?', 'servers' => implode(', ', (array) ($meta['servers'] ?? []))], $locale),
+            'invitation.redeemed' => __('New member: :name (:servers)', ['name' => User::find($actorId)->name ?? '?', 'servers' => implode(', ', (array) ($meta['servers'] ?? []))], $locale),
             'server.down' => __(':server does not answer: :error', ['server' => $subject?->getAttribute('name'), 'error' => (string) ($meta['error'] ?? '')], $locale),
             'server.up' => __(':server answers again.', ['server' => $subject?->getAttribute('name')], $locale),
             'waitlist.joined' => __('On the waiting list: :name', ['name' => $subject instanceof WaitlistEntry ? ($subject->name ?: $subject->email) : '?'], $locale),

@@ -36,7 +36,11 @@ class Announcement extends Model
         return $this->belongsTo(MediaServer::class);
     }
 
-    /** The members it is for: active members, of one server or all. */
+    /**
+     * The members it is for: active members, of one server or all.
+     *
+     * @return Builder<User>
+     */
     public function recipients(): Builder
     {
         return User::members()->whereNull('disabled_at')
