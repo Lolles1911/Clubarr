@@ -4,6 +4,8 @@ namespace App\Filament\Admin\Resources\Users\Schemas;
 
 use App\Models\User;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
@@ -38,6 +40,12 @@ class UserForm
                     ->helperText(__('Gives a user in Overseerr/Jellyseerr and the Requests page.')),
                 TextInput::make('request_limit')->label(__('Requests per week'))->numeric()->minValue(0)->maxValue(1000)
                     ->helperText(__('Needs Seerr. Empty: no limit.'))->hiddenOn('create')->visible(fn (Get $get) => (bool) $get('seerr_access')),
+            ]),
+            Section::make(__('Groups and notes'))->hiddenOn('create')->schema([
+                Select::make('groups')->label(__('Groups'))->multiple()->relationship('groups', 'name')->preload()
+                    ->helperText(__('The groups\' rules apply when you save.')),
+                Textarea::make('admin_note')->label(__('Private note'))->rows(3)->maxLength(5000)
+                    ->helperText(__('Only admins see it.')),
             ]),
         ]);
     }

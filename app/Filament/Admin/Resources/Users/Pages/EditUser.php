@@ -5,6 +5,7 @@ namespace App\Filament\Admin\Resources\Users\Pages;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Models\User;
 use App\Services\Audit;
+use App\Services\GroupRules;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
@@ -12,6 +13,13 @@ use Illuminate\Support\Facades\Auth;
 class EditUser extends EditRecord
 {
     protected static string $resource = UserResource::class;
+
+    protected function afterSave(): void
+    {
+        /** @var User $user */
+        $user = $this->getRecord();
+        app(GroupRules::class)->apply($user->fresh());
+    }
 
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
@@ -21,6 +29,7 @@ class EditUser extends EditRecord
         $record->max_streams = filled($data['max_streams'] ?? null) ? (int) $data['max_streams'] : null;
         $record->request_limit = filled($data['request_limit'] ?? null) ? (int) $data['request_limit'] : null;
         $record->seerr_access = (bool) ($data['seerr_access'] ?? false);
+        $record->admin_note = filled($data['admin_note'] ?? null) ? (string) $data['admin_note'] : null;
         if ($record->isDirty('access_expires_at')) {
             $record->expiry_warned_at = null;
         }

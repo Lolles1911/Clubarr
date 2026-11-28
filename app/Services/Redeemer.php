@@ -67,6 +67,10 @@ class Redeemer
         }
 
         Audit::log('invitation.redeemed', $invitation, ['servers' => array_map(fn ($r) => $r['server']->name, $made)], $user->id);
+        if ($invitation->member_group_id !== null) {
+            $user->groups()->syncWithoutDetaching([$invitation->member_group_id]);
+            app(GroupRules::class)->apply($user);
+        }
         // The link kept for a reminder is not needed any more.
         $invitation->forceFill(['reminder_link' => null])->save();
         $this->tellCreator($invitation, $user);

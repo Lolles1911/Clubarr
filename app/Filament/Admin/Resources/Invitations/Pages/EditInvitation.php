@@ -28,7 +28,7 @@ class EditInvitation extends EditRecord
     {
         /** @var Invitation $record */
         DB::transaction(function () use ($record, $data) {
-            $record->update(collect($data)->only(['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access'])->all());
+            $record->update(collect($data)->only(['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id'])->all());
             $record->mediaServers()->sync(InvitationResource::pivotFor((array) $data['servers'], (array) ($data['libraries'] ?? [])));
         });
         Audit::log('invitation.updated', $record, ['label' => $record->label]);

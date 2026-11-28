@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\WaitlistEntries;
 
+use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\WaitlistEntries\Pages\ListWaitlistEntries;
 use App\Filament\Admin\Resources\WaitlistEntries\Tables\WaitlistEntriesTable;
 use App\Models\WaitlistEntry;
@@ -17,7 +18,9 @@ class WaitlistEntryResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQueueList;
 
-    protected static ?int $navigationSort = 25;
+    protected static ?int $navigationSort = 50;
+
+    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::Members;
 
     public static function getModelLabel(): string
     {

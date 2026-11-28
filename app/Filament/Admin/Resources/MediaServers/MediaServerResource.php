@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MediaServers;
 
+use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\MediaServers\Pages\CreateMediaServer;
 use App\Filament\Admin\Resources\MediaServers\Pages\EditMediaServer;
 use App\Filament\Admin\Resources\MediaServers\Pages\ListMediaServers;
@@ -20,7 +21,9 @@ class MediaServerResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedServerStack;
 
-    protected static ?int $navigationSort = 30;
+    protected static ?int $navigationSort = 10;
+
+    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::Servers;
 
     public static function getModelLabel(): string
     {

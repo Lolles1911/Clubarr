@@ -11,6 +11,7 @@ use Filament\Models\Contracts\HasName;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -42,6 +43,7 @@ use SensitiveParameter;
  * @property Carbon|null $inactive_warned_at
  * @property string|null $oidc_sub
  * @property bool $seerr_access
+ * @property string|null $admin_note
  */
 class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasName
 {
@@ -51,7 +53,7 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     /** Only what a person may set about themselves; is_admin etc. are set explicitly. */
     protected $fillable = ['name', 'email', 'password'];
 
-    protected $hidden = ['password', 'remember_token', 'app_authentication_secret', 'app_authentication_recovery_codes', 'oidc_sub'];
+    protected $hidden = ['password', 'remember_token', 'app_authentication_secret', 'app_authentication_recovery_codes', 'oidc_sub', 'admin_note'];
 
     protected function casts(): array
     {
@@ -80,6 +82,12 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     public function serverAccounts(): HasMany
     {
         return $this->hasMany(ServerAccount::class);
+    }
+
+    /** @return BelongsToMany<MemberGroup, $this> */
+    public function groups(): BelongsToMany
+    {
+        return $this->belongsToMany(MemberGroup::class);
     }
 
     /** @return HasMany<MediaRequest, $this> */

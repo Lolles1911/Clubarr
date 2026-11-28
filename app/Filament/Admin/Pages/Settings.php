@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\NavigationGroup;
 use App\Http\Middleware\ApplySiteLocale;
 use App\Integrations\Discord;
 use App\Integrations\Seerr;
@@ -52,7 +53,9 @@ class Settings extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
-    protected static ?int $navigationSort = 80;
+    protected static ?int $navigationSort = 10;
+
+    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::System;
 
     /** @var array<string, mixed>|null */
     public ?array $data = [];

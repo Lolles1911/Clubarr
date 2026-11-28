@@ -34,6 +34,7 @@ use Illuminate\Support\Str;
  * @property string|null $reminder_link
  * @property bool $by_member
  * @property bool $seerr_access
+ * @property int|null $member_group_id
  * @property int|null $created_by
  * @property Carbon|null $revoked_at
  * @property-read Collection<int, MediaServer> $mediaServers
@@ -43,7 +44,7 @@ class Invitation extends Model
     /** Letters and digits that can't be mistaken for each other. */
     private const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
-    protected $fillable = ['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access'];
+    protected $fillable = ['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id'];
 
     protected $hidden = ['code_hash', 'reminder_link'];
 

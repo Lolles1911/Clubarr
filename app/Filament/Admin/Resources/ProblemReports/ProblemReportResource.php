@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\ProblemReports;
 
+use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\ProblemReports\Pages\ListProblemReports;
 use App\Models\ProblemReport;
 use App\Services\Audit;
@@ -25,7 +26,9 @@ class ProblemReportResource extends Resource
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedLifebuoy;
 
-    protected static ?int $navigationSort = 23;
+    protected static ?int $navigationSort = 30;
+
+    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::Members;
 
     public static function getModelLabel(): string
     {
