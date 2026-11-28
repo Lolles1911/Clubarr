@@ -11,8 +11,11 @@ use App\Services\SiteMail;
 use App\Services\SiteSettings;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -42,6 +45,13 @@ class AppServiceProvider extends ServiceProvider
             app(SiteMail::class)->apply();
             $this->applySiteLocale();
         });
+
+        // The API: per key presented (or none) and per IP, so guessing keys is slow too.
+        RateLimiter::for('clubarr-api', fn (Request $request) => [
+            Limit::perMinute(60)->by('key:'.hash('sha256', (string) $request->bearerToken())),
+            Limit::perMinute(120)->by('ip:'.$request->ip()),
+        ]);
+        RateLimiter::for('clubarr-api-write', fn (Request $request) => Limit::perHour(100)->by('key:'.hash('sha256', (string) $request->bearerToken())));
 
         Event::listen(Login::class, function (Login $event) {
             if ($event->user instanceof User) {
