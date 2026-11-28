@@ -3,12 +3,53 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
-## 0.6.1-beta (2026-11-29)
+## 0.7.0-beta (2026-11-29)
 
-### Changed
+### For members
+- **My statistics**: their year (hours, plays, top titles, busiest month)
+  and the last 30 days, and when they watch. Needs Tracearr or Tautulli.
+- **More on the front page**: coming soon (from Sonarr and Radarr), their
+  latest requests, and how many friends they may still invite.
+- **Profile**: the browsers they are signed in on, and **Sign out everywhere
+  else**. A new email is only used once the link mailed to it is opened.
+- **Discord messages** for answers, decisions and the "access ends soon"
+  warning, for members who linked Discord.
+
+### For admins
 - **Requests (Overseerr/Jellyseerr) are your choice**: "May request (Seerr)"
-  on the invitation (and templates) and on each member. Without it there is
-  no Seerr user and no Requests page. Members from before keep it.
+  on the invitation (and templates) and on each member. Members from before
+  keep it.
+- **Member page**: click a member to see everything: servers, what they
+  watch, requests and their log.
+- **Groups** ("Family", "Friends") with their own rules: access never ends,
+  streams at once, requests a week, may request. An invitation can put new
+  members in a group. **Notes** on members, only for admins.
+- **Statistics**: plays, hours, the most watched and the busiest members
+  over 7 to 365 days.
+- **Notifications** to Discord, ntfy, Telegram, Gotify or a webhook of your
+  own (signed if you want), on a page of their own.
+- **Mail texts**: write the welcome, "access ends soon" and "access has
+  ended" mails yourself.
+- **API keys**: a REST API for status, members and invitations, and making
+  invitations from a template (see docs/api.md).
+- **Clean up** a media server: delete the users on it that no member has,
+  after you choose them.
+- **A tidier admin menu**: Members, Servers, Insights and System; Settings
+  split into Settings, Integrations, Notifications and Mail texts.
+
+### Integrations
+- **Tautulli** (Plex), when Tracearr is not used: what members watch,
+  stream limits, numbers and posters.
+- **Sonarr and Radarr**: "Coming soon" for members.
+
+### Security
+- **Failed sign-ins are logged**; after 10 for one account, it is locked for
+  15 minutes (and you can get an alert).
+- **A mail on a sign-in from a new device** (Settings → Security).
+
+### Automatic
+- **Old data** is removed after the days you set: the log, ended
+  invitations, decided requests and closed reports.
 
 ## 0.6.0-beta (2026-11-29)
 
