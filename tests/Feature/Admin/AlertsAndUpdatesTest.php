@@ -4,10 +4,12 @@ namespace Tests\Feature\Admin;
 
 use App\Enums\ServerType;
 use App\Filament\Admin\Pages\Alerts;
+use App\Filament\Admin\Pages\EmailTexts;
 use App\Filament\Admin\Widgets\UpdateNotice;
 use App\Jobs\SendAdminAlert;
 use App\Models\MediaServer;
 use App\Models\User;
+use App\Notifications\Welcome;
 use App\Services\AdminAlerts;
 use App\Services\AlertChannels;
 use App\Services\Audit;
@@ -146,5 +148,17 @@ class AlertsAndUpdatesTest extends TestCase
 
         app(SiteSettings::class)->set(['update_check' => '0', 'internal_latest_version' => '']);
         $this->assertNull(app(UpdateCheck::class)->run());
+    }
+
+    public function test_mail_texts_written_by_the_admin_are_used_and_empty_means_the_default(): void
+    {
+        $member = User::create(['name' => 'Anna', 'email' => 'anna@example.com', 'password' => 'Member-pass-1']);
+        $this->assertStringContainsString('Your account is ready', implode(' ', (new Welcome)->toMail($member)->introLines));
+
+        Livewire::test(EmailTexts::class)->fillForm(['mail_text_welcome_subject' => 'Hej {name}!', 'mail_text_welcome_body' => "Velkommen til {site}.\n\nGod fornøjelse."])
+            ->call('save')->assertHasNoFormErrors();
+        $mail = (new Welcome)->toMail($member);
+        $this->assertSame('Hej Anna!', $mail->subject);
+        $this->assertSame(['Velkommen til Clubarr.', 'God fornøjelse.'], $mail->introLines);
     }
 }

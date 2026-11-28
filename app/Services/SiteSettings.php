@@ -60,6 +60,13 @@ class SiteSettings
         // Alerts to the admins' Discord channel: the webhook (secret) and the events, comma separated.
         'alerts_webhook_url' => '',
         'alerts_events' => null,
+        // The member mails' words (see MailTexts); empty: Clubarr's own.
+        'mail_text_welcome_subject' => '',
+        'mail_text_welcome_body' => '',
+        'mail_text_ending_soon_subject' => '',
+        'mail_text_ending_soon_body' => '',
+        'mail_text_ended_subject' => '',
+        'mail_text_ended_body' => '',
         // More places for admin alerts (see AlertChannels).
         'alerts_ntfy_url' => '',
         'alerts_ntfy_token' => '',
