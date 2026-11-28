@@ -15,6 +15,7 @@ use App\Services\LoginGuard;
 use App\Services\SingleSignOn;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
+use App\Services\Theme;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
@@ -107,8 +108,10 @@ class Settings extends Page
                     Select::make('locale')->label(__('Language'))->options(ApplySiteLocale::LOCALES)->required(),
                     Textarea::make('help_text')->label(__('Getting started text'))->rows(6)->maxLength(5000)->columnSpanFull()
                         ->helperText(__('Shown to members on their page: which apps to use, house rules, where to ask. Plain text.')),
+                    Select::make('theme')->label(__('Theme'))->options(Theme::options())->required()->columnSpanFull()
+                        ->helperText(__('The look of every page, for members and admins. Your accent colour and logo are used in all of them.')),
                     ColorPicker::make('brand_color')->label(__('Accent colour'))->regex('/^#[0-9a-fA-F]{6}$/')
-                        ->helperText(__('Buttons and links, for admins and members. Empty: violet.')),
+                        ->helperText(__('Buttons and links, for admins and members. Empty: the theme\'s own.')),
                     FileUpload::make('logo')->label(__('Logo'))->image()->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])->maxSize(300)->storeFiles(false)
                         ->helperText(__('PNG, JPEG or WebP, at most 300 KB; shown instead of the name. A wide logo about 4 times as wide as high looks best.'))
                         ->hintAction(Action::make('removeLogo')->label(__('Remove the logo'))->color('danger')->requiresConfirmation()

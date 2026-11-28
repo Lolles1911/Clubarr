@@ -37,14 +37,15 @@ class WizardSteps
 
     /**
      * The steps after joining, for a member: each server with the bundle of
-     * the invitation that gave it.
+     * the invitation that gave it (only these servers, when given).
      *
+     * @param  list<int>|null  $serverIds
      * @return Collection<int, WizardStep>
      */
-    public function forMember(User $member): Collection
+    public function forMember(User $member, ?array $serverIds = null): Collection
     {
         $steps = collect();
-        foreach ($member->serverAccounts()->with('invitation')->get() as $account) {
+        foreach ($member->serverAccounts()->with('invitation')->when($serverIds !== null, fn ($q) => $q->whereIn('media_server_id', $serverIds))->get() as $account) {
             $steps = $steps->concat($this->for([$account->media_server_id], $account->invitation?->wizard_bundle_id, 'after'));
         }
 

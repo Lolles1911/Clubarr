@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Setting;
-use Filament\Support\Colors\Color;
 use Illuminate\Support\Facades\Cache;
 use RuntimeException;
 
@@ -21,9 +20,7 @@ class Branding
     /** @return array<string, mixed> Filament colours for the panels */
     public static function colors(): array
     {
-        $hex = (string) app(SiteSettings::class)->get('brand_color');
-
-        return ['primary' => preg_match('/^#[0-9a-fA-F]{6}$/', $hex) ? Color::hex($hex) : Color::Violet, 'gray' => Color::Zinc];
+        return Theme::colors();
     }
 
     public static function logoUrl(): ?string

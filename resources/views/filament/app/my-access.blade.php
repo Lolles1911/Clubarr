@@ -29,7 +29,13 @@
         </div>
     @endforeach
     @php($active = $accounts->filter(fn ($a) => $a->status === \App\Enums\AccountStatus::Active))
+    @php($rows = $this->posterRows())
+    @php($new = $this->newOnServers())
+    @php($backdrop = \App\Services\Theme::current() === 'streaming' ? ($rows['continue'][0] ?? $new[0] ?? $rows['new'][0] ?? null) : null)
     <section class="clubarr-hero">
+        @if ($backdrop)
+            <div class="clubarr-hero-bg" aria-hidden="true" style="background-image:url('{{ isset($backdrop['server']) ? route('filament.app.server-poster', ['key' => $backdrop['key']]) : route('filament.app.poster', ['key' => $backdrop['key']]) }}')"></div>
+        @endif
         <div>
             <h2 class="clubarr-hero-title">{{ __('Hi :name', ['name' => \Illuminate\Support\Str::before($member->name, ' ')]) }}</h2>
             @if ($member->access_expires_at)
@@ -90,8 +96,6 @@
         </div>
     @endif
 
-    @php($rows = $this->posterRows())
-    @php($new = $this->newOnServers())
     @foreach (['new' => __('New on the server'), 'continue' => __('Continue watching'), 'popular' => __('Popular now')] as $row => $heading)
         @php($items = $row === 'new' && $new !== [] ? $new : $rows[$row])
         @if ($items !== [] && $accounts->isNotEmpty())

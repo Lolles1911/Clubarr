@@ -64,7 +64,7 @@ class JoinTest extends TestCase
         $this->fakeJellyfin();
         [$invitation, $code] = $this->invitation();
 
-        $this->join($code)->assertHasNoFormErrors()->assertRedirect(GetStarted::getUrl(panel: 'app'));
+        $this->join($code)->assertHasNoFormErrors()->assertRedirect(GetStarted::getUrl(['invitation' => $invitation->id], panel: 'app'));
 
         $user = User::where('email', 'anna@example.com')->sole();
         $this->assertFalse($user->is_admin);

@@ -141,6 +141,14 @@ and/or as a banner on their page until a date.
 
 ## Look
 
+Settings → General → **Theme**: Streaming (dark, posters, glass cards; the
+default), Midnight (navy cards, like Wizarr) or Classic (light or dark, as
+before 0.11). Streaming and Midnight show members and invitations as cards.
+The accent colour and logo below are used in every theme; without an accent
+colour each theme has its own. Posters behind the sign-in page only show
+when "Show posters" is on for the front page.
+
+
 Admin → Settings → General: an accent colour and a logo (PNG, JPEG or WebP,
 at most 300 KB). **Tell me when a new Clubarr is out** checks GitHub's
 public list of releases once a day and shows a notice on the dashboard.

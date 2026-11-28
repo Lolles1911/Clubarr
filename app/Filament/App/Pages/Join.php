@@ -368,7 +368,8 @@ class Join extends SimplePage
         }
         Notification::make()->title(__('Welcome! Here is how to start watching.'))->success()->send();
 
-        return redirect()->to(GetStarted::getUrl(panel: 'app'));
+        // Get started shows the servers of this invitation only, not every server they have.
+        return redirect()->to(GetStarted::getUrl(['invitation' => $invitation->id], panel: 'app'));
     }
 
     /** Tells the visitor why, with the way onto the waiting list when a server is full. */

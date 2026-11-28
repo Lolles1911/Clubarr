@@ -78,4 +78,18 @@ class WizardTest extends TestCase
         $this->assertStringNotContainsString('<script>alert', $html);
         $this->assertStringNotContainsString('javascript:alert', $html);
     }
+
+    public function test_get_started_after_joining_shows_only_that_invitations_servers(): void
+    {
+        $silo = MediaServer::create(['type' => ServerType::Silo, 'name' => 'Silo', 'url' => 'http://silo.local', 'api_key' => 'k']);
+        WizardStep::create(['phase' => 'after', 'title' => 'Jellyfin tips', 'media_server_id' => $this->server->id]);
+        WizardStep::create(['phase' => 'after', 'title' => 'Silo tips', 'media_server_id' => $silo->id]);
+        [$invitation] = $this->invitation();
+        $anna = User::create(['name' => 'Anna', 'email' => 'anna@example.com', 'password' => 'Member-pass-1']);
+        ServerAccount::create(['user_id' => $anna->id, 'media_server_id' => $this->server->id, 'remote_id' => 'a1', 'remote_username' => 'anna', 'status' => AccountStatus::Active]);
+        ServerAccount::create(['user_id' => $anna->id, 'media_server_id' => $silo->id, 'invitation_id' => $invitation->id, 'remote_id' => 's1', 'remote_username' => 'anna', 'status' => AccountStatus::Active]);
+
+        $this->actingAs($anna)->get('/get-started?invitation='.$invitation->id)->assertOk()->assertSee('Silo tips')->assertDontSee('Jellyfin tips')->assertDontSee('Open Home');
+        $this->get('/get-started')->assertOk()->assertSee(['Silo tips', 'Jellyfin tips']);
+    }
 }
