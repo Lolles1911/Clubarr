@@ -18,6 +18,11 @@ release on GitHub (`.github/release-notes.sh` puts it there).
 - The front page and the invitation mail follow the theme's colour and font.
   Your own accent colour and logo are used in every theme.
 
+### Fixed
+- **Get started after joining** shows only the servers (and wizard steps)
+  of the invitation just used, not every server the member has. Opened
+  later from the menu, it still shows all of them.
+
 ## 0.10.2-beta (2026-11-30)
 
 ### Changed

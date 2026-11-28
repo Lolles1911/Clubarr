@@ -13,6 +13,7 @@ use Filament\Pages\Page;
 use Filament\Support\Components\Attributes\Unexposed;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Collection;
+use Livewire\Attributes\Locked;
 
 /**
  * The last step after joining: per server, the apps to get and how to sign
@@ -25,6 +26,21 @@ class GetStarted extends Page
     protected static ?string $slug = 'get-started';
 
     protected static bool $shouldRegisterNavigation = false;
+
+    /** After joining: only the servers of the invitation just used (null: all of them). */
+    #[Locked]
+    public ?array $only = null;
+
+    public function mount(): void
+    {
+        $invitation = (int) request()->query('invitation', 0);
+        if ($invitation > 0) {
+            /** @var User $user */
+            $user = Filament::auth()->user();
+            $ids = $user->serverAccounts()->where('invitation_id', $invitation)->pluck('media_server_id')->all();
+            $this->only = $ids !== [] ? $ids : null;
+        }
+    }
 
     #[Unexposed]
     public function getTitle(): string|Htmlable
@@ -39,7 +55,8 @@ class GetStarted extends Page
         /** @var User $user */
         $user = Filament::auth()->user();
 
-        return $user->serverAccounts()->with('mediaServer')->whereIn('status', [AccountStatus::Active, AccountStatus::Pending])->orderBy('id')->get();
+        return $user->serverAccounts()->with('mediaServer')->whereIn('status', [AccountStatus::Active, AccountStatus::Pending])
+            ->when($this->only !== null, fn ($q) => $q->whereIn('media_server_id', $this->only))->orderBy('id')->get();
     }
 
     /** @return \Illuminate\Support\Collection<int, WizardStep> the admin's steps for after joining */
@@ -49,7 +66,7 @@ class GetStarted extends Page
         /** @var User $user */
         $user = Filament::auth()->user();
 
-        return app(WizardSteps::class)->forMember($user);
+        return app(WizardSteps::class)->forMember($user, $this->only);
     }
 
     #[Unexposed]
