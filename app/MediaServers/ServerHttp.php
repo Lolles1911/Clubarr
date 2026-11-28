@@ -36,7 +36,7 @@ final class ServerHttp
 
     /**
      * @param  array<string, mixed>  $query
-     * @param  array<string, mixed>|null  $json
+     * @param  array<mixed>|null  $json
      * @param  array<string, string>  $headers  extra headers for this call
      */
     public function send(string $method, string $path, array $query = [], ?array $json = null, array $headers = []): Response

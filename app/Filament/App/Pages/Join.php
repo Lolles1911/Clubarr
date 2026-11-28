@@ -139,9 +139,7 @@ class Join extends SimplePage
         $plex = $this->serversNeeding(SharesWithPlexAccounts::class) !== [];
         $signedIn = $this->plexIdentity();
         // Jellyfin/Emby servers of the invitation where the visitor may sign in with a user they already have.
-        $linkable = app(SiteSettings::class)->get('link_existing') === '0' ? [] : array_values(array_map(fn (MediaServer $s) => $s->name, $this->serversNeeding(VerifiesLogins::class)));
-        // Jellyfin/Emby servers of the invitation where the visitor may sign in with a user they already have.
-        $linkable = app(SiteSettings::class)->get('link_existing') === '0' ? [] : array_values(array_map(fn (MediaServer $s) => $s->name, $this->serversNeeding(VerifiesLogins::class)));
+        $linkable = app(SiteSettings::class)->get('link_existing') === '0' ? [] : array_map(fn (MediaServer $s) => $s->name, $this->serversNeeding(VerifiesLogins::class));
 
         $account = array_values(array_filter([
             $plex ? Section::make(__('Plex'))->compact()
