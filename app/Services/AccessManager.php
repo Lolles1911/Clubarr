@@ -54,11 +54,12 @@ class AccessManager
                     $remote = $driver->share($plex['identity'], $libraries);
                     $accepted = false;
                     try {
-                        $accepted = $driver->acceptShare($plex['token']);
+                        // Without a token (the member typed their Plex email), they accept it in Plex.
+                        $accepted = $plex['token'] !== '' && $driver->acceptShare($plex['token']);
                     } catch (Throwable $e) {
                         Log::info('Plex share made, but not accepted for the member: '.$e->getMessage());
                     }
-                    $made[] = ['server' => $server, 'remote_id' => $remote->id, 'username' => $remote->username, 'status' => $accepted ? AccountStatus::Active : AccountStatus::Pending, 'libraries' => $libraries, 'claim' => null];
+                    $made[] = ['server' => $server, 'remote_id' => $remote->id !== '' ? $remote->id : null, 'username' => $remote->username, 'status' => $accepted ? AccountStatus::Active : AccountStatus::Pending, 'libraries' => $libraries, 'claim' => null];
                 } elseif ($driver instanceof UsesClaimLinks) {
                     $claim = $driver->createClaim($libraries);
                     $made[] = ['server' => $server, 'remote_id' => null, 'username' => null, 'status' => AccountStatus::Pending, 'libraries' => $libraries, 'claim' => $claim];
@@ -177,9 +178,14 @@ class AccessManager
                     $account->update(['remote_id' => $remote->id, 'remote_username' => $remote->username, 'status' => AccountStatus::Active, 'claim_url' => null]);
                     Audit::log('account.claimed', $account, ['server' => $account->mediaServer->name], $account->user_id);
                 }
-            } elseif ($driver instanceof SharesWithPlexAccounts && $account->remote_id !== null) {
-                if (collect($driver->users())->contains(fn ($u) => $u->id === $account->remote_id)) {
-                    $account->update(['status' => AccountStatus::Active]);
+            } elseif ($driver instanceof SharesWithPlexAccounts) {
+                // Known by ID after "Sign in with Plex"; by the email or name the member typed otherwise.
+                $typed = mb_strtolower((string) $account->remote_username);
+                $remote = collect($driver->users())->first(fn ($u) => $account->remote_id !== null
+                    ? $u->id === $account->remote_id
+                    : $typed !== '' && in_array($typed, [mb_strtolower($u->username), mb_strtolower((string) $u->email)], true));
+                if ($remote !== null && $remote->id !== '') {
+                    $account->update(['remote_id' => $remote->id, 'remote_username' => $remote->username, 'status' => AccountStatus::Active]);
                 }
             }
         } catch (Throwable $e) {

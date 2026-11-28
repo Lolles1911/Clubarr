@@ -13,6 +13,7 @@ use App\Models\MediaServer;
 use App\Models\ServerAccount;
 use App\Models\User;
 use App\Notifications\InvitationLink;
+use App\Services\PlexFinder;
 use App\Services\PlexLogin;
 use App\Services\SiteSettings;
 use Filament\Actions\Testing\TestAction;
@@ -72,21 +73,58 @@ class ServerToolsTest extends TestCase
         $this->assertSame('10.11.2', $server->fresh()->setting('version'));
     }
 
-    public function test_plex_servers_come_from_the_account_local_first_without_relays(): void
+    public function test_find_plex_scans_only_the_private_network_clubarr_is_opened_on(): void
     {
-        Http::fake(['plex.tv/api/v2/resources*' => Http::response([
-            ['name' => 'Phone', 'provides' => 'player', 'owned' => true, 'connections' => []],
-            ['name' => 'Friend', 'provides' => 'server', 'owned' => false, 'connections' => [['uri' => 'http://10.0.0.9:32400', 'local' => true]]],
-            ['name' => 'WaffleHub', 'provides' => 'server', 'owned' => true, 'connections' => [
-                ['uri' => 'https://1-2-3-4.abc.plex.direct:32400', 'local' => false, 'relay' => false],
-                ['uri' => 'http://192.168.1.235:32400', 'local' => true, 'relay' => false],
-                ['uri' => 'https://relay.plex.direct:8443', 'local' => false, 'relay' => true],
-            ]],
-        ])]);
+        $this->assertSame('192.168.1', PlexFinder::networkOf('192.168.1.235'));
+        $this->assertSame('10.0.0', PlexFinder::networkOf('10.0.0.5'));
+        foreach (['8.8.8.8', 'clubarr.example.com', '::1', null] as $notPrivate) {
+            $this->assertNull(PlexFinder::networkOf($notPrivate));
+        }
+    }
 
-        $servers = app(PlexLogin::class)->servers('owner-token');
+    public function test_find_plex_fills_in_the_address_of_a_server_on_the_network(): void
+    {
+        config(['app.url' => 'http://192.168.1.235:8087']);
+        Http::fake([
+            'http://192.168.1.235:32401/identity' => Http::response(['MediaContainer' => ['machineIdentifier' => 'm1', 'version' => '1.41.3']]),
+            '*' => Http::response('', 404),
+        ]);
 
-        $this->assertSame(['http://192.168.1.235:32400', 'https://1-2-3-4.abc.plex.direct:32400'], array_column($servers, 'uri'));
+        Livewire::test(CreateMediaServer::class)
+            ->fillForm(['type' => 'plex'])
+            ->callAction(TestAction::make('plexFind')->schemaComponent('serverActions'), ['server' => 'http://192.168.1.235:32401'])
+            ->assertNotified('Address filled in. Add the token, then press Test.')
+            ->assertSchemaStateSet(['url' => 'http://192.168.1.235:32401']);
+        Http::assertNotSent(fn ($r) => $r->hasHeader('X-Plex-Token'));
+        Http::assertNotSent(fn ($r) => ! str_starts_with($r->url(), 'http://192.168.1.'));
+    }
+
+    public function test_find_plex_with_the_token_lists_the_accounts_servers_and_tries_each_address(): void
+    {
+        Http::fake([
+            'plex.tv/api/v2/resources*' => Http::response([
+                ['name' => 'Phone', 'provides' => 'player', 'owned' => true, 'connections' => []],
+                ['name' => 'Friend', 'provides' => 'server', 'owned' => false, 'connections' => [['uri' => 'http://10.0.0.9:32400', 'local' => true]]],
+                ['name' => 'WaffleHub', 'provides' => 'server', 'owned' => true, 'productVersion' => '1.43.5', 'connections' => [
+                    ['uri' => 'https://81-1-2-3.abc.plex.direct:32400', 'local' => false, 'relay' => false],
+                    ['uri' => 'https://172-17-0-11.abc.plex.direct:32400', 'local' => true, 'relay' => false],
+                    ['uri' => 'https://relay.plex.direct:8443', 'local' => false, 'relay' => true],
+                ]],
+            ]),
+            'https://172-17-0-11.abc.plex.direct:32400/identity' => Http::response(['MediaContainer' => ['machineIdentifier' => 'm1', 'version' => '1.43.5']]),
+            '*' => Http::response('', 404),
+        ]);
+
+        $found = app(PlexFinder::class)->fromAccount('owner-token');
+        $this->assertSame([['https://172-17-0-11.abc.plex.direct:32400', true], ['https://81-1-2-3.abc.plex.direct:32400', false]],
+            array_map(fn ($s) => [$s['uri'], $s['ok']], $found));
+
+        Livewire::test(CreateMediaServer::class)
+            ->fillForm(['type' => 'plex', 'api_key' => 'owner-token'])
+            ->callAction(TestAction::make('plexFind')->schemaComponent('serverActions'), ['server' => 'https://172-17-0-11.abc.plex.direct:32400'])
+            ->assertSchemaStateSet(['url' => 'https://172-17-0-11.abc.plex.direct:32400', 'name' => 'WaffleHub']);
+        // The token goes to plex.tv only.
+        Http::assertNotSent(fn ($r) => $r->hasHeader('X-Plex-Token') && ! str_starts_with($r->url(), 'https://plex.tv/'));
     }
 
     public function test_an_invitation_link_can_be_mailed_when_mail_is_set_up(): void

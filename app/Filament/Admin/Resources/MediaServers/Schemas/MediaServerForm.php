@@ -5,7 +5,7 @@ namespace App\Filament\Admin\Resources\MediaServers\Schemas;
 use App\Enums\ServerType;
 use App\MediaServers\MediaServerException;
 use App\Models\MediaServer;
-use App\Services\PlexLogin;
+use App\Services\PlexFinder;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -13,44 +13,41 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Illuminate\Support\Js;
-use Throwable;
 
 class MediaServerForm
 {
     /**
-     * The Plex servers of the account that approved the PIN (kept in the
-     * session, never in the form until a server is chosen).
-     *
-     * @return list<array{name: string, uri: string, local: bool}>
+     * Looks for Plex: through plex.tv with the owner's token when there is
+     * one, else on the admin's network. The result stays in the session
+     * (the token itself does not) for the choice that follows.
      */
-    private static function plexServers(): array
+    private static function findPlex(string $token): void
     {
-        $login = app(PlexLogin::class);
-        $token = (string) session('admin.plex.token', '');
-        if ($token === '' && is_array($pin = session('admin.plex.pin'))) {
+        $finder = app(PlexFinder::class);
+        $network = PlexFinder::networkOf(request()->getHost()) ?? PlexFinder::networkOf(parse_url((string) config('app.url'), PHP_URL_HOST) ?: null);
+        if ($token !== '') {
             try {
-                $token = (string) $login->token((string) $pin['id'], (string) $pin['code']);
-            } catch (Throwable) {
-                $token = '';
+                [$how, $found] = ['account', $finder->fromAccount($token)];
+            } catch (MediaServerException $e) {
+                [$how, $found] = [in_array($e->getCode(), [401, 403], true) ? 'rejected' : 'unreachable', []];
             }
-            if ($token !== '') {
-                session()->forget('admin.plex.pin');
-                session()->put('admin.plex.token', $token);
-            }
+        } else {
+            [$how, $found] = $network !== null
+                ? ['network', array_map(fn ($s) => ['name' => 'Plex', 'uri' => $s['uri'], 'local' => true, 'ok' => true, 'ms' => null, 'version' => $s['version']], $finder->scan($network))]
+                : ['none', []];
         }
-        if ($token === '') {
-            return [];
-        }
-        try {
-            return $login->servers($token);
-        } catch (Throwable) {
-            return [];
-        }
+        session()->put(['admin.plex.found' => $found, 'admin.plex.how' => $how, 'admin.plex.network' => $network]);
+    }
+
+    /** @return list<array{name: string, uri: string, local: bool, ok: bool, ms: int|null, version: string}> */
+    private static function foundPlex(): array
+    {
+        $found = session('admin.plex.found');
+
+        return is_array($found) ? array_values(array_filter($found, fn ($s) => is_array($s) && is_string($s['uri'] ?? null) && isset($s['ok']))) : [];
     }
 
     public static function configure(Schema $schema): Schema
@@ -58,8 +55,6 @@ class MediaServerForm
         return $schema->components([
             Section::make()->columns(2)->schema([
                 Select::make('type')->label(__('Type'))->options(ServerType::options())->required()->live()
-                    // Back from signing in with Plex in another tab (phones): Plex is already chosen.
-                    ->default(fn () => session()->has('admin.plex.pin') || session()->has('admin.plex.token') ? ServerType::Plex->value : null)
                     ->disabledOn('edit'),
                 TextInput::make('name')->label(__('Name'))->required()->maxLength(60)
                     ->helperText(__('What members see, e.g. "Movies & TV".')),
@@ -74,7 +69,7 @@ class MediaServerForm
                     ->required(fn (string $operation) => $operation === 'create')
                     ->dehydrated(fn (?string $state) => filled($state))
                     ->helperText(fn (string $operation, Get $get) => ($operation === 'edit' ? __('Stored encrypted. Leave empty to keep the current key.').' ' : '').match ($get('type')) {
-                        ServerType::Plex->value => __('The server owner\'s Plex token (see Plex\'s "Finding an authentication token" guide).'),
+                        ServerType::Plex->value => __('The server owner\'s Plex token (see Plex\'s "Finding an authentication token" guide). Paste it, then press Find Plex.'),
                         ServerType::Silo->value => __('A Silo API key of an admin account, with full access.'),
                         default => __('Dashboard → API Keys on the server.'),
                     }),
@@ -82,45 +77,44 @@ class MediaServerForm
                     ->helperText(__('Empty: no limit. When full, invitations wait, and the waiting list (Settings) takes over.')),
                 Toggle::make('is_enabled')->label(__('In use'))->default(true)
                     ->helperText(__('Off: new invitations can\'t give access to it. Existing users are not changed.')),
-                Text::make(__('Signed in with Plex. Press "Choose server".'))->columnSpanFull()
-                    ->visible(fn (Get $get) => $get('type') === ServerType::Plex->value && (session()->has('admin.plex.pin') || session()->has('admin.plex.token'))),
                 Actions::make([
-                    // Plex: sign in as the server owner and pick the server; fills the address and token.
-                    Action::make('plexSignIn')->label(__('Sign in with Plex'))->color('warning')->icon('heroicon-m-arrow-right-end-on-rectangle')
+                    // Plex: look for servers on the admin's network; the address can always be typed instead.
+                    Action::make('plexFind')->label(__('Find Plex'))->color('warning')->icon('heroicon-m-magnifying-glass')
                         ->visible(fn (Get $get) => $get('type') === ServerType::Plex->value)
-                        ->extraAttributes(['x-on:click' => "window.clubarrPlex = window.open('about:blank', 'clubarr-plex', 'width=600,height=720')"])
-                        ->action(function ($livewire) {
-                            try {
-                                $pin = app(PlexLogin::class)->start(request()->header('Referer'));
-                            } catch (Throwable) {
-                                $livewire->js('window.clubarrPlex && window.clubarrPlex.close()');
-                                Notification::make()->title(__('plex.tv could not be reached. Please try again.'))->danger()->send();
+                        ->modalHeading(__('Your Plex servers'))->modalSubmitActionLabel(__('Use this one'))
+                        ->fillForm(function (Get $get, ?MediaServer $record) {
+                            self::findPlex(filled($get('api_key')) ? (string) $get('api_key') : (string) $record?->api_key);
 
-                                return;
-                            }
-                            session()->put('admin.plex.pin', ['id' => $pin['id'], 'code' => $pin['code']]);
-                            $livewire->js('if (window.clubarrPlex) { window.clubarrPlex.location = '.Js::from($pin['url']).' } else { window.open('.Js::from($pin['url']).') }');
-                            Notification::make()->title(__('Approve Clubarr in the Plex window, then press "Choose server".'))->info()->persistent()->send();
-                        }),
-                    Action::make('plexPick')->label(__('Choose server'))->color('gray')
-                        ->visible(fn (Get $get) => $get('type') === ServerType::Plex->value)
+                            return ['server' => collect(self::foundPlex())->firstWhere('ok', true)['uri'] ?? null];
+                        })
                         ->schema([
-                            Select::make('server')->label(__('Your Plex servers'))->required()
-                                ->options(fn () => collect(self::plexServers())->mapWithKeys(fn ($s) => [$s['uri'] => $s['name'].' · '.$s['uri'].($s['local'] ? ' ('.__('local').')' : '')])->all()),
+                            Select::make('server')->label(__('Found'))->required()
+                                ->options(fn () => collect(self::foundPlex())->mapWithKeys(fn ($s) => [$s['uri'] => implode(' · ', array_filter([
+                                    $s['name'], $s['uri'], $s['version'] !== '' ? 'Plex '.$s['version'] : null, $s['local'] ? __('local') : null,
+                                    $s['ok'] ? ($s['ms'] !== null ? $s['ms'].' ms' : null) : __('not reachable from Clubarr'),
+                                ]))])->all())
+                                ->disableOptionWhen(fn (string $value) => ! (collect(self::foundPlex())->firstWhere('uri', $value)['ok'] ?? false))
+                                ->helperText(fn () => match (session('admin.plex.how')) {
+                                    'account' => self::foundPlex() === [] ? __('Your Plex account has no server of its own.') : __('From your Plex account, tried from Clubarr. Choose one it can reach.'),
+                                    'rejected' => __('plex.tv did not accept the token. Check it, or empty the field to look on the network instead.'),
+                                    'unreachable' => __('plex.tv could not be reached. Please try again.'),
+                                    'network' => self::foundPlex() === [] ? __('No Plex found on :network.x. Type the address yourself, e.g. http://192.168.1.10:32400.', ['network' => session('admin.plex.network')])
+                                        : __('Choose one; the address is filled in. Then add the token and press Test.'),
+                                    default => __('Clubarr could not tell your network. Paste the token first, or type the address yourself, e.g. http://192.168.1.10:32400.'),
+                                }),
                         ])
-                        ->action(function (array $data, Set $set) {
-                            $token = (string) session('admin.plex.token', '');
-                            $server = collect(self::plexServers())->firstWhere('uri', (string) $data['server']);
-                            if ($token === '' || $server === null) {
-                                Notification::make()->title(__('Sign in with Plex first.'))->warning()->send();
-
+                        ->action(function (array $data, Set $set, Get $get) {
+                            $server = collect(self::foundPlex())->first(fn ($s) => $s['ok'] && $s['uri'] === (string) $data['server']);
+                            if ($server === null) {
                                 return;
                             }
                             $set('url', $server['uri']);
-                            $set('name', $server['name']);
-                            $set('api_key', $token);
-                            session()->forget('admin.plex.token');
-                            Notification::make()->title(__('Filled in. Press Test, then Create.'))->success()->send();
+                            if (blank($get('name')) && $server['name'] !== 'Plex') {
+                                $set('name', $server['name']);
+                            }
+                            $fromAccount = session('admin.plex.how') === 'account';
+                            session()->forget(['admin.plex.found', 'admin.plex.how', 'admin.plex.network']);
+                            Notification::make()->title($fromAccount ? __('Filled in. Press Test, then save.') : __('Address filled in. Add the token, then press Test.'))->success()->send();
                         }),
                     Action::make('test')->label(__('Test'))->icon('heroicon-m-signal')->color('gray')
                         ->action(function (Get $get, ?MediaServer $record) {

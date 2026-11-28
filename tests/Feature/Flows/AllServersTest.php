@@ -12,10 +12,12 @@ use App\Models\Invitation;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
 use App\Models\User;
+use App\Services\AccessManager;
 use App\Services\ServerSync;
 use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Livewire\Livewire;
@@ -164,5 +166,48 @@ class AllServersTest extends TestCase
             $this->assertSame('https://silo.local/claim/abc', $account->claim_url);
         }
         $this->assertSame(1, $invitation->fresh()->uses);
+    }
+
+    public function test_plex_members_can_type_their_plex_email_instead_of_signing_in(): void
+    {
+        $this->fakeServer(ServerType::Plex);
+        $server = $this->server(ServerType::Plex);
+        $invitation = new Invitation(['max_uses' => 1]);
+        $code = $invitation->assignCode();
+        $invitation->save();
+        $invitation->mediaServers()->attach($server->id);
+
+        Livewire::test(Join::class, ['code' => $code])->fillForm([
+            'name' => 'Bo', 'email' => 'bo@example.com', 'password' => 'Bo-pass-12345', 'password_confirmation' => 'Bo-pass-12345',
+            'plex_account' => 'Bo.Plex@example.com',
+        ])->call('join')->assertHasNoFormErrors();
+
+        $account = ServerAccount::sole();
+        $this->assertSame([null, 'Bo.Plex@example.com', AccountStatus::Pending], [$account->remote_id, $account->remote_username, $account->status]);
+        Http::assertSent(fn ($r) => str_contains($r->url(), 'shared_servers') && ($r['shared_server']['invited_email'] ?? null) === 'Bo.Plex@example.com');
+        Http::assertNotSent(fn ($r) => str_contains($r->url(), '/accept'));
+
+        // Once Bo accepts in Plex, the share is found by the email and the account becomes active.
+        Http::swap(new HttpFactory);
+        Http::fake(['clients.plex.tv/api/v2/shared_servers/owned/accepted' => Http::response([
+            ['id' => 8, 'machineIdentifier' => 'm1', 'invitedId' => 777, 'invited' => ['id' => 777, 'username' => 'bo', 'email' => 'bo.plex@example.com']],
+        ])]);
+        app(AccessManager::class)->refreshPending($account->fresh());
+        $this->assertSame(['777', 'bo', AccountStatus::Active], [$account->fresh()->remote_id, $account->fresh()->remote_username, $account->fresh()->status]);
+    }
+
+    public function test_plex_needs_a_sign_in_or_a_typed_account(): void
+    {
+        $this->fakeServer(ServerType::Plex);
+        $server = $this->server(ServerType::Plex);
+        $invitation = new Invitation(['max_uses' => 1]);
+        $code = $invitation->assignCode();
+        $invitation->save();
+        $invitation->mediaServers()->attach($server->id);
+
+        Livewire::test(Join::class, ['code' => $code])->fillForm([
+            'name' => 'Bo', 'email' => 'bo@example.com', 'password' => 'Bo-pass-12345', 'password_confirmation' => 'Bo-pass-12345',
+        ])->call('join')->assertNotified('Sign in with Plex, or type your Plex email or user name.');
+        $this->assertSame(0, ServerAccount::count());
     }
 }

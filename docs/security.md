@@ -44,7 +44,15 @@ See [SECURITY.md](../SECURITY.md).
 - **Server administrators are never changed**: before disabling, deleting or
   setting a password, Clubarr reads the user and refuses an administrator.
 - Plex: the member's Plex token is used once, while signing up, kept only in
-  the encrypted session, and never stored.
+  the encrypted session, and never stored. A member who types their Plex
+  email instead gets a normal Plex invitation, which they must accept
+  themselves; Clubarr never sees their Plex account.
+- **Find Plex** (admins only): with a token, it asks plex.tv (the only place
+  the token goes) for the account's servers, then tries each address. Without
+  one, it asks the addresses of one private network (the one Clubarr is
+  opened on, e.g. 192.168.1.x) on ports 32400 and 32401. Either way an
+  address only gets a plain request for Plex's `/identity`, public networks
+  are never scanned, and only the server's ID and version are read.
 
 ## Tracearr, Seerr and Discord
 
