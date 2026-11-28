@@ -135,6 +135,9 @@ class AccessManager
             }
         }
 
+        // Their family's extra users go along.
+        array_push($failed, ...app(FamilyUsers::class)->follow($user, 'disable'));
+
         return $failed;
     }
 
@@ -153,6 +156,9 @@ class AccessManager
                 $failed[] = $account->mediaServer->name.': '.$e->getMessage();
             }
         }
+
+        // Their family's extra users go along.
+        array_push($failed, ...app(FamilyUsers::class)->follow($user, 'enable'));
 
         return $failed;
     }
@@ -201,6 +207,9 @@ class AccessManager
                 $failed[] = $account->mediaServer->name.': '.$e->getMessage();
             }
         }
+
+        // Their family's extra users go along.
+        array_push($failed, ...app(FamilyUsers::class)->follow($user, 'remove'));
 
         return $failed;
     }

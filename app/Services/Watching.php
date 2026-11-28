@@ -43,6 +43,10 @@ class Watching
         foreach ($user->serverAccounts()->with('mediaServer')->whereNotNull('remote_username')->get() as $account) {
             $keys[$account->mediaServer->type->value.'|'.strtolower((string) $account->remote_username)] = true;
         }
+        // Their family's extra users count as theirs (streams at once, numbers).
+        foreach ($user->extraUsers()->with('mediaServer')->get() as $extra) {
+            $keys[$extra->mediaServer->type->value.'|'.strtolower($extra->remote_username)] = true;
+        }
 
         return $keys;
     }

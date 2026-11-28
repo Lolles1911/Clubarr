@@ -6,6 +6,7 @@ use App\Enums\AccountStatus;
 use App\MediaServers\Contracts\VerifiesLogins;
 use App\MediaServers\Data\RemoteUser;
 use App\MediaServers\MediaServerException;
+use App\Models\ExtraUser;
 use App\Models\MediaServer;
 use App\Models\ServerAccount;
 use App\Models\User;
@@ -34,7 +35,8 @@ class ExistingUsers
                 return [];
             }
         });
-        $linked = $server->accounts()->whereNotNull('remote_id')->pluck('remote_id')->map(fn ($id) => (string) $id)->all();
+        $linked = $server->accounts()->whereNotNull('remote_id')->pluck('remote_id')
+            ->concat(ExtraUser::where('media_server_id', $server->id)->pluck('remote_id'))->map(fn ($id) => (string) $id)->all();
 
         return array_values(array_filter(array_map(fn (array $row) => RemoteUser::fromArray($row), $rows),
             fn (RemoteUser $u) => ! $u->isAdmin && $u->id !== '' && ! in_array($u->id, $linked, true)));
@@ -62,7 +64,8 @@ class ExistingUsers
         if ($remote->isAdmin) {
             throw new RuntimeException(__('Administrators of :server can\'t be linked.', ['server' => $server->name]));
         }
-        if (ServerAccount::where('media_server_id', $server->id)->where('remote_id', $remote->id)->exists()) {
+        if (ServerAccount::where('media_server_id', $server->id)->where('remote_id', $remote->id)->exists()
+            || ExtraUser::where('media_server_id', $server->id)->where('remote_id', $remote->id)->exists()) {
             throw new RuntimeException(__('That user on :server already belongs to someone here. Ask us.', ['server' => $server->name]));
         }
     }

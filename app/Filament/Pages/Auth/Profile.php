@@ -2,11 +2,14 @@
 
 namespace App\Filament\Pages\Auth;
 
+use App\Filament\App\Concerns\MemberAccessActions;
 use App\Filament\App\Concerns\MemberSettingsActions;
 use App\Models\User;
 use App\Services\Audit;
 use App\Services\DiscordSync;
+use App\Services\FamilyUsers;
 use App\Services\MemberHistory;
+use App\Services\SelfService;
 use App\Services\SiteSettings;
 use App\Support\AccountSummary;
 use App\Support\DeviceName;
@@ -38,6 +41,7 @@ use Throwable;
  */
 class Profile extends EditProfile
 {
+    use MemberAccessActions;
     use MemberSettingsActions;
 
     #[Unexposed]
@@ -87,6 +91,9 @@ class Profile extends EditProfile
                 Tab::make(__('My numbers'))->key('numbers')->icon('heroicon-o-chart-bar')
                     ->visible(fn () => ! $member->is_admin || $member->serverAccounts()->exists())
                     ->schema([View::make('filament.app.my-page-numbers')->viewData(['stats' => $this->numbers(), 'status' => AccountSummary::of($member)])]),
+                Tab::make(__('Your access'))->key('access')->icon('heroicon-o-key')
+                    ->visible(fn () => FamilyUsers::max() > 0 || SelfService::maxPauseDays() > 0 || SelfService::switchTargets() !== [] || $member->self_paused_at !== null)
+                    ->schema([View::make('filament.app.my-page-access')->viewData(['member' => $member, 'page' => $this, 'familyMax' => FamilyUsers::max()])]),
                 Tab::make(__('Settings'))->key('settings')->icon('heroicon-o-cog-6-tooth')->schema([
                     View::make('filament.app.my-page-settings')->viewData(['member' => $member, 'discord' => app(DiscordSync::class)->enabled()]),
                     Actions::make([$this->digestAction(), $this->deleteAccountAction()]),

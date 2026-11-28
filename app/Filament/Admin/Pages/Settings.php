@@ -2,10 +2,12 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Enums\ServerType;
 use App\Filament\Admin\Concerns\FullAdminsOnly;
 use App\Filament\Admin\NavigationGroup;
 use App\Http\Middleware\ApplySiteLocale;
 use App\Models\Invitation;
+use App\Models\MediaServer;
 use App\Services\Audit;
 use App\Services\Backups;
 use App\Services\Branding;
@@ -82,6 +84,7 @@ class Settings extends Page
         $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
         $values['member_invites_approval'] = ($values['member_invites_approval'] ?? '0') === '1';
         $values['link_existing'] = ($values['link_existing'] ?? '1') !== '0';
+        $values['switch_servers'] = array_values(array_filter(explode(',', (string) ($values['switch_servers'] ?? ''))));
         $values['apply_packages'] = array_values(array_filter((array) json_decode((string) ($values['apply_packages'] ?? ''), true), 'is_array'));
         foreach (['landing_enabled' => '0', 'landing_posters' => '0', 'landing_status' => '1'] as $key => $default) {
             $values[$key] = ($values[$key] ?? $default) === '1';
@@ -204,6 +207,17 @@ class Settings extends Page
                                 ->helperText(__('The link works, and is mailed, only after you approve it under Invitations (filter "Waits for approval").')),
                         ]),
                 ]),
+                Tab::make(__('Members'))->key('members')->icon(Heroicon::OutlinedUsers)->schema([
+                    Section::make(__('What members may do themselves'))->description(__('On My page → Your access. 0 or empty: off.'))->columns(2)->schema([
+                        TextInput::make('extra_users_max')->label(__('Extra users for their family'))->numeric()->minValue(0)->maxValue(10)
+                            ->helperText(__('Jellyfin and Emby. They get the member\'s libraries, follow the member\'s access, and their streams count as the member\'s.')),
+                        TextInput::make('self_pause_days')->label(__('Pause their access for at most'))->numeric()->minValue(0)->maxValue(365)->suffix(__('days'))
+                            ->helperText(__('Their users are paused; the time paused is added to their end date when they come back.')),
+                        Select::make('switch_servers')->label(__('Servers they may move to'))->multiple()->columnSpanFull()
+                            ->options(fn () => MediaServer::orderBy('name')->get()->filter(fn (MediaServer $s) => $s->type !== ServerType::Plex)->pluck('name', 'id')->all())
+                            ->helperText(__('They get a user there (all libraries) and the old one is removed. Not Plex. Full servers are not offered.')),
+                    ]),
+                ]),
                 Tab::make(__('Automation'))->key('automation')->icon(Heroicon::OutlinedCog)->schema([
                     Section::make(__('Inactive members'))->schema([
                         TextInput::make('inactive_days')->label(__('Pause members who watched nothing for'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days'))
@@ -286,6 +300,7 @@ class Settings extends Page
         $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
         $data['member_invites_approval'] = ! empty($data['member_invites_approval']) ? '1' : '0';
         $data['link_existing'] = ! empty($data['link_existing']) ? '1' : '0';
+        $data['switch_servers'] = implode(',', array_map('intval', (array) ($data['switch_servers'] ?? [])));
         $data['apply_packages'] = json_encode(array_values(array_map(fn ($p) => ['label' => (string) ($p['label'] ?? ''), 'description' => (string) ($p['description'] ?? ''), 'template_id' => (int) ($p['template_id'] ?? 0)],
             array_filter((array) ($data['apply_packages'] ?? []), 'is_array')))) ?: '[]';
         foreach (['landing_enabled', 'landing_posters', 'landing_status'] as $key) {

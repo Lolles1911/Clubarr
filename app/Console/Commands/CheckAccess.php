@@ -10,6 +10,7 @@ use App\Notifications\AccessEndingSoon;
 use App\Services\AccessManager;
 use App\Services\Audit;
 use App\Services\DiscordSync;
+use App\Services\SelfService;
 use App\Services\SiteSettings;
 use Illuminate\Console\Command;
 use Throwable;
@@ -36,6 +37,10 @@ class CheckAccess extends Command
                     ['site' => app(SiteSettings::class)->get('site_name'), 'date' => $user->access_expires_at?->translatedFormat(__('j F Y'))]));
                 $user->forceFill(['expiry_warned_at' => now()])->saveQuietly();
             });
+
+        // Members who paused themselves come back when their pause is over.
+        User::members()->whereNotNull('self_paused_at')->where('self_pause_until', '<=', now())
+            ->each(fn (User $user) => app(SelfService::class)->resume($user));
 
         $ended = 0;
         User::members()->whereNotNull('access_expires_at')->where('access_expires_at', '<=', now())
