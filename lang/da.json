@@ -96,7 +96,7 @@
     "Change access end": "Ændr hvornår adgangen slutter",
     "Choose a password for the file. It is not saved anywhere: write it down.": "Vælg en adgangskode til filen. Den gemmes ikke nogen steder: skriv den ned.",
     "Choose one; the address is filled in. Then add the token and press Test.": "Vælg en; adressen bliver udfyldt. Indsæt derefter tokenet og tryk Test.",
-    "Choose your user name and password on :server's own page:": "Vælg dit brugernavn og din adgangskode på :servers egen side:",
+    "Choose your user name and password on :server's own page:": "Vælg dit brugernavn og din adgangskode på serverens egen side (:server):",
     "Client secret": "Client secret",
     "Clubarr": "Clubarr",
     "Clubarr :version is out": "Clubarr :version er ude",

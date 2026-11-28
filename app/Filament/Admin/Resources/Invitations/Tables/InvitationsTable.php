@@ -60,8 +60,8 @@ class InvitationsTable
             ])
             ->filters([
                 TernaryFilter::make('open')->label(__('Open'))->queries(
-                    true: fn (Builder $q) => Invitation::applyUsable($q),
-                    false: fn (Builder $q) => $q->whereNot(fn (Builder $q) => Invitation::applyUsable($q)),
+                    true: fn (Builder $query) => Invitation::applyUsable($query),
+                    false: fn (Builder $query) => $query->whereNot(fn (Builder $q) => Invitation::applyUsable($q)),
                 ),
             ])
             ->recordActions([

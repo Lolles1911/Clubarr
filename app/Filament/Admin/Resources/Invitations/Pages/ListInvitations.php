@@ -38,8 +38,8 @@ class ListInvitations extends ListRecords
     public function getTabs(): array
     {
         return [
-            'invitations' => Tab::make(__('Invitations'))->modifyQueryUsing(fn (Builder $q) => $q->where('is_template', false)),
-            'templates' => Tab::make(__('Templates'))->modifyQueryUsing(fn (Builder $q) => $q->where('is_template', true))
+            'invitations' => Tab::make(__('Invitations'))->modifyQueryUsing(fn (Builder $query) => $query->where('is_template', false)),
+            'templates' => Tab::make(__('Templates'))->modifyQueryUsing(fn (Builder $query) => $query->where('is_template', true))
                 ->badge(fn () => Invitation::where('is_template', true)->count() ?: null),
         ];
     }
