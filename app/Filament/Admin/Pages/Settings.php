@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Pages;
 
+use App\Filament\Admin\Concerns\FullAdminsOnly;
 use App\Filament\Admin\NavigationGroup;
 use App\Http\Middleware\ApplySiteLocale;
 use App\Models\Invitation;
@@ -46,6 +47,8 @@ use Throwable;
  */
 class Settings extends Page
 {
+    use FullAdminsOnly;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCog6Tooth;
 
     protected static ?int $navigationSort = 10;
@@ -76,6 +79,10 @@ class Settings extends Page
         $values['update_check'] = ($values['update_check'] ?? '1') !== '0';
         $values['apply_enabled'] = ($values['apply_enabled'] ?? '0') === '1';
         $values['oidc_enabled'] = ($values['oidc_enabled'] ?? '0') === '1';
+        $values['member_invites_approval'] = ($values['member_invites_approval'] ?? '0') === '1';
+        foreach (['landing_enabled' => '0', 'landing_posters' => '0', 'landing_status' => '1'] as $key => $default) {
+            $values[$key] = ($values[$key] ?? $default) === '1';
+        }
         $values['oidc_members'] = ($values['oidc_members'] ?? '0') === '1';
         $values['login_alerts'] = ($values['login_alerts'] ?? '1') !== '0';
         foreach (SiteSettings::SECRET as $secret) {
@@ -107,6 +114,15 @@ class Settings extends Page
                             })),
                     Toggle::make('update_check')->label(__('Tell me when a new Clubarr is out'))->columnSpanFull()
                         ->helperText(__('Once a day Clubarr reads the public list of releases on GitHub. Nothing about your Clubarr is sent.')),
+                ]),
+                Tab::make(__('Front page'))->key('front')->icon(Heroicon::OutlinedGlobeAlt)->schema([
+                    Toggle::make('landing_enabled')->label(__('Show a front page to visitors'))
+                        ->helperText(__('Off: the address goes straight to sign-in. On: visitors see a page with your name, logo and text, and buttons to sign in and, when open, to apply or join the waiting list. Signed-in members go straight to their page.')),
+                    Textarea::make('landing_text')->label(__('Text'))->rows(4)->maxLength(2000)->placeholder(__('e.g. "A small film club for friends and family."'))
+                        ->helperText(__('Plain text.')),
+                    Toggle::make('landing_posters')->label(__('Show posters of the newest films and series (no titles)'))
+                        ->helperText(__('Anyone with the address sees them, so only if you are fine with showing a little of the library.')),
+                    Toggle::make('landing_status')->label(__('Show whether the servers are online, and planned maintenance')),
                 ]),
                 Tab::make(__('Security'))->key('security')->icon(Heroicon::OutlinedShieldCheck)->schema([
                     Section::make(__('Single sign-on (OpenID Connect)'))->columns(2)
@@ -157,6 +173,9 @@ class Settings extends Page
                             Toggle::make('apply_enabled')->label(__('Open'))->columnSpanFull(),
                             Select::make('apply_template_id')->label(__('Template for approved applications'))->placeholder(__('Choose when approving'))
                                 ->options(fn () => Invitation::where('is_template', true)->orderBy('label')->pluck('label', 'id')->map(fn ($l) => $l ?: __('Template'))->all()),
+                            Textarea::make('apply_questions')->label(__('Your questions'))->rows(3)->maxLength(1000)->columnSpanFull()
+                                ->placeholder(__("Who do you know here?\nWhat do you watch on?"))
+                                ->helperText(__('One per line, at most 5. People must answer them; you see the answers under Applications.')),
                         ]),
                     Section::make(__('Members invite friends'))->columns(2)
                         ->description(__('Members get "Invite a friend": one person per invitation, valid 7 days, with the servers, libraries and limits of the template. You see who invited whom.'))->schema([
@@ -165,6 +184,8 @@ class Settings extends Page
                             Select::make('member_invite_template_id')->label(__('Template'))->placeholder(__('None (off)'))
                                 ->options(fn () => Invitation::where('is_template', true)->orderBy('label')->pluck('label', 'id')->map(fn ($l) => $l ?: __('Template'))->all())
                                 ->helperText(__('Make one under Invitations: "Save as a template instead".')),
+                            Toggle::make('member_invites_approval')->label(__('I approve each invitation first'))->columnSpanFull()
+                                ->helperText(__('The link works, and is mailed, only after you approve it under Invitations (filter "Waits for approval").')),
                         ]),
                 ]),
                 Tab::make(__('Automation'))->key('automation')->icon(Heroicon::OutlinedCog)->schema([
@@ -247,6 +268,10 @@ class Settings extends Page
         $data['update_check'] = ! empty($data['update_check']) ? '1' : '0';
         $data['apply_enabled'] = ! empty($data['apply_enabled']) ? '1' : '0';
         $data['oidc_enabled'] = ! empty($data['oidc_enabled']) ? '1' : '0';
+        $data['member_invites_approval'] = ! empty($data['member_invites_approval']) ? '1' : '0';
+        foreach (['landing_enabled', 'landing_posters', 'landing_status'] as $key) {
+            $data[$key] = ! empty($data[$key]) ? '1' : '0';
+        }
         $data['oidc_members'] = ! empty($data['oidc_members']) ? '1' : '0';
         $data['login_alerts'] = ! empty($data['login_alerts']) ? '1' : '0';
         foreach (SiteSettings::SECRET as $secret) {

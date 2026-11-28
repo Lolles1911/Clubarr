@@ -19,6 +19,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\HtmlString;
 use RuntimeException;
 
 /** Applications from /apply: approve (an invitation is mailed) or decline. */
@@ -69,7 +70,9 @@ class AccessRequestResource extends Resource
         return $table->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('name')->label(__('Name'))->weight('medium')->description(fn (AccessRequest $r) => $r->email)->searchable(['name', 'email']),
-                TextColumn::make('message')->label(__('Message'))->wrap()->limit(160)->placeholder('—')->visibleFrom('md'),
+                TextColumn::make('message')->label(__('Message'))->wrap()->placeholder('—')->visibleFrom('md')
+                    ->state(fn (AccessRequest $r) => collect($r->answers ?? [])->map(fn (array $qa) => $qa['q'].': '.$qa['a'])->push($r->message)->filter()->implode("\n") ?: null)
+                    ->formatStateUsing(fn (?string $state) => new HtmlString(nl2br(e(mb_substr((string) $state, 0, 1500))))),
                 TextColumn::make('created_at')->label(__('Applied'))->since()->visibleFrom('sm'),
                 TextColumn::make('status')->label(__('Status'))->badge()
                     ->formatStateUsing(fn (string $state) => match ($state) {

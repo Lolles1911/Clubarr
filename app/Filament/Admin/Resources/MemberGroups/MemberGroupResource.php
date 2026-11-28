@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\MemberGroups;
 
+use App\Filament\Admin\Concerns\FullAdminsOnly;
 use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\MemberGroups\Pages\ManageMemberGroups;
 use App\Models\MemberGroup;
@@ -24,6 +25,8 @@ use Filament\Tables\Table;
 /** Groups of members ("Family", "Friends") with their own rules. */
 class MemberGroupResource extends Resource
 {
+    use FullAdminsOnly;
+
     protected static ?string $model = MemberGroup::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;

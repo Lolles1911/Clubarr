@@ -32,6 +32,9 @@ use Illuminate\Support\Str;
  * @property Carbon|null $sent_at
  * @property Carbon|null $reminded_at
  * @property string|null $reminder_link
+ * @property bool $awaiting_approval a member's invitation not approved yet
+ * @property string|null $pending_code
+ * @property string|null $pending_email
  * @property bool $by_member
  * @property bool $seerr_access
  * @property int|null $member_group_id
@@ -46,7 +49,7 @@ class Invitation extends Model
 
     protected $fillable = ['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id'];
 
-    protected $hidden = ['code_hash', 'reminder_link'];
+    protected $hidden = ['code_hash', 'reminder_link', 'pending_code', 'pending_email'];
 
     protected function casts(): array
     {
@@ -65,6 +68,9 @@ class Invitation extends Model
             'sent_at' => 'datetime',
             'reminded_at' => 'datetime',
             'reminder_link' => 'encrypted',
+            'pending_code' => 'encrypted',
+            'pending_email' => 'encrypted',
+            'awaiting_approval' => 'boolean',
         ];
     }
 
@@ -116,6 +122,7 @@ class Invitation extends Model
         return match (true) {
             $this->is_template => __('This invitation code is not valid.'),
             $this->revoked_at !== null => __('This invitation has been withdrawn.'),
+            $this->awaiting_approval => __('This invitation waits for an admin to approve it. Try again later.'),
             $this->expires_at !== null && $this->expires_at->isPast() => __('This invitation has expired.'),
             $this->max_uses !== null && $this->uses >= $this->max_uses => __('This invitation has already been used.'),
             $this->exists && $this->mediaServers->where('is_enabled', true)->isEmpty() => __('This invitation has no servers right now. Ask the person who invited you.'),
@@ -142,7 +149,7 @@ class Invitation extends Model
      */
     public static function applyUsable(Builder $query): Builder
     {
-        return $query->whereNull('revoked_at')->where('is_template', false)
+        return $query->whereNull('revoked_at')->where('is_template', false)->where('awaiting_approval', false)
             ->whereHas('mediaServers', fn ($q) => $q->where('is_enabled', true))
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->where(fn ($q) => $q->whereNull('max_uses')->orWhereColumn('uses', '<', 'max_uses'));

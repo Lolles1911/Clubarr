@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\AuditLogs;
 
+use App\Filament\Admin\Concerns\FullAdminsOnly;
 use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\AuditLogs\Pages\ListAuditLogs;
 use App\Filament\Admin\Resources\AuditLogs\Tables\AuditLogsTable;
@@ -15,6 +16,8 @@ use Illuminate\Database\Eloquent\Model;
 /** The audit log: read only. */
 class AuditLogResource extends Resource
 {
+    use FullAdminsOnly;
+
     protected static ?string $model = AuditLog::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;

@@ -61,7 +61,8 @@ class Apply extends SimplePage
         return $schema->statePath('data')->components([
             TextInput::make('name')->label(__('Your name'))->required()->maxLength(100),
             TextInput::make('email')->label(__('Email'))->email()->required()->maxLength(190),
-            Textarea::make('message')->label(__('How do you know us? (optional)'))->rows(3)->maxLength(1000),
+            ...collect(Applications::questions())->map(fn (string $q, int $i) => Textarea::make('answers.'.$i)->label($q)->required()->rows(2)->maxLength(1000))->all(),
+            Textarea::make('message')->label(Applications::questions() === [] ? __('How do you know us? (optional)') : __('Anything else? (optional)'))->rows(3)->maxLength(1000),
             // Left empty by people; filled by bots.
             TextInput::make('website')->label('Website')->extraAttributes(['style' => 'position:absolute;left:-10000px', 'tabindex' => '-1', 'autocomplete' => 'off'])->hiddenLabel(),
         ]);
@@ -92,7 +93,7 @@ class Apply extends SimplePage
         }
         $data = $this->form->getState();
         if (blank($data['website'] ?? null)) {
-            app(Applications::class)->apply((string) $data['name'], (string) $data['email'], $data['message'] ?? null);
+            app(Applications::class)->apply((string) $data['name'], (string) $data['email'], $data['message'] ?? null, (array) ($data['answers'] ?? []));
         }
         $this->done = true;
     }

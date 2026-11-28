@@ -112,6 +112,31 @@ class NewOnServers
         return $out;
     }
 
+    /**
+     * Posters for the public front page (when the admin shows them): the
+     * newest from every server's whole library. Like an invitation page,
+     * only the keys listed for this visitor can be fetched.
+     *
+     * @return list<array{key: string, title: string, year: int|null, server: string}>
+     */
+    public function forVisitors(int $count = 12): array
+    {
+        $rows = [];
+        foreach (MediaServer::where('is_enabled', true)->get() as $server) {
+            if (! $server->type->can(ListsRecentlyAdded::class)) {
+                continue;
+            }
+            foreach (Cache::get(self::cacheKey($server->id, null), []) as $item) {
+                $rows[] = $item + ['server_id' => $server->id, 'server' => $server->name];
+            }
+        }
+        usort($rows, fn ($a, $b) => $b['added'] <=> $a['added']);
+        $out = $this->register(array_slice($rows, 0, $count));
+        session()->put('join.poster_keys', array_column($out, 'key'));
+
+        return $out;
+    }
+
     /** A poster on an invitation page: only the ones that page listed for this visitor. */
     public function guestPoster(string $key): ?array
     {

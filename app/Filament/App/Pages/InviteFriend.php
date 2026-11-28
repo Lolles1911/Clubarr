@@ -108,7 +108,9 @@ class InviteFriend extends Page
                     return;
                 }
                 $this->shareLink = route('filament.app.join', ['code' => $code]);
-                Notification::make()->title(__('Here is the invitation link'))->success()->send();
+                MemberInvites::needsApproval()
+                    ? Notification::make()->title(__('Here is the invitation link'))->body(__('An admin approves it first; then the link works, and it is mailed if you gave an email.'))->warning()->persistent()->send()
+                    : Notification::make()->title(__('Here is the invitation link'))->success()->send();
                 foreach ($sent as $result) {
                     Notification::make()->title($result['text'])->{$result['ok'] ? 'success' : 'warning'}()->send();
                 }

@@ -3,6 +3,29 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.8.0-beta (2026-11-30)
+
+### For visitors
+- **A front page** at your address, if you turn it on (Settings → Front
+  page): your name, logo and a text, buttons to sign in and (when open) to
+  apply or join the waiting list, posters of the newest films and series
+  (no titles, if you want), and whether the servers are online. Off, the
+  address goes straight to sign-in as before.
+- **Your own questions** when people apply ("Who do you know here?"); you
+  see the answers under Applications.
+
+### For admins
+- **Moderators**: an admin role for members, invitations, requests,
+  applications, problems and messages, without settings, servers, groups,
+  API keys, the log or other admins.
+- **Approve friends' invitations** first, if you want (Settings →
+  Invitations). The link works, and is mailed, once you approve; the member
+  is told either way.
+- **Export members** as CSV (Members → Export).
+- **Planned maintenance** (Servers → Maintenance): members get a mail, a
+  Discord message and a banner; the front page says "Maintenance"; and
+  "server down" alerts wait while it lasts.
+
 ## 0.7.0-beta (2026-11-29)
 
 ### For members

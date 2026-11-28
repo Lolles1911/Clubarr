@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\ApiKeys;
 
+use App\Filament\Admin\Concerns\FullAdminsOnly;
 use App\Filament\Admin\NavigationGroup;
 use App\Filament\Admin\Resources\ApiKeys\Pages\ManageApiKeys;
 use App\Models\ApiKey;
@@ -20,6 +21,8 @@ use Filament\Tables\Table;
 /** Keys for the REST API (docs/api.md). A key is shown once; deleting it stops it at once. */
 class ApiKeyResource extends Resource
 {
+    use FullAdminsOnly;
+
     protected static ?string $model = ApiKey::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedKey;

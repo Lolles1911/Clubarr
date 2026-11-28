@@ -76,6 +76,49 @@ class MemberInvites
             ] + $settings, $pivot, $member, byMember: true);
         });
 
+        if (self::needsApproval()) {
+            // Kept encrypted until an admin decides; the link works, and is mailed, only once approved.
+            $invitation->forceFill(['awaiting_approval' => true, 'pending_code' => $code, 'pending_email' => filled($email) ? mb_substr((string) $email, 0, 190) : null])->save();
+            Audit::log('invitation.awaiting_approval', $invitation, ['by' => $member->name], $member->id);
+
+            return [$invitation, $code, []];
+        }
+
         return [$invitation, $code, filled($email) ? $maker->send($invitation, $code, $email, null, $member) : []];
+    }
+
+    public static function needsApproval(): bool
+    {
+        return app(SiteSettings::class)->get('member_invites_approval') === '1';
+    }
+
+    /** An admin approves a member's invitation: it works from now, and the friend gets the mail if one was given. */
+    public function approve(Invitation $invitation): void
+    {
+        if (! $invitation->awaiting_approval) {
+            return;
+        }
+        $code = (string) $invitation->pending_code;
+        $email = $invitation->pending_email;
+        $invitation->forceFill(['awaiting_approval' => false, 'pending_code' => null, 'pending_email' => null])->save();
+        Audit::log('invitation.approved', $invitation);
+        $member = $invitation->creator;
+        if (filled($email) && $code !== '') {
+            app(InvitationMaker::class)->send($invitation, $code, $email, null, $member);
+        }
+        if ($member !== null) {
+            MemberRequests::tell($member, __('Your invitation is approved'), filled($email)
+                ? __('Your invitation for :email is approved and mailed to them.', ['email' => $email])
+                : __('Your invitation is approved. The link you got works now.'));
+        }
+    }
+
+    public function decline(Invitation $invitation): void
+    {
+        $invitation->forceFill(['awaiting_approval' => false, 'pending_code' => null, 'pending_email' => null, 'revoked_at' => now()])->save();
+        Audit::log('invitation.declined', $invitation);
+        if ($invitation->creator !== null) {
+            MemberRequests::tell($invitation->creator, __('About your invitation'), __('Your invitation was not approved this time.'));
+        }
     }
 }

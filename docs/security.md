@@ -173,3 +173,15 @@ settings saved. Never passwords or keys.
 - Mail texts written by the admin are plain text; names filled in are
   escaped like everything else in the mails.
 
+## Front page, moderators and exports
+
+- The front page is off by default. It shows only what you turn on; posters
+  have no titles and are served only to the visitor they were listed for.
+  Your text is plain text.
+- Moderators can't open settings, servers, groups, API keys or the log (the
+  pages refuse them), never see or change admins, and can't export members.
+- The CSV export is for full admins only and is logged. A cell starting
+  with = + - or @ gets a ' first, so a spreadsheet never runs it.
+- A member's invitation waiting for approval keeps its code and the
+  friend's email encrypted, and only until it is decided.
+

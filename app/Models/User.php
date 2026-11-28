@@ -26,6 +26,7 @@ use SensitiveParameter;
  * @property string $name
  * @property string $email
  * @property bool $is_admin
+ * @property string|null $admin_role null: a full admin; 'moderator' (see AdminRole)
  * @property Carbon|null $access_expires_at
  * @property Carbon|null $disabled_at
  * @property Carbon|null $expiry_warned_at
