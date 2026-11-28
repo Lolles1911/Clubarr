@@ -99,6 +99,34 @@ class ServerToolsTest extends TestCase
         Http::assertNotSent(fn ($r) => ! str_starts_with($r->url(), 'http://192.168.1.'));
     }
 
+    public function test_find_plex_with_the_token_lists_the_accounts_servers_and_tries_each_address(): void
+    {
+        Http::fake([
+            'plex.tv/api/v2/resources*' => Http::response([
+                ['name' => 'Phone', 'provides' => 'player', 'owned' => true, 'connections' => []],
+                ['name' => 'Friend', 'provides' => 'server', 'owned' => false, 'connections' => [['uri' => 'http://10.0.0.9:32400', 'local' => true]]],
+                ['name' => 'WaffleHub', 'provides' => 'server', 'owned' => true, 'productVersion' => '1.43.5', 'connections' => [
+                    ['uri' => 'https://81-1-2-3.abc.plex.direct:32400', 'local' => false, 'relay' => false],
+                    ['uri' => 'https://172-17-0-11.abc.plex.direct:32400', 'local' => true, 'relay' => false],
+                    ['uri' => 'https://relay.plex.direct:8443', 'local' => false, 'relay' => true],
+                ]],
+            ]),
+            'https://172-17-0-11.abc.plex.direct:32400/identity' => Http::response(['MediaContainer' => ['machineIdentifier' => 'm1', 'version' => '1.43.5']]),
+            '*' => Http::response('', 404),
+        ]);
+
+        $found = app(PlexFinder::class)->fromAccount('owner-token');
+        $this->assertSame([['https://172-17-0-11.abc.plex.direct:32400', true], ['https://81-1-2-3.abc.plex.direct:32400', false]],
+            array_map(fn ($s) => [$s['uri'], $s['ok']], $found));
+
+        Livewire::test(CreateMediaServer::class)
+            ->fillForm(['type' => 'plex', 'api_key' => 'owner-token'])
+            ->callAction(TestAction::make('plexFind')->schemaComponent('serverActions'), ['server' => 'https://172-17-0-11.abc.plex.direct:32400'])
+            ->assertSchemaStateSet(['url' => 'https://172-17-0-11.abc.plex.direct:32400', 'name' => 'WaffleHub']);
+        // The token goes to plex.tv only.
+        Http::assertNotSent(fn ($r) => $r->hasHeader('X-Plex-Token') && ! str_starts_with($r->url(), 'https://plex.tv/'));
+    }
+
     public function test_an_invitation_link_can_be_mailed_when_mail_is_set_up(): void
     {
         Notification::fake();

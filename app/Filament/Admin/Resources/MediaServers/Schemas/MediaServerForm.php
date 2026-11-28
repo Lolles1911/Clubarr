@@ -20,16 +20,34 @@ use Filament\Schemas\Schema;
 class MediaServerForm
 {
     /**
-     * Plex servers on the admin's network, found when "Find Plex on the
-     * network" opens (kept in the session for the pick that follows).
-     *
-     * @return list<array{uri: string, version: string}>
+     * Looks for Plex: through plex.tv with the owner's token when there is
+     * one, else on the admin's network. The result stays in the session
+     * (the token itself does not) for the choice that follows.
      */
+    private static function findPlex(string $token): void
+    {
+        $finder = app(PlexFinder::class);
+        $network = PlexFinder::networkOf(request()->getHost()) ?? PlexFinder::networkOf(parse_url((string) config('app.url'), PHP_URL_HOST) ?: null);
+        if ($token !== '') {
+            try {
+                [$how, $found] = ['account', $finder->fromAccount($token)];
+            } catch (MediaServerException $e) {
+                [$how, $found] = [in_array($e->getCode(), [401, 403], true) ? 'rejected' : 'unreachable', []];
+            }
+        } else {
+            [$how, $found] = $network !== null
+                ? ['network', array_map(fn ($s) => ['name' => 'Plex', 'uri' => $s['uri'], 'local' => true, 'ok' => true, 'ms' => null, 'version' => $s['version']], $finder->scan($network))]
+                : ['none', []];
+        }
+        session()->put(['admin.plex.found' => $found, 'admin.plex.how' => $how, 'admin.plex.network' => $network]);
+    }
+
+    /** @return list<array{name: string, uri: string, local: bool, ok: bool, ms: int|null, version: string}> */
     private static function foundPlex(): array
     {
         $found = session('admin.plex.found');
 
-        return is_array($found) ? array_values(array_filter($found, fn ($s) => is_array($s) && is_string($s['uri'] ?? null))) : [];
+        return is_array($found) ? array_values(array_filter($found, fn ($s) => is_array($s) && is_string($s['uri'] ?? null) && isset($s['ok']))) : [];
     }
 
     public static function configure(Schema $schema): Schema
@@ -51,7 +69,7 @@ class MediaServerForm
                     ->required(fn (string $operation) => $operation === 'create')
                     ->dehydrated(fn (?string $state) => filled($state))
                     ->helperText(fn (string $operation, Get $get) => ($operation === 'edit' ? __('Stored encrypted. Leave empty to keep the current key.').' ' : '').match ($get('type')) {
-                        ServerType::Plex->value => __('The server owner\'s Plex token (see Plex\'s "Finding an authentication token" guide).'),
+                        ServerType::Plex->value => __('The server owner\'s Plex token (see Plex\'s "Finding an authentication token" guide). Paste it, then press Find Plex.'),
                         ServerType::Silo->value => __('A Silo API key of an admin account, with full access.'),
                         default => __('Dashboard → API Keys on the server.'),
                     }),
@@ -61,32 +79,42 @@ class MediaServerForm
                     ->helperText(__('Off: new invitations can\'t give access to it. Existing users are not changed.')),
                 Actions::make([
                     // Plex: look for servers on the admin's network; the address can always be typed instead.
-                    Action::make('plexFind')->label(__('Find Plex on the network'))->color('warning')->icon('heroicon-m-magnifying-glass')
+                    Action::make('plexFind')->label(__('Find Plex'))->color('warning')->icon('heroicon-m-magnifying-glass')
                         ->visible(fn (Get $get) => $get('type') === ServerType::Plex->value)
-                        ->modalHeading(__('Plex servers on your network'))->modalSubmitActionLabel(__('Use this one'))
-                        ->fillForm(function () {
-                            $network = PlexFinder::networkOf(request()->getHost()) ?? PlexFinder::networkOf(parse_url((string) config('app.url'), PHP_URL_HOST) ?: null);
-                            session()->put('admin.plex.found', $network !== null ? app(PlexFinder::class)->scan($network) : []);
-                            session()->put('admin.plex.network', $network);
+                        ->modalHeading(__('Your Plex servers'))->modalSubmitActionLabel(__('Use this one'))
+                        ->fillForm(function (Get $get, ?MediaServer $record) {
+                            self::findPlex(filled($get('api_key')) ? (string) $get('api_key') : (string) $record?->api_key);
 
-                            return ['server' => self::foundPlex()[0]['uri'] ?? null];
+                            return ['server' => collect(self::foundPlex())->firstWhere('ok', true)['uri'] ?? null];
                         })
                         ->schema([
                             Select::make('server')->label(__('Found'))->required()
-                                ->options(fn () => collect(self::foundPlex())->mapWithKeys(fn ($s) => [$s['uri'] => $s['uri'].($s['version'] !== '' ? ' · Plex '.$s['version'] : '')])->all())
-                                ->helperText(fn () => self::foundPlex() === []
-                                    ? (session('admin.plex.network') ? __('No Plex found on :network.x. Type the address yourself, e.g. http://192.168.1.10:32400.', ['network' => session('admin.plex.network')])
-                                        : __('Clubarr could not tell your network. Type the address yourself, e.g. http://192.168.1.10:32400.'))
-                                    : __('Choose one; the address is filled in. Then add the token and press Test.')),
+                                ->options(fn () => collect(self::foundPlex())->mapWithKeys(fn ($s) => [$s['uri'] => implode(' · ', array_filter([
+                                    $s['name'], $s['uri'], $s['version'] !== '' ? 'Plex '.$s['version'] : null, $s['local'] ? __('local') : null,
+                                    $s['ok'] ? ($s['ms'] !== null ? $s['ms'].' ms' : null) : __('not reachable from Clubarr'),
+                                ]))])->all())
+                                ->disableOptionWhen(fn (string $value) => ! (collect(self::foundPlex())->firstWhere('uri', $value)['ok'] ?? false))
+                                ->helperText(fn () => match (session('admin.plex.how')) {
+                                    'account' => self::foundPlex() === [] ? __('Your Plex account has no server of its own.') : __('From your Plex account, tried from Clubarr. Choose one it can reach.'),
+                                    'rejected' => __('plex.tv did not accept the token. Check it, or empty the field to look on the network instead.'),
+                                    'unreachable' => __('plex.tv could not be reached. Please try again.'),
+                                    'network' => self::foundPlex() === [] ? __('No Plex found on :network.x. Type the address yourself, e.g. http://192.168.1.10:32400.', ['network' => session('admin.plex.network')])
+                                        : __('Choose one; the address is filled in. Then add the token and press Test.'),
+                                    default => __('Clubarr could not tell your network. Paste the token first, or type the address yourself, e.g. http://192.168.1.10:32400.'),
+                                }),
                         ])
-                        ->action(function (array $data, Set $set) {
-                            $server = collect(self::foundPlex())->firstWhere('uri', (string) $data['server']);
+                        ->action(function (array $data, Set $set, Get $get) {
+                            $server = collect(self::foundPlex())->first(fn ($s) => $s['ok'] && $s['uri'] === (string) $data['server']);
                             if ($server === null) {
                                 return;
                             }
                             $set('url', $server['uri']);
-                            session()->forget(['admin.plex.found', 'admin.plex.network']);
-                            Notification::make()->title(__('Address filled in. Add the token, then press Test.'))->success()->send();
+                            if (blank($get('name')) && $server['name'] !== 'Plex') {
+                                $set('name', $server['name']);
+                            }
+                            $fromAccount = session('admin.plex.how') === 'account';
+                            session()->forget(['admin.plex.found', 'admin.plex.how', 'admin.plex.network']);
+                            Notification::make()->title($fromAccount ? __('Filled in. Press Test, then save.') : __('Address filled in. Add the token, then press Test.'))->success()->send();
                         }),
                     Action::make('test')->label(__('Test'))->icon('heroicon-m-signal')->color('gray')
                         ->action(function (Get $get, ?MediaServer $record) {
