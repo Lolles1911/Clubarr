@@ -79,4 +79,15 @@ class MemberAdminTest extends TestCase
         $this->assertNotNull($b->fresh()->disabled_at);
         $this->assertNull($this->admin->fresh()->disabled_at);
     }
+
+    public function test_the_dashboard_shows_members_watching_and_events(): void
+    {
+        $this->member('Anna');
+        app(SiteSettings::class)->set(['tracearr_url' => 'http://tr.local', 'tracearr_api_key' => 'trr_pub_x']);
+        Http::fake(['tr.local/api/v2/public/streams' => Http::response(['data' => [['username' => 'anna', 'media_title' => 'Dune', 'media_type' => 'movie', 'player' => 'Apple TV']]]),
+            'tr.local/*' => Http::response(['data' => []])]);
+
+        Livewire::test(\App\Filament\Admin\Widgets\WatchingNow::class)->assertSee('Dune')->assertSee('Apple TV');
+        Livewire::test(\App\Filament\Admin\Widgets\MembersChart::class)->assertOk();
+    }
 }
