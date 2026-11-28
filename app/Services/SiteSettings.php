@@ -14,7 +14,7 @@ use Throwable;
  */
 class SiteSettings
 {
-    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token'];
+    public const SECRET = ['mail_password', 'tracearr_api_key', 'seerr_api_key', 'discord_client_secret', 'discord_bot_token', 'alerts_webhook_url'];
 
     public const DEFAULTS = [
         'site_name' => 'Clubarr',
@@ -44,6 +44,11 @@ class SiteSettings
         'discord_role_id' => '',
         // Waiting list: the invitation its invitations copy ('' = off).
         'waitlist_template_id' => '',
+        // Alerts to the admins' Discord channel: the webhook (secret) and the events, comma separated.
+        'alerts_webhook_url' => '',
+        'alerts_events' => null,
+        // Ask GitHub once a day for a newer Clubarr ('1') or not ('0').
+        'update_check' => '1',
     ];
 
     private ?array $values = null;

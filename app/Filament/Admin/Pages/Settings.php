@@ -6,12 +6,15 @@ use App\Http\Middleware\ApplySiteLocale;
 use App\Integrations\Discord;
 use App\Integrations\Seerr;
 use App\Integrations\Tracearr;
+use App\Jobs\SendAdminAlert;
 use App\Models\Invitation;
+use App\Services\AdminAlerts;
 use App\Services\Audit;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -62,6 +65,8 @@ class Settings extends Page
         $values = app(SiteSettings::class)->all() + SiteSettings::DEFAULTS;
         $values['mail_enabled'] = ($values['mail_enabled'] ?? '0') === '1';
         $values['admin_2fa_required'] = ($values['admin_2fa_required'] ?? '1') !== '0';
+        $values['update_check'] = ($values['update_check'] ?? '1') !== '0';
+        $values['alerts_events'] = ($values['alerts_events'] ?? null) === null ? array_keys(AdminAlerts::EVENTS) : array_values(array_filter(explode(',', (string) $values['alerts_events']), fn ($e) => isset(AdminAlerts::EVENTS[$e])));
         foreach (SiteSettings::SECRET as $secret) {
             unset($values[$secret]); // never sent to the browser
         }
@@ -78,6 +83,8 @@ class Settings extends Page
                     Select::make('locale')->label(__('Language'))->options(ApplySiteLocale::LOCALES)->required(),
                     Textarea::make('help_text')->label(__('Getting started text'))->rows(6)->maxLength(5000)->columnSpanFull()
                         ->helperText(__('Shown to members on their page: which apps to use, house rules, where to ask. Plain text.')),
+                    Toggle::make('update_check')->label(__('Tell me when a new Clubarr is out'))->columnSpanFull()
+                        ->helperText(__('Once a day Clubarr reads the public list of releases on GitHub. Nothing about your Clubarr is sent.')),
                 ]),
                 Tab::make(__('Security'))->key('security')->icon(Heroicon::OutlinedShieldCheck)->schema([
                     Toggle::make('admin_2fa_required')->label(__('Require two-factor sign-in for admins'))
@@ -122,6 +129,24 @@ class Settings extends Page
                                 ->helperText(__('The bot\'s own role must be above it.')),
                         ])->footerActions([$this->testAction('Discord')]),
                 ]),
+                Tab::make(__('Notifications'))->key('alerts')->icon(Heroicon::OutlinedBellAlert)->schema([
+                    Section::make(__('Discord channel for admins'))
+                        ->description(__('Clubarr posts to a channel of your choice when something happens. In Discord: the channel → Edit channel → Integrations → Webhooks → New webhook → Copy webhook URL.'))->schema([
+                            TextInput::make('alerts_webhook_url')->label(__('Webhook URL'))->password()->revealable()->maxLength(300)->autocomplete('off')
+                                ->regex(AdminAlerts::WEBHOOK_PATTERN)->validationMessages(['regex' => __('That is not a Discord webhook URL (https://discord.com/api/webhooks/…).')])
+                                ->helperText(__('Stored encrypted; leave empty to keep it.')),
+                            CheckboxList::make('alerts_events')->label(__('Tell me when'))->options(AdminAlerts::labels())->columns(1)->bulkToggleable(),
+                        ])->footerActions([
+                            Action::make('testAlert')->label(__('Send a test message'))->color('gray')->icon('heroicon-m-paper-airplane')->action(fn () => $this->testAlert()),
+                            Action::make('forgetWebhook')->label(__('Remove the webhook'))->color('danger')->link()->requiresConfirmation()
+                                ->visible(fn () => AdminAlerts::webhook() !== null)
+                                ->action(function () {
+                                    app(SiteSettings::class)->set(['alerts_webhook_url' => '']);
+                                    Audit::log('settings.webhook_removed');
+                                    Notification::make()->title(__('Removed.'))->success()->send();
+                                }),
+                        ]),
+                ]),
                 Tab::make(__('Waiting list'))->key('waitlist')->icon(Heroicon::OutlinedQueueList)->schema([
                     Select::make('waitlist_template_id')->label(__('Invitations copy'))
                         ->options(fn () => Invitation::where('from_waitlist', false)->latest()->limit(200)->get()->mapWithKeys(fn ($i) => [$i->id => ($i->label ?: $i->code_hint.'…').' · '.$i->mediaServers()->pluck('name')->implode(', ')])->all())
@@ -149,6 +174,9 @@ class Settings extends Page
         $data['mail_enabled'] = ! empty($data['mail_enabled']) ? '1' : '0';
         $was = app(SiteSettings::class)->get('admin_2fa_required');
         $data['admin_2fa_required'] = ! empty($data['admin_2fa_required']) ? '1' : '0';
+        $data['update_check'] = ! empty($data['update_check']) ? '1' : '0';
+        // "-" when none is chosen: empty would mean "not set yet", which is all.
+        $data['alerts_events'] = implode(',', array_intersect((array) ($data['alerts_events'] ?? []), array_keys(AdminAlerts::EVENTS))) ?: '-';
         foreach (SiteSettings::SECRET as $secret) {
             if (blank($data[$secret] ?? null)) {
                 unset($data[$secret]); // empty: keep the stored one
@@ -192,6 +220,22 @@ class Settings extends Page
         $result === null
             ? Notification::make()->title($name.': '.__('not set up'))->warning()->send()
             : Notification::make()->title($name.': '.__('OK').' ('.$result.')')->success()->send();
+    }
+
+    protected function testAlert(): void
+    {
+        $this->save();
+        if (AdminAlerts::webhook() === null) {
+            Notification::make()->title(__('Add the webhook URL first.'))->warning()->send();
+
+            return;
+        }
+        try {
+            (new SendAdminAlert(__(':site: test from Clubarr. Notifications work.', ['site' => app(SiteSettings::class)->get('site_name')])))->handle();
+            Notification::make()->title(__('Sent. Look in the Discord channel.'))->success()->send();
+        } catch (Throwable) {
+            Notification::make()->title(__('Discord did not take the message. Check the webhook URL.'))->danger()->send();
+        }
     }
 
     protected function testMail(): void
