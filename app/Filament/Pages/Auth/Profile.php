@@ -2,14 +2,13 @@
 
 namespace App\Filament\Pages\Auth;
 
-use App\Enums\AccountStatus;
 use App\Filament\App\Concerns\MemberSettingsActions;
 use App\Models\User;
 use App\Services\Audit;
 use App\Services\DiscordSync;
 use App\Services\MemberHistory;
-use App\Services\MemberInvites;
 use App\Services\SiteSettings;
+use App\Support\AccountSummary;
 use App\Support\DeviceName;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EditProfile;
@@ -87,7 +86,7 @@ class Profile extends EditProfile
                 ]),
                 Tab::make(__('My numbers'))->key('numbers')->icon('heroicon-o-chart-bar')
                     ->visible(fn () => ! $member->is_admin || $member->serverAccounts()->exists())
-                    ->schema([View::make('filament.app.my-page-numbers')->viewData(['stats' => $this->numbers(), 'status' => $this->accountStatus()])]),
+                    ->schema([View::make('filament.app.my-page-numbers')->viewData(['stats' => $this->numbers(), 'status' => AccountSummary::of($member)])]),
                 Tab::make(__('Settings'))->key('settings')->icon('heroicon-o-cog-6-tooth')->schema([
                     View::make('filament.app.my-page-settings')->viewData(['member' => $member, 'discord' => app(DiscordSync::class)->enabled()]),
                     Actions::make([$this->digestAction(), $this->deleteAccountAction()]),
@@ -105,21 +104,6 @@ class Profile extends EditProfile
         } catch (Throwable) {
             return null;
         }
-    }
-
-    /** @return array{ends: ?string, groups: list<string>, servers: int, invites: ?int, requests: ?string} */
-    #[Unexposed]
-    public function accountStatus(): array
-    {
-        $member = $this->member();
-
-        return [
-            'ends' => $member->access_expires_at?->translatedFormat(__('j F Y')),
-            'groups' => $member->groups()->pluck('name')->all(),
-            'servers' => $member->serverAccounts()->where('status', AccountStatus::Active)->count(),
-            'invites' => MemberInvites::allowed($member) ? MemberInvites::remaining($member) : null,
-            'requests' => ! $member->seerr_access ? null : ($member->request_limit === null ? __('No limit') : __(':count a week', ['count' => $member->request_limit])),
-        ];
     }
 
     /** @return list<array{name: string, ip: ?string, active: Carbon, current: bool}> */

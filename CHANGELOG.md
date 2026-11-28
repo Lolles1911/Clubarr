@@ -3,6 +3,24 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.9.0-beta (2026-11-30)
+
+### For members
+- **My page** (in the menu, and behind the avatar): the account (name,
+  email, password, two-factor, where you are signed in), **My numbers**
+  (hours watched, plays, most watched this year, and your access: when it
+  ends, groups, requests and invitations left), and **Settings** (weekly
+  mail, Discord, delete my account), each on a tab.
+- **Your access** at a glance on the front page, and a link to more numbers.
+
+### Without Tracearr or Tautulli
+- **Numbers and "Continue watching" from Jellyfin, Emby and Silo**: Clubarr
+  reads what each member watched from their own server user. Silo's own
+  playback history gives real watching time; Jellyfin and Emby give what was
+  finished, by the day it was last watched. Fetched on the queue and kept
+  half an hour, so the page never waits for the servers.
+- **Silo posters** for "Continue watching", from Silo's catalog.
+
 ## 0.8.0-beta (2026-11-30)
 
 ### For visitors

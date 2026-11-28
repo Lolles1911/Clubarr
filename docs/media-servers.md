@@ -47,3 +47,13 @@ administrators.**
 Plex's sharing API is not public. Clubarr uses the calls Plex Web (and Wizarr)
 use. If plex.tv changes them, sharing may fail until Clubarr is updated; the
 error is shown and nothing is half-made.
+
+## Members' numbers without Tracearr
+
+With no Tracearr or Tautulli set up, members' numbers (My page, My
+statistics) and "Continue watching" come from their own users on the
+servers: Silo's playback history (needs a key with `admin:monitor:read`;
+posters through the catalog need the key owner's main profile without a
+PIN), and Jellyfin's and Emby's played items and "resume". Plex needs
+Tautulli or Tracearr.
+

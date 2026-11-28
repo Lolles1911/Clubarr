@@ -177,6 +177,10 @@
         <div style="text-align:right;margin-top:-.5rem"><x-filament::link :href="\Filament\Facades\Filament::getPanel('app')->getProfileUrl(['tab' => 'numbers'])" size="sm">{{ __('More numbers') }}</x-filament::link></div>
     @endif
 
+    @if ($accounts->isNotEmpty() && ! $member->is_admin)
+        @include('filament.app.account-status', ['status' => \App\Support\AccountSummary::of($member)])
+    @endif
+
     @if ($this->helpText())
         <x-filament::section :heading="__('Getting started')">
             <div style="font-size:.9rem;line-height:1.6">{!! nl2br(e($this->helpText())) !!}</div>
