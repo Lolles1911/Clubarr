@@ -3,6 +3,36 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.10.0-beta (2026-11-30)
+
+### New members
+- **Wizard** (Servers → Wizard): steps new members see before joining (on
+  the invitation page) and after (Get started, and later under Help), per
+  server or for all. Drag to order, "Add ready-made steps" per server type,
+  and **bundles**: other sets of steps chosen on an invitation (e.g. family).
+- **A user they already have**: on an invitation, members can sign in with a
+  Jellyfin or Emby user they already have instead of making a new one; the
+  server checks the password, Clubarr never keeps it. Server administrators
+  can never be linked.
+- **Choices when applying**: you make choices from templates ("Films",
+  "Everything"); applicants pick one and may leave out servers they don't
+  need. Approving gives just those.
+
+### For members
+- **"I already have a user on a server"** on their page, the same way.
+- On My page → **Your access** (each when you allow it): **extra users for
+  the family** (with the member's libraries; they follow the member's
+  access), **pause** their access (the time is added to the end date), and
+  **move to another server**.
+- **Movie nights** ("I'm coming", a reminder before) and **challenges**
+  ("10 films in December") with their progress, on the front page.
+- **Discord commands**: /status, /access, /stats and /password.
+
+### For admins
+- **Link a server user** to a member (a user on a server no one here has).
+- Movie nights and challenges (with results) under Members.
+- Settings → Members: family users, pausing, servers members may move to.
+
 ## 0.9.0-beta (2026-11-30)
 
 ### For members

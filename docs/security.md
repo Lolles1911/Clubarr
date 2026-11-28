@@ -185,3 +185,19 @@ settings saved. Never passwords or keys.
 - A member's invitation waiting for approval keeps its code and the
   friend's email encrypted, and only until it is decided.
 
+## Linking users, family and Discord commands
+
+- Linking a user someone already has: Jellyfin/Emby check the name and
+  password themselves (Clubarr signs in as an app, without its key, and ends
+  that session at once); the password is never kept or logged. A server
+  administrator, or a user someone here already has, can never be linked.
+  Members can try 5 times an hour. A user linked on an invitation is never
+  deleted if joining fails.
+- Family users are made with the member's libraries and follow the member.
+- Discord commands: every request must carry Discord's Ed25519 signature
+  (checked with the public key, at most 5 minutes old); anything else is
+  refused. Answers are only shown to the one who asks, carry no mentions,
+  and say nothing about other members.
+- Wizard texts are Markdown from an admin: HTML is shown as text and unsafe
+  links are removed; buttons only link to http(s).
+
