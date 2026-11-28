@@ -55,7 +55,7 @@ class Stats extends Page
             $summary = Watching::summarize($plays, min($days, 90));
             // Members' names for "server type|user name".
             $names = ServerAccount::with(['user', 'mediaServer'])->whereNotNull('remote_username')->get()
-                ->mapWithKeys(fn ($a) => [$a->mediaServer->type->value.'|'.strtolower((string) $a->remote_username) => $a->user?->name])->all();
+                ->mapWithKeys(fn ($a) => [$a->mediaServer->type->value.'|'.strtolower((string) $a->remote_username) => $a->user->name])->all();
             $summary['people'] = collect($summary['people'])->take(10)->mapWithKeys(fn ($h, $key) => [($names[$key] ?? explode('|', $key)[1] ?? $key) => $h])->all();
 
             return $summary;
