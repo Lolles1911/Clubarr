@@ -54,8 +54,7 @@ trait SignsInWithPlex
     protected function withPlexToken(array $data): array
     {
         $token = session('admin.plex.token');
-        $record = property_exists($this, 'record') ? $this->record : null;
-        $type = $data['type'] ?? ($record instanceof MediaServer ? $record->type->value : null);
+        $type = $data['type'] ?? ($this->record instanceof MediaServer ? $this->record->type->value : null);
         if (is_string($token) && $token !== '' && blank($data['api_key'] ?? null) && $type === ServerType::Plex->value) {
             $data['api_key'] = $token;
         }
