@@ -60,6 +60,10 @@ class SiteSettings
         // Alerts to the admins' Discord channel: the webhook (secret) and the events, comma separated.
         'alerts_webhook_url' => '',
         'alerts_events' => null,
+        // Remove old data after these days (0: keep); see Retention.
+        'retention_log_days' => '365',
+        'retention_invitations_days' => '90',
+        'retention_requests_days' => '180',
         // The member mails' words (see MailTexts); empty: Clubarr's own.
         'mail_text_welcome_subject' => '',
         'mail_text_welcome_body' => '',

@@ -218,6 +218,12 @@ class Settings extends Page
                         TextInput::make('cleanup_days')->label(__('Delete their users on the servers after'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days'))
                             ->helperText(__('When access ends, users are paused. This deletes them on the servers (Plex: the share) after the days set; the Clubarr account stays. 0: never.')),
                     ]),
+                    Section::make(__('Old data'))->columns(3)->description(__('Removed every night after the days set. 0: keep.'))->schema([
+                        TextInput::make('retention_log_days')->label(__('The log'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days')),
+                        TextInput::make('retention_invitations_days')->label(__('Invitations that ended or were used up'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days'))
+                            ->helperText(__('Not templates.')),
+                        TextInput::make('retention_requests_days')->label(__('Decided requests, closed reports, old waiting list'))->numeric()->minValue(0)->maxValue(3650)->suffix(__('days')),
+                    ]),
                 ]),
                 Tab::make(__('Backup'))->key('backup')->icon(Heroicon::OutlinedArchiveBox)->schema(Backups::supported() ? [
                     Section::make(__('Download a backup'))
