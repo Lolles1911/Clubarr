@@ -18,6 +18,8 @@ class SiteSettings
 
     public const DEFAULTS = [
         'site_name' => 'Clubarr',
+        // Accent colour (#rrggbb; empty = violet).
+        'brand_color' => '',
         'locale' => 'en',
         'mail_enabled' => '0',
         'mail_host' => '',
@@ -86,7 +88,8 @@ class SiteSettings
             return $this->values;
         }
         try {
-            $raw = Cache::remember('clubarr:settings', 60, fn () => Setting::pluck('value', 'key')->all());
+            // Pictures ("blob_" keys) are read on their own (Branding), not with every setting.
+            $raw = Cache::remember('clubarr:settings', 60, fn () => Setting::where('key', 'not like', 'blob%')->pluck('value', 'key')->all());
         } catch (Throwable) {
             return []; // before the database exists
         }

@@ -11,6 +11,7 @@ use App\Models\Invitation;
 use App\Services\AdminAlerts;
 use App\Services\Audit;
 use App\Services\Backups;
+use App\Services\Branding;
 use App\Services\SiteMail;
 use App\Services\SiteSettings;
 use BackedEnum;
@@ -18,6 +19,7 @@ use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -90,6 +92,17 @@ class Settings extends Page
                     Select::make('locale')->label(__('Language'))->options(ApplySiteLocale::LOCALES)->required(),
                     Textarea::make('help_text')->label(__('Getting started text'))->rows(6)->maxLength(5000)->columnSpanFull()
                         ->helperText(__('Shown to members on their page: which apps to use, house rules, where to ask. Plain text.')),
+                    ColorPicker::make('brand_color')->label(__('Accent colour'))->regex('/^#[0-9a-fA-F]{6}$/')
+                        ->helperText(__('Buttons and links, for admins and members. Empty: violet.')),
+                    FileUpload::make('logo')->label(__('Logo'))->image()->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])->maxSize(300)->storeFiles(false)
+                        ->helperText(__('PNG, JPEG or WebP, at most 300 KB; shown instead of the name. A wide logo about 4 times as wide as high looks best.'))
+                        ->hintAction(Action::make('removeLogo')->label(__('Remove the logo'))->color('danger')->requiresConfirmation()
+                            ->visible(fn () => Branding::logoUrl() !== null)
+                            ->action(function () {
+                                Branding::removeLogo();
+                                Audit::log('settings.logo_removed');
+                                $this->redirect(static::getUrl());
+                            })),
                     Toggle::make('update_check')->label(__('Tell me when a new Clubarr is out'))->columnSpanFull()
                         ->helperText(__('Once a day Clubarr reads the public list of releases on GitHub. Nothing about your Clubarr is sent.')),
                 ]),
@@ -200,6 +213,18 @@ class Settings extends Page
     public function save(): void
     {
         $data = $this->form->getState();
+        $logo = $data['logo'] ?? null;
+        unset($data['logo']);
+        if ($logo instanceof TemporaryUploadedFile) {
+            try {
+                Branding::storeLogo((string) $logo->get());
+                Audit::log('settings.logo_changed');
+            } catch (\RuntimeException $e) {
+                Notification::make()->title($e->getMessage())->danger()->send();
+
+                return;
+            }
+        }
         $data['mail_enabled'] = ! empty($data['mail_enabled']) ? '1' : '0';
         $was = app(SiteSettings::class)->get('admin_2fa_required');
         $data['admin_2fa_required'] = ! empty($data['admin_2fa_required']) ? '1' : '0';

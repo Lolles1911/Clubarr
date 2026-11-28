@@ -2,10 +2,12 @@
 
 namespace App\MediaServers\Drivers;
 
+use App\MediaServers\Contracts\ListsRecentlyAdded;
 use App\MediaServers\Contracts\MediaServerDriver;
 use App\MediaServers\Contracts\SharesWithPlexAccounts;
 use App\MediaServers\Data\LibraryData;
 use App\MediaServers\Data\PlexIdentity;
+use App\MediaServers\Data\RecentItem;
 use App\MediaServers\Data\RemoteUser;
 use App\MediaServers\Data\ServerInfo;
 use App\MediaServers\MediaServerException;
@@ -18,7 +20,7 @@ use App\Services\SiteSettings;
  * libraries with it (plex.tv's sharing API, as Plex Web uses it). The key is
  * the owner's Plex token. Tokens always go in headers, never in addresses.
  */
-class PlexDriver implements MediaServerDriver, SharesWithPlexAccounts
+class PlexDriver implements ListsRecentlyAdded, MediaServerDriver, SharesWithPlexAccounts
 {
     private ServerHttp $local;
 
@@ -65,6 +67,46 @@ class PlexDriver implements MediaServerDriver, SharesWithPlexAccounts
 
         return array_values(array_map(fn (array $s) => new LibraryData((string) $s['id'], (string) ($s['title'] ?? ''), $s['type'] ?? null),
             array_filter($sections, fn ($s) => is_array($s) && isset($s['id']))));
+    }
+
+    /** Plex's recently added; a member's libraries are matched by name (plex.tv and the server number them differently). */
+    public function recentlyAdded(?array $libraryIds, int $limit): array
+    {
+        $names = $libraryIds === null ? null : $this->server->libraries()->whereIn('external_id', $libraryIds)->pluck('name')->all();
+        $found = $this->local->json('GET', '/library/recentlyAdded', ['X-Plex-Container-Start' => 0, 'X-Plex-Container-Size' => $limit * 3])['MediaContainer']['Metadata'] ?? [];
+        $items = [];
+        foreach (array_filter($found, 'is_array') as $item) {
+            if ($names !== null && ! in_array((string) ($item['librarySectionTitle'] ?? ''), $names, true)) {
+                continue;
+            }
+            $show = in_array($item['type'] ?? '', ['episode', 'season'], true);
+            $thumb = (string) ($show ? ($item['grandparentThumb'] ?? $item['parentThumb'] ?? '') : ($item['thumb'] ?? ''));
+            $title = (string) ($show ? ($item['grandparentTitle'] ?? $item['parentTitle'] ?? '') : ($item['title'] ?? ''));
+            $key = (string) ($show ? ($item['grandparentRatingKey'] ?? $item['parentRatingKey'] ?? '') : ($item['ratingKey'] ?? ''));
+            if ($title === '' || ! self::isPosterPath($thumb) || isset($items[$key]) || ! in_array($item['type'] ?? '', ['movie', 'episode', 'season'], true)) {
+                continue;
+            }
+            $items[$key] = new RecentItem($thumb, $title, $show ? null : (isset($item['year']) ? (int) $item['year'] : null), (int) ($item['addedAt'] ?? 0));
+        }
+
+        return array_slice(array_values($items), 0, $limit);
+    }
+
+    public function poster(string $ref): ?array
+    {
+        if (! self::isPosterPath($ref)) {
+            return null;
+        }
+        $response = $this->local->send('GET', '/photo/:/transcode', ['url' => $ref, 'width' => 300, 'height' => 450, 'minSize' => 1, 'upscale' => 1]);
+        $type = strtolower(trim(explode(';', (string) $response->header('Content-Type'))[0]));
+
+        return in_array($type, ['image/jpeg', 'image/png', 'image/webp'], true) ? ['type' => $type, 'body' => $response->body()] : null;
+    }
+
+    /** Only the server's own poster paths, e.g. /library/metadata/123/thumb/1699999999. */
+    private static function isPosterPath(string $path): bool
+    {
+        return preg_match('~^/library/metadata/\d{1,12}/(thumb|art)/\d{1,12}$~', $path) === 1;
     }
 
     /** The plex.tv accounts the server is shared with. */

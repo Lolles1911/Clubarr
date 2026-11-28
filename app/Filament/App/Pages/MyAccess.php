@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\AccessManager;
 use App\Services\Audit;
 use App\Services\DiscordSync;
+use App\Services\NewOnServers;
 use App\Services\SiteSettings;
 use App\Services\Watching;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
@@ -99,6 +100,17 @@ class MyAccess extends Dashboard
             return app(Watching::class)->posterRows($this->member());
         } catch (Throwable) {
             return ['continue' => [], 'popular' => [], 'new' => []];
+        }
+    }
+
+    /** @return list<array{key: string, title: string, year: int|null, server: string}> */
+    #[Unexposed]
+    public function newOnServers(): array
+    {
+        try {
+            return app(NewOnServers::class)->forMember($this->member());
+        } catch (Throwable) {
+            return [];
         }
     }
 
