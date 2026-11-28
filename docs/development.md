@@ -18,14 +18,16 @@ vendor/bin/phpstan        # static analysis (Larastan)
 | Where | What |
 |---|---|
 | `app/MediaServers/` | Talking to media servers. `Contracts/` says what a server can do; `Drivers/` has one class per type; `ServerHttp` is the only HTTP client (timeouts, no redirects, safe errors). |
-| `app/Services/` | What Clubarr does: `Redeemer` (an invitation from start to end), `AccessManager` (giving, pausing, removing access), `ServerSync`, `PlexLogin`, `PlexFinder`, `SiteSettings`, `SetupState`, `Audit` (every log line can become an alert: `AdminAlerts`), `Backups`, `Branding`, `NewOnServers`, `UpdateCheck`. |
-| `app/Filament/Admin/` | /admin: resources (servers, invitations, members, log), Settings, widgets. |
-| `app/Filament/App/` | The members' side: My access, Join (/join/{code}), Setup. |
+| `app/Services/` | What Clubarr does: `Redeemer` (an invitation from start to end), `AccessManager` (giving, pausing, removing access), `ServerSync`, `PlexLogin`, `PlexFinder`, `SiteSettings`, `SetupState`, `Audit` (every log line can become an alert: `AdminAlerts`), `Backups`, `Branding`, `NewOnServers`, `UpdateCheck`, `GroupRules`, `LoginGuard` (failed sign-ins, lock, new devices), `AlertChannels`, `MailTexts`, `Retention`, `Watching` and `ComingSoon`. |
+| `app/Integrations/` | Other programs: Tracearr and Tautulli (both a `WatchSource`), Seerr, Discord. |
+| `app/Http/Controllers/Api/` | The REST API (`routes/api.php`, docs/api.md); keys are checked by `AuthenticateApiKey`. |
+| `app/Filament/Admin/` | /admin: resources (servers, invitations, members, groups, API keys, log), Settings, and settings pages built on `SettingsPage` (Integrations, Notifications, Mail texts), Statistics, widgets. Navigation groups: `NavigationGroup`. |
+| `app/Filament/App/` | The members' side: My access, My statistics, Join (/join/{code}), Setup. `app/Filament/Pages/Auth/` has the sign-in and profile pages both panels use. |
 | `app/Models/`, `app/Enums/` | Data. Secrets use the `encrypted` cast. |
 | `app/Console/Commands/` | `clubarr:check-access` (hourly), `clubarr:check-servers` (every 5 minutes; also fetches "New on the server"), `clubarr:stream-limits`, `clubarr:waitlist`, `clubarr:backup` (nightly), `clubarr:check-update` (daily), `clubarr:setup-token`. |
-| `app/Jobs/` | Queued work: admin alerts (Discord webhook) and messages to members. |
+| `app/Jobs/` | Queued work: admin alerts (one job per channel) and messages to members. |
 | `docker/` | The container: entrypoint, nginx, PHP-FPM, supervisord. |
-| `lang/da.json` | Danish, for most texts; newer ones show in English until translated. A test checks the placeholders of the lines there. |
+| `lang/da.json` | Danish, for older texts; new texts are English only. A test checks the placeholders of the lines there. |
 
 ## Adding a server type
 

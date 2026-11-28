@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Messages to the admins' Discord channel (a webhook), for the events they
- * turned on under Settings → Notifications. Fed from the audit log, so every
+ * turned on under Notifications. Fed from the audit log, so every
  * event that is logged can become an alert in one place. Sent on the queue:
  * a slow Discord never holds up the member.
  */

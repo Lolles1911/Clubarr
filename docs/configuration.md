@@ -41,12 +41,31 @@ Admin → Settings → Backup.
 
 ## Notifications
 
-Admin → Settings → Notifications: paste a Discord webhook URL (the channel →
-Edit channel → Integrations → Webhooks → New webhook → Copy webhook URL) and
-tick what you want to hear about: a new member, a media server that stops
-answering (checked every 5 minutes) and comes back, someone on the waiting
-list, a stream stopped for the limit, a new Clubarr version. **Send a test
-message** checks it.
+Admin → System → Notifications: tick what you want to hear about (a new
+member, a media server that stops answering and comes back, someone on the
+waiting list, a stream stopped for the limit, an account locked after
+failed sign-ins, a new Clubarr version), and where:
+
+- **Discord**: a webhook URL (the channel → Edit channel → Integrations →
+  Webhooks → New webhook → Copy webhook URL).
+- **ntfy**: the topic's address (e.g. `https://ntfy.sh/a-long-random-name`)
+  and, for your own ntfy, an access token.
+- **Telegram**: a bot token from @BotFather and the chat's ID.
+- **Gotify**: its address and an application token.
+- **Webhook**: any address; Clubarr posts JSON `{"site", "text", "time"}`.
+  With a secret, `X-Clubarr-Signature: sha256=<HMAC-SHA256 of the body>`.
+
+**Send a test message** tries every channel that is set up.
+
+## Mail texts
+
+Admin → System → Mail texts: the subject and words of the welcome mail and
+the "access ends soon" and "access has ended" mails. `{name}`, `{site}`
+and `{date}` are filled in; an empty field uses Clubarr's own text.
+
+## API
+
+Admin → System → API keys. See [api.md](api.md).
 
 ## Messages to members
 
@@ -66,9 +85,14 @@ Point the proxy at port 8080 and set `APP_URL`, `TRUSTED_PROXIES` and
 `SESSION_SECURE_COOKIE=true`. Clubarr sends its own security headers; the
 proxy should not add a conflicting `Content-Security-Policy`.
 
-## Tracearr, Seerr and Discord
+## Tracearr, Tautulli, Sonarr, Radarr, Seerr and Discord
 
-All under Admin → Settings → Integrations; each has its own **Test** button.
+All under Admin → System → Integrations; each has its own **Test** button.
+
+- **Tautulli** (Plex): its address and API key. Used for what members watch
+  when Tracearr is not set up.
+- **Sonarr and Radarr**: their addresses and API keys. Gives "Coming soon"
+  on the members' page.
 
 - **Tracearr**: its address and a public API key (Tracearr → Settings →
   Data & API, starts with `trr_pub_`). Gives My devices, stream limits,
@@ -114,6 +138,30 @@ the days set: a mail a week before, then paused; last watched comes from
 Jellyfin/Emby, or Tracearr, which is needed for Plex) and **after access
 ends** (delete their users on the servers after the days set). Both run
 daily at 05:13; 0 turns them off. Servers are synced every 15 minutes.
+
+**Old data** is removed every night after the days set (0 keeps it): the
+log (365), invitations that ended or were used up (90; never templates),
+and decided requests, closed reports and old waiting-list entries (180).
+
+## Media server clean-up
+
+Media servers → **Clean up** (shown when a server has users no member has):
+choose which of them to delete on the server. Server administrators are
+never listed; to keep someone, use **Import users** instead.
+
+## Groups
+
+Admin → Members → Groups: e.g. "Family" with rules for everyone in it
+(access never ends, streams at once, requests a week, may request). In
+several groups, a member gets the most generous. An invitation can put new
+members in a group.
+
+## Sign-in security
+
+After 10 failed sign-ins, an account is locked for 15 minutes. Settings →
+Security → "Mail people when their account is signed in to from a new
+device". People see where they are signed in on their profile and can
+sign out everywhere else.
 
 ## Applications
 

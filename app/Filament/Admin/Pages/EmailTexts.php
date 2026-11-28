@@ -2,19 +2,11 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Filament\Admin\NavigationGroup;
-use App\Services\Audit;
 use App\Services\MailTexts;
 use App\Services\SiteSettings;
 use BackedEnum;
-use Filament\Actions\Action;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Notifications\Notification;
-use Filament\Pages\Page;
-use Filament\Schemas\Components\Actions;
-use Filament\Schemas\Components\EmbeddedSchema;
-use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
@@ -23,21 +15,14 @@ use Filament\Support\Icons\Heroicon;
 /**
  * The words of the mails to members. Empty fields use Clubarr's own text
  * (shown greyed out). Plain text only; the button and the greeting stay.
- *
- * @property-read Schema $form
  */
-class EmailTexts extends Page
+class EmailTexts extends SettingsPage
 {
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPencilSquare;
 
     protected static ?int $navigationSort = 14;
 
-    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::System;
-
     protected static ?string $slug = 'mail-texts';
-
-    /** @var array<string, mixed>|null */
-    public ?array $data = [];
 
     #[Unexposed]
     public static function getNavigationLabel(): string
@@ -51,11 +36,9 @@ class EmailTexts extends Page
         return __('Mail texts');
     }
 
-    #[Unexposed]
-    public function mount(): void
+    protected function keys(): array
     {
-        $s = app(SiteSettings::class);
-        $this->form->fill(collect(MailTexts::keys())->mapWithKeys(fn (string $key) => [$key => $s->get($key)])->all());
+        return MailTexts::keys();
     }
 
     #[Unexposed]
@@ -74,22 +57,5 @@ class EmailTexts extends Page
                 TextInput::make('mail_text_'.$key.'_subject')->label(__('Subject'))->maxLength(150)->placeholder($defaults[$key][0]),
                 Textarea::make('mail_text_'.$key.'_body')->label(__('Text'))->rows(4)->maxLength(3000)->placeholder($defaults[$key][1]),
             ]))->values()->all());
-    }
-
-    #[Unexposed]
-    public function content(Schema $schema): Schema
-    {
-        return $schema->components([
-            Form::make([EmbeddedSchema::make('form')])->id('form')->livewireSubmitHandler('save')
-                ->footer([Actions::make([Action::make('save')->label(__('Save'))->submit('save')])]),
-        ]);
-    }
-
-    public function save(): void
-    {
-        $data = collect($this->form->getState())->only(MailTexts::keys())->map(fn ($v) => trim((string) $v))->all();
-        app(SiteSettings::class)->set($data);
-        Audit::log('settings.mail_texts_saved', null, ['changed' => array_keys(array_filter($data))]);
-        Notification::make()->title(__('Saved.'))->success()->send();
     }
 }

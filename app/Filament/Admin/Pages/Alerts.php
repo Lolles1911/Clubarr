@@ -2,7 +2,6 @@
 
 namespace App\Filament\Admin\Pages;
 
-use App\Filament\Admin\NavigationGroup;
 use App\Services\AdminAlerts;
 use App\Services\AlertChannels;
 use App\Services\Audit;
@@ -12,10 +11,6 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
-use Filament\Pages\Page;
-use Filament\Schemas\Components\Actions;
-use Filament\Schemas\Components\EmbeddedSchema;
-use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Components\Attributes\Unexposed;
@@ -26,10 +21,8 @@ use RuntimeException;
  * Admin alerts: what to be told about, and where (Discord, ntfy, Telegram,
  * Gotify, a webhook). Addresses and tokens are stored encrypted and never
  * sent back to the browser; empty keeps the stored one.
- *
- * @property-read Schema $form
  */
-class Alerts extends Page
+class Alerts extends SettingsPage
 {
     /** Secret fields per channel, for "Remove". */
     private const CHANNEL_KEYS = [
@@ -44,12 +37,7 @@ class Alerts extends Page
 
     protected static ?int $navigationSort = 12;
 
-    protected static string|\UnitEnum|null $navigationGroup = NavigationGroup::System;
-
     protected static ?string $slug = 'alerts';
-
-    /** @var array<string, mixed>|null */
-    public ?array $data = [];
 
     #[Unexposed]
     public static function getNavigationLabel(): string
@@ -118,16 +106,14 @@ class Alerts extends Page
         ]);
     }
 
-    #[Unexposed]
-    public function content(Schema $schema): Schema
+    protected function keys(): array
     {
-        return $schema->components([
-            Form::make([EmbeddedSchema::make('form')])->id('form')->livewireSubmitHandler('save')
-                ->footer([Actions::make([
-                    Action::make('save')->label(__('Save'))->submit('save'),
-                    Action::make('testAlert')->label(__('Send a test message'))->color('gray')->icon('heroicon-m-paper-airplane')->action(fn () => $this->test()),
-                ])]),
-        ]);
+        return ['alerts_events', ...array_merge(...array_values(self::CHANNEL_KEYS))];
+    }
+
+    protected function footerActions(): array
+    {
+        return [Action::make('testAlert')->label(__('Send a test message'))->color('gray')->icon('heroicon-m-paper-airplane')->action(fn () => $this->test())];
     }
 
     public function save(): void
@@ -135,17 +121,8 @@ class Alerts extends Page
         $data = $this->form->getState();
         // "-" when none is chosen: empty would mean "not set yet", which is all.
         $data['alerts_events'] = implode(',', array_intersect((array) ($data['alerts_events'] ?? []), array_keys(AdminAlerts::EVENTS))) ?: '-';
-        foreach (SiteSettings::SECRET as $key) {
-            if (array_key_exists($key, $data) && blank($data[$key])) {
-                unset($data[$key]); // empty: keep the stored one
-            }
-        }
-        $data = collect($data)->map(fn ($v) => $v === null ? '' : (string) $v)->all();
-        app(SiteSettings::class)->set($data);
+        $this->store($data);
         Audit::log('settings.alerts_saved', null, ['channels' => AlertChannels::configured()]);
-        foreach (SiteSettings::SECRET as $key) {
-            unset($this->data[$key]);
-        }
         Notification::make()->title(__('Saved.'))->success()->send();
     }
 

@@ -1,6 +1,6 @@
 <x-filament-panels::page>
     @if (! $this->enabled())
-        <x-filament::section>{{ __('Set up Tracearr or Tautulli under Settings → Integrations to see what is watched.') }}</x-filament::section>
+        <x-filament::section>{{ __('Set up Tracearr or Tautulli under Integrations to see what is watched.') }}</x-filament::section>
     @else
         @php($s = $this->summary())
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
