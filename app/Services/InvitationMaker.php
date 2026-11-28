@@ -19,7 +19,7 @@ use Throwable;
  */
 class InvitationMaker
 {
-    public const SETTINGS = ['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id'];
+    public const SETTINGS = ['label', 'expires_at', 'max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id', 'wizard_bundle_id'];
 
     public static function link(string $code): string
     {
@@ -56,7 +56,7 @@ class InvitationMaker
      */
     public function setupOf(Invitation $source): array
     {
-        $settings = $source->only(['max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id']);
+        $settings = $source->only(['max_uses', 'access_days', 'max_streams', 'request_limit', 'greeting', 'seerr_access', 'member_group_id', 'wizard_bundle_id']);
         $pivot = [];
         foreach ($source->mediaServers as $server) {
             $ids = $source->libraryIdsFor($server);

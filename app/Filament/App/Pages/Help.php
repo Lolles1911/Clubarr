@@ -4,7 +4,9 @@ namespace App\Filament\App\Pages;
 
 use App\Models\ProblemReport;
 use App\Models\User;
+use App\Models\WizardStep;
 use App\Services\MemberRequests;
+use App\Services\WizardSteps;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
@@ -55,6 +57,13 @@ class Help extends Page
     public function reports(): Collection
     {
         return ProblemReport::where('user_id', $this->member()->id)->with('mediaServer')->latest()->limit(20)->get();
+    }
+
+    /** @return \Illuminate\Support\Collection<int, WizardStep> the guides (the wizard's steps for after joining) */
+    #[Unexposed]
+    public function guides(): \Illuminate\Support\Collection
+    {
+        return app(WizardSteps::class)->forMember($this->member());
     }
 
     public function reportAction(): Action

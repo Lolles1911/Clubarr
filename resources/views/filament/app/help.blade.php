@@ -6,6 +6,17 @@
         </div>
     </x-filament::section>
 
+    @php($guides = $this->guides())
+    @if ($guides->isNotEmpty())
+        <h2 style="font-size:1.1rem;font-weight:600;margin-top:.5rem">{{ __('Guides') }}</h2>
+        @foreach ($guides as $step)
+            <x-filament::section :heading="$step->title" :description="$step->mediaServer?->name" collapsible collapsed>
+                @include('filament.app.wizard-step', ['step' => $step])
+            </x-filament::section>
+        @endforeach
+        <h2 style="font-size:1.1rem;font-weight:600;margin-top:.5rem">{{ __('Your messages to us') }}</h2>
+    @endif
+
     @foreach ($this->reports() as $report)
         <x-filament::section :heading="$report->subject" :description="$report->created_at->translatedFormat('j M Y').($report->mediaServer ? ' · '.$report->mediaServer->name : '')">
             <x-slot name="afterHeader">

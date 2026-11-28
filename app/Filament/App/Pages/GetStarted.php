@@ -5,7 +5,9 @@ namespace App\Filament\App\Pages;
 use App\Enums\AccountStatus;
 use App\Models\ServerAccount;
 use App\Models\User;
+use App\Models\WizardStep;
 use App\Services\SiteSettings;
+use App\Services\WizardSteps;
 use Filament\Facades\Filament;
 use Filament\Pages\Page;
 use Filament\Support\Components\Attributes\Unexposed;
@@ -38,6 +40,16 @@ class GetStarted extends Page
         $user = Filament::auth()->user();
 
         return $user->serverAccounts()->with('mediaServer')->whereIn('status', [AccountStatus::Active, AccountStatus::Pending])->orderBy('id')->get();
+    }
+
+    /** @return \Illuminate\Support\Collection<int, WizardStep> the admin's steps for after joining */
+    #[Unexposed]
+    public function steps(): \Illuminate\Support\Collection
+    {
+        /** @var User $user */
+        $user = Filament::auth()->user();
+
+        return app(WizardSteps::class)->forMember($user);
     }
 
     #[Unexposed]

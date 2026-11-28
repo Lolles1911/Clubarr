@@ -22,7 +22,7 @@ class PagesTest extends TestCase
         $this->actingAs($admin);
 
         foreach (['/admin', '/admin/settings', '/admin/integrations', '/admin/alerts', '/admin/mail-texts', '/admin/stats', '/admin/api-keys',
-            '/admin/maintenances', '/admin/users', '/admin/users/'.$member->id, '/admin/member-groups', '/admin/invitations', '/admin/media-servers', '/admin/audit-logs'] as $path) {
+            '/admin/maintenances', '/admin/wizard', '/admin/wizard-bundles', '/admin/users', '/admin/users/'.$member->id, '/admin/member-groups', '/admin/invitations', '/admin/media-servers', '/admin/audit-logs'] as $path) {
             $this->get($path)->assertOk();
         }
         $this->actingAs($member);

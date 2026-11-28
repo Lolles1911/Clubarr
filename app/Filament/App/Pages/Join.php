@@ -10,12 +10,14 @@ use App\MediaServers\MediaServerException;
 use App\Models\Invitation;
 use App\Models\MediaServer;
 use App\Models\User;
+use App\Models\WizardStep;
 use App\Services\InvitationProblem;
 use App\Services\NewOnServers;
 use App\Services\PlexLogin;
 use App\Services\Redeemer;
 use App\Services\SiteSettings;
 use App\Services\Waitlist;
+use App\Services\WizardSteps;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
 use Filament\Actions\Action;
@@ -160,12 +162,17 @@ class Join extends SimplePage
             $guest || $needsUsername ? TextInput::make('password_confirmation')->label(__('Password again'))->password()->revealable()->required()->dehydrated(false) : null,
         ]));
 
-        // Two steps: what is waiting, then the account. (Step 3, the apps, comes after joining: Get started.)
+        // What is waiting, the admin's own steps (the wizard, "before"), then the account. (After joining: Get started.)
+        $before = app(WizardSteps::class)->forInvitation($invitation, 'before')
+            ->map(fn (WizardStep $step) => Step::make($step->title)->icon('heroicon-o-information-circle')
+                ->schema([View::make('filament.app.wizard-step')->viewData(['step' => $step])]))->all();
+
         return $schema->statePath('data')->components([
             Wizard::make([
                 Step::make(__('Welcome'))->icon('heroicon-o-sparkles')->schema([
                     View::make('filament.app.join-welcome')->viewData(['welcome' => $this->welcome($invitation)]),
                 ]),
+                ...$before,
                 Step::make(__('Your account'))->icon('heroicon-o-user-circle')->schema($account),
             ])->submitAction(new HtmlString(Blade::render('<x-filament::button type="submit" size="lg" icon="heroicon-m-check">'.e(Filament::auth()->check() ? __('Add to my account') : __('Create my account')).'</x-filament::button>'))),
         ]);
