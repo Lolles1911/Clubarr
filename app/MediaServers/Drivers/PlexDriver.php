@@ -80,13 +80,18 @@ class PlexDriver implements MediaServerDriver, SharesWithPlexAccounts
     public function share(PlexIdentity $member, ?array $libraryIds): RemoteUser
     {
         $libraryIds ??= array_map(fn (LibraryData $l) => $l->id, $this->libraries());
-        $this->plexTv->send('POST', '/api/servers/'.rawurlencode($this->machineId()).'/shared_servers', json: [
+        $response = $this->plexTv->send('POST', '/api/servers/'.rawurlencode($this->machineId()).'/shared_servers', json: [
             'server_id' => $this->machineId(),
             'shared_server' => ['library_section_ids' => array_map('intval', $libraryIds), 'invited_email' => $member->email ?: $member->username],
             'sharing_settings' => (object) [],
         ]);
+        // A typed email has no plex.tv ID yet; plex.tv may tell it in its answer.
+        $id = $member->id;
+        if ($id === '' && preg_match('/invited_?[iI]d"?\s*[=:]\s*"?(\d+)/', $response->body(), $m)) {
+            $id = $m[1];
+        }
 
-        return new RemoteUser($member->id, $member->username, $member->email);
+        return new RemoteUser($id, $member->username, $member->email);
     }
 
     public function acceptShare(string $memberToken): bool

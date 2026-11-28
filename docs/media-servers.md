@@ -8,7 +8,7 @@ administrators.**
 |---|---|---|---|---|
 | **Jellyfin** | API key (Dashboard → API Keys) | Clubarr makes the user with the member's user name and password, with the invitation's libraries | The user is disabled | On their page |
 | **Emby** | API key | As Jellyfin | As Jellyfin | On their page |
-| **Plex** | The server owner's Plex token | The member signs in with Plex; Clubarr shares the libraries with their account and accepts the share for them | The share is removed (and made again on resume) | Their own Plex account's |
+| **Plex** | The server owner's Plex token | The member signs in with Plex (Clubarr accepts the share for them) or types their Plex email (they accept Plex's invitation) | The share is removed (and made again on resume) | Their own Plex account's |
 | **Silo** | API key of an admin account, full access | Clubarr makes a one-time Silo link; the member chooses their user on Silo | The account is disabled | A Silo password link on their page |
 
 - **Address Clubarr uses** is how Clubarr reaches the server (often a LAN
@@ -16,9 +16,13 @@ administrators.**
   Plex: members use app.plex.tv).
 - **Test** on the form checks the address and key before you save. **Sync**
   on a server's row reads the libraries and updates members' users.
-- **Plex**: press **Sign in with Plex**, approve in the window, then
-  **Choose server**: the address and token are filled in. On a phone the
-  Plex tab comes back to Clubarr by itself after you approve.
+- **Plex**: press **Find Plex on the network** and choose the server: the
+  address is filled in. Nothing found (another network, another port)? Type
+  the address yourself, e.g. `http://192.168.1.10:32400`. Then add the server
+  owner's Plex token and press **Test**.
+- **Plex members** either press **Sign in with Plex** (the share is accepted
+  for them), or type their Plex email or user name; then Plex sends them an
+  invitation to accept, and Clubarr marks them active once they have.
 - **Import users** (on the server's row) brings users that already exist on
   the server into Clubarr, many at once. With an email the server knows
   (Plex, Silo), they get a mail to choose their password. Without (Jellyfin,

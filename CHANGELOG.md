@@ -3,6 +3,17 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.2.3-beta (2026-11-28)
+
+### Plex
+- **Find Plex on the network** replaces "Sign in with Plex" on the server
+  form: Clubarr looks for Plex on the network you opened it on (ports 32400
+  and 32401) and fills in the address you choose. Nothing found? Type the
+  address yourself. The server owner's token is added by hand, as before.
+- **Members can type their Plex email or user name** instead of signing in
+  with Plex. Plex sends them an invitation; once they accept it, Clubarr
+  sees it and marks their access active. "Sign in with Plex" is still there.
+
 ## 0.2.2-beta (2026-11-28)
 
 ### Fixed

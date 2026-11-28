@@ -12,7 +12,8 @@ Silo servers.** Self-hosted, one Docker container. *Beta.*
   two-factor sign-in; required for admins unless you turn it off) and a page with their servers, user names, how to open
   them, when access ends, and a new password for watching.
 - **Every server the way it works**: Jellyfin and Emby users are made for
-  them; Plex is shared with their own Plex account ("Sign in with Plex");
+  them; Plex is shared with their own Plex account (sign in with Plex, or
+  just type the Plex email);
   Silo users are made on Silo's own page.
 - **Admin**: media servers, invitations, members (pause, end, remove),
   importing users who already exist on a server, mail, and a log of

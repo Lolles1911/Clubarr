@@ -125,6 +125,11 @@ class Join extends SimplePage
         $needsUsername = $this->serversNeeding(CreatesUsers::class) !== [];
 
         return $schema->statePath('data')->components(array_filter([
+            // Plex without the sign-in window: Plex sends the member an invitation to accept.
+            $this->serversNeeding(SharesWithPlexAccounts::class) !== [] && $this->plexIdentity() === null
+                ? TextInput::make('plex_account')->label(__('Or: your Plex email or user name'))->maxLength(190)->autocomplete('email')
+                    ->regex('/^[^\s<>"\'\/\\\\]{2,190}$/')
+                    ->helperText(__('Instead of signing in with Plex. Plex then sends you an invitation; accept it in the Plex app or in the mail from Plex.')) : null,
             $guest ? TextInput::make('name')->label(__('Your name'))->required()->maxLength(100) : null,
             $guest ? TextInput::make('email')->label(__('Email'))->email()->required()->maxLength(190)
                 ->unique(User::class, 'email')->validationMessages(['unique' => __('An account with this email exists. Sign in first, then open the invitation link again.')]) : null,
@@ -243,12 +248,16 @@ class Join extends SimplePage
         $plex = null;
         if ($this->serversNeeding(SharesWithPlexAccounts::class) !== []) {
             $identity = $this->plexIdentity();
-            if ($identity === null) {
-                Notification::make()->title(__('Sign in with Plex first.'))->warning()->send();
+            $typed = trim((string) ($data['plex_account'] ?? ''));
+            if ($identity === null && $typed === '') {
+                Notification::make()->title(__('Sign in with Plex, or type your Plex email or user name.'))->warning()->send();
 
                 return null;
             }
-            $plex = ['identity' => $identity, 'token' => (string) session('join.plex.done.token')];
+            // Typed: no token, so Plex asks the member to accept the share themselves.
+            $plex = $identity !== null
+                ? ['identity' => $identity, 'token' => (string) session('join.plex.done.token')]
+                : ['identity' => new PlexIdentity('', $typed, str_contains($typed, '@') ? $typed : null), 'token' => ''];
         }
         $existing = Filament::auth()->user();
 
