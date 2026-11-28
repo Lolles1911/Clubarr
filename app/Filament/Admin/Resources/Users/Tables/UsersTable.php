@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Users\Tables;
 
+use App\Filament\Admin\Concerns\CardsOrTable;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\MediaServers\Data\RemoteUser;
 use App\Models\MediaServer;
@@ -43,25 +44,25 @@ class UsersTable
 {
     public static function configure(Table $table): Table
     {
-        return $table
+        return CardsOrTable::apply($table, [
+
+            TextColumn::make('name')->label(__('Name'))->searchable()->weight('medium')->description(fn (User $record) => $record->email),
+            TextColumn::make('email')->searchable()->hidden(),
+            TextColumn::make('servers')->label(__('Servers'))->badge()
+                ->state(fn (User $record) => $record->serverAccounts->map(fn ($a) => $a->mediaServer->name)->all())
+                ->color(fn (User $record, string $state) => $record->serverAccounts->first(fn ($a) => $a->mediaServer->name === $state)?->status->color() ?? 'gray'),
+            TextColumn::make('groups.name')->label(__('Groups'))->badge()->visibleFrom('lg')
+                ->color(fn (User $record, string $state) => $record->groups->firstWhere('name', $state)->color ?? 'gray'),
+            TextColumn::make('access_expires_at')->visibleFrom('sm')->label(__('Access ends'))->date('j M Y')->placeholder(__('No end'))->sortable()
+                ->color(fn (User $record) => $record->hasAccessExpired() ? 'danger' : null),
+            TextColumn::make('role')->visibleFrom('md')->label(__('Role'))->badge()
+                ->state(fn (User $record) => $record->disabled_at ? __('Disabled') : ($record->is_admin ? __('Admin') : __('Member')))
+                ->color(fn (User $record) => $record->disabled_at ? 'danger' : ($record->is_admin ? 'primary' : 'gray')),
+            TextColumn::make('last_login_at')->visibleFrom('md')->label(__('Last sign-in'))->since()->placeholder('—')->sortable(),
+        ])
             ->defaultSort('created_at', 'desc')
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['serverAccounts.mediaServer', 'groups']))
             ->recordUrl(fn (User $record) => UserResource::getUrl('view', ['record' => $record]))
-            ->columns([
-                TextColumn::make('name')->label(__('Name'))->searchable()->weight('medium')->description(fn (User $record) => $record->email),
-                TextColumn::make('email')->searchable()->hidden(),
-                TextColumn::make('servers')->label(__('Servers'))->badge()
-                    ->state(fn (User $record) => $record->serverAccounts->map(fn ($a) => $a->mediaServer->name)->all())
-                    ->color(fn (User $record, string $state) => $record->serverAccounts->first(fn ($a) => $a->mediaServer->name === $state)?->status->color() ?? 'gray'),
-                TextColumn::make('groups.name')->label(__('Groups'))->badge()->visibleFrom('lg')
-                    ->color(fn (User $record, string $state) => $record->groups->firstWhere('name', $state)->color ?? 'gray'),
-                TextColumn::make('access_expires_at')->visibleFrom('sm')->label(__('Access ends'))->date('j M Y')->placeholder(__('No end'))->sortable()
-                    ->color(fn (User $record) => $record->hasAccessExpired() ? 'danger' : null),
-                TextColumn::make('role')->visibleFrom('md')->label(__('Role'))->badge()
-                    ->state(fn (User $record) => $record->disabled_at ? __('Disabled') : ($record->is_admin ? __('Admin') : __('Member')))
-                    ->color(fn (User $record) => $record->disabled_at ? 'danger' : ($record->is_admin ? 'primary' : 'gray')),
-                TextColumn::make('last_login_at')->visibleFrom('md')->label(__('Last sign-in'))->since()->placeholder('—')->sortable(),
-            ])
             ->filters([
                 TernaryFilter::make('is_admin')->label(__('Admins')),
                 SelectFilter::make('groups')->label(__('Group'))->relationship('groups', 'name')->multiple()->preload(),

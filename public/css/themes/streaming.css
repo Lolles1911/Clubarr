@@ -1,0 +1,109 @@
+/*
+ * Clubarr theme "Streaming": dark, a glow of the accent colour, glass cards,
+ * round buttons and big posters. Loaded after Filament's stylesheet (which
+ * is in a cascade layer), so these plain rules win. Dark only.
+ */
+:root { --cb-bg: #07070a; --cb-card: rgba(255,255,255,.04); --cb-card-hover: rgba(255,255,255,.07); --cb-line: rgba(255,255,255,.08); --cb-radius: 1.1rem; }
+
+.fi-body {
+    background-color: var(--cb-bg);
+    background-image:
+        radial-gradient(1100px 520px at 8% -10%, color-mix(in oklab, var(--primary-600) 26%, transparent), transparent 62%),
+        radial-gradient(900px 480px at 100% -6%, color-mix(in oklab, var(--primary-400) 12%, transparent), transparent 60%);
+    background-attachment: fixed;
+    letter-spacing: .005em;
+}
+
+/* Top bar and sidebar: glass over the page */
+.fi-topbar {
+    background: rgba(8,8,12,.55);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    backdrop-filter: blur(18px) saturate(150%);
+    box-shadow: 0 1px 0 var(--cb-line);
+}
+.fi-sidebar { background: rgba(9,9,13,.72); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); box-shadow: 1px 0 0 var(--cb-line); }
+.fi-topbar-item-btn, .fi-sidebar-item-btn { border-radius: 999px; }
+.fi-topbar-item.fi-active .fi-topbar-item-btn, .fi-sidebar-item.fi-active .fi-sidebar-item-btn { background: color-mix(in oklab, var(--primary-500) 18%, transparent); }
+
+/* Headings */
+.fi-header-heading { font-weight: 800; letter-spacing: -.02em; }
+.fi-header-subheading { opacity: .75; }
+
+/* Cards: sections, tables, widgets, modals */
+.fi-section:not(.fi-section-not-contained):not(.fi-aside),
+.fi-section.fi-aside > .fi-section-content-ctn,
+.fi-ta-ctn,
+.fi-wi-stats-overview-stat,
+.fi-wi-chart .fi-section,
+.fi-fo-wizard,
+.fi-in-entry-wrp {
+    background: var(--cb-card);
+    border-radius: var(--cb-radius);
+    box-shadow: 0 0 0 1px var(--cb-line), 0 18px 40px -18px rgba(0,0,0,.6);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+}
+.fi-section.fi-compact:not(.fi-section-not-contained):not(.fi-aside) { border-radius: .9rem; }
+.fi-section.fi-secondary:not(.fi-section-not-contained):not(.fi-aside) { background: rgba(255,255,255,.025); }
+.fi-section-header-heading { font-weight: 700; }
+.fi-modal-window, .fi-dropdown-panel {
+    background: rgba(16,16,22,.92);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+    box-shadow: 0 0 0 1px var(--cb-line), 0 30px 80px -20px rgba(0,0,0,.8);
+    border-radius: var(--cb-radius);
+}
+
+/* Buttons: round; the main ones glow in the accent colour */
+.fi-btn { border-radius: 999px; font-weight: 600; }
+.fi-btn.fi-size-lg, .fi-btn.fi-size-xl { padding-inline: 1.4rem; }
+.fi-btn.fi-color-primary:not(.fi-outlined):not(.fi-disabled) {
+    background-image: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+    box-shadow: 0 8px 24px -8px color-mix(in oklab, var(--primary-500) 70%, transparent);
+}
+.fi-btn.fi-color-primary:not(.fi-outlined):not(.fi-disabled):hover { filter: brightness(1.1); }
+
+/* Fields */
+.fi-input-wrp { border-radius: .8rem; background: rgba(255,255,255,.04); }
+.fi-badge { border-radius: 999px; }
+
+/* Tables: no stripes of grey, a soft hover */
+.fi-ta-row:hover { background: var(--cb-card-hover); }
+
+/* Cards instead of table rows (see Theme::cards()) */
+.fi-ta-content-grid .fi-ta-record {
+    background: var(--cb-card);
+    border-radius: 1rem;
+    box-shadow: 0 0 0 1px var(--cb-line);
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.fi-ta-content-grid .fi-ta-record:hover { transform: translateY(-2px); background: var(--cb-card-hover); box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary-500) 45%, transparent), 0 16px 36px -16px rgba(0,0,0,.7); }
+
+/* Sign-in, invitation and other simple pages: a card floating on the glow */
+.fi-simple-main {
+    background: rgba(14,14,20,.78);
+    -webkit-backdrop-filter: blur(22px) saturate(150%);
+    backdrop-filter: blur(22px) saturate(150%);
+    box-shadow: 0 0 0 1px var(--cb-line), 0 40px 100px -30px rgba(0,0,0,.85);
+    border-radius: 1.4rem;
+}
+.fi-simple-layout { position: relative; }
+.cb-backdrop { position: fixed; inset: 0; z-index: -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; padding: 10px; transform: rotate(-6deg) scale(1.25); opacity: .32; filter: saturate(1.1); pointer-events: none; }
+.cb-backdrop img { width: 100%; aspect-ratio: 2/3; object-fit: cover; border-radius: 10px; }
+.cb-backdrop::after { content: ""; position: fixed; inset: -20%; background: radial-gradient(closest-side, transparent, var(--cb-bg) 85%), linear-gradient(to bottom, rgba(7,7,10,.35), var(--cb-bg)); }
+
+/* Members' page */
+.clubarr-hero {
+    position: relative; overflow: hidden; min-height: 14rem; align-items: flex-end;
+    background: linear-gradient(120deg, color-mix(in oklab, var(--primary-700) 55%, #000), rgba(0,0,0,.2)) !important;
+    border: 1px solid var(--cb-line) !important; border-radius: 1.4rem !important;
+    box-shadow: 0 30px 80px -30px color-mix(in oklab, var(--primary-600) 60%, transparent);
+}
+.clubarr-hero-title { font-size: clamp(1.8rem, 5vw, 2.8rem) !important; letter-spacing: -.03em; }
+.clubarr-hero-bg { position: absolute; inset: 0; z-index: 0; background-size: cover; background-position: center 25%; opacity: .45; filter: blur(2px) saturate(1.2); transform: scale(1.06); }
+.clubarr-hero-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(7,7,10,.92) 0%, rgba(7,7,10,.55) 55%, rgba(7,7,10,.15) 100%), linear-gradient(0deg, rgba(7,7,10,.85), transparent 60%); }
+.clubarr-hero > :not(.clubarr-hero-bg) { position: relative; z-index: 1; }
+.clubarr-row-title { font-size: 1.25rem !important; letter-spacing: -.01em; }
+.clubarr-poster { flex-basis: clamp(7.5rem, 30vw, 11rem) !important; }
+.clubarr-poster img { border-radius: .8rem !important; transition: transform .2s ease, box-shadow .2s ease; box-shadow: 0 12px 30px -12px rgba(0,0,0,.8) !important; }
+.clubarr-poster:hover img { transform: scale(1.04); box-shadow: 0 0 0 2px var(--primary-500), 0 18px 40px -12px rgba(0,0,0,.9) !important; }

@@ -25,7 +25,6 @@ class Landing
     public function data(): array
     {
         $s = app(SiteSettings::class);
-        $color = (string) $s->get('brand_color');
         $posters = [];
         if ($s->get('landing_posters') === '1') {
             try {
@@ -37,7 +36,9 @@ class Landing
         return [
             'site' => (string) $s->get('site_name'),
             'logo' => Branding::logoUrl(),
-            'color' => preg_match('/^#[0-9a-fA-F]{6}$/', $color) ? $color : '#7c3aed',
+            'color' => Theme::accentHex(),
+            'theme' => Theme::current(),
+            'font' => Theme::font(),
             'text' => trim((string) $s->get('landing_text')),
             'login' => Filament::getPanel('app')->getLoginUrl(),
             'apply' => Applications::enabled() ? route('filament.app.apply') : null,

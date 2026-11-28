@@ -1,0 +1,49 @@
+/*
+ * Clubarr theme "Midnight": a navy background, clear cards with a border,
+ * bold accent buttons and badges (like Wizarr). Dark only.
+ */
+:root { --cb-bg: #0f172a; --cb-card: #1e293b; --cb-card-2: #172033; --cb-line: rgba(148,163,184,.18); }
+
+.fi-body { background: var(--cb-bg); }
+.fi-topbar { background: var(--cb-bg); box-shadow: 0 1px 0 var(--cb-line); }
+.fi-sidebar { background: #0b1222; box-shadow: 1px 0 0 var(--cb-line); }
+.fi-topbar-item-btn, .fi-sidebar-item-btn { border-radius: .6rem; font-weight: 600; }
+.fi-topbar-item.fi-active .fi-topbar-item-btn, .fi-sidebar-item.fi-active .fi-sidebar-item-btn {
+    background: var(--primary-500); box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary-300) 60%, transparent);
+}
+.fi-topbar-item.fi-active .fi-topbar-item-btn *, .fi-sidebar-item.fi-active .fi-sidebar-item-btn * { color: #fff !important; }
+
+.fi-header-heading { font-weight: 800; letter-spacing: -.01em; }
+
+.fi-section:not(.fi-section-not-contained):not(.fi-aside),
+.fi-section.fi-aside > .fi-section-content-ctn,
+.fi-ta-ctn,
+.fi-wi-stats-overview-stat,
+.fi-fo-wizard {
+    background: var(--cb-card);
+    border-radius: .9rem;
+    box-shadow: 0 0 0 1px var(--cb-line), 0 10px 24px -14px rgba(0,0,0,.6);
+}
+.fi-section.fi-secondary:not(.fi-section-not-contained):not(.fi-aside) { background: var(--cb-card-2); }
+.fi-modal-window, .fi-dropdown-panel { background: var(--cb-card); box-shadow: 0 0 0 1px var(--cb-line), 0 30px 70px -20px rgba(0,0,0,.8); border-radius: .9rem; }
+
+.fi-btn { border-radius: .6rem; font-weight: 700; }
+.fi-btn.fi-color-primary:not(.fi-outlined):not(.fi-disabled) { box-shadow: 0 6px 18px -8px color-mix(in oklab, var(--primary-500) 80%, transparent); }
+.fi-input-wrp { border-radius: .6rem; background: var(--cb-card-2); }
+.fi-badge { border-radius: .45rem; font-weight: 600; }
+
+.fi-ta-content-grid .fi-ta-record {
+    background: var(--cb-card);
+    border-radius: .9rem;
+    box-shadow: 0 0 0 1px var(--cb-line);
+    transition: box-shadow .15s ease, transform .15s ease;
+}
+.fi-ta-content-grid .fi-ta-record:hover { transform: translateY(-1px); box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary-500) 55%, transparent); }
+
+.fi-simple-main { background: var(--cb-card); border-radius: 1rem; box-shadow: 0 0 0 1px var(--cb-line), 0 30px 70px -25px rgba(0,0,0,.8); }
+.cb-backdrop { display: none; }
+
+.clubarr-hero { background: var(--cb-card) !important; border: 1px solid var(--cb-line) !important; border-left: 4px solid var(--primary-500) !important; }
+.clubarr-hero-bg { display: none; }
+.clubarr-poster img { border-radius: .6rem !important; }
+.clubarr-poster:hover img { box-shadow: 0 0 0 2px var(--primary-500) !important; }

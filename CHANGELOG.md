@@ -3,6 +3,21 @@
 What changed in each version of Clubarr. Each section is also the text of its
 release on GitHub (`.github/release-notes.sh` puts it there).
 
+## 0.11.0-beta (2026-11-30)
+
+### New look
+- **Themes** (Settings → General → Theme):
+  - **Streaming** (the new default): dark, a glow of your accent colour,
+    glass cards, round buttons, big posters; posters drift behind the
+    sign-in and invitation pages, and the newest title fills the greeting on
+    the members' page.
+  - **Midnight**: navy, clear cards and bold colours, like Wizarr.
+  - **Classic**: the look until now, light or dark.
+- **Members and invitations as cards** in the admin (Streaming and Midnight),
+  like Wizarr; Classic keeps tables.
+- The front page and the invitation mail follow the theme's colour and font.
+  Your own accent colour and logo are used in every theme.
+
 ## 0.10.2-beta (2026-11-30)
 
 ### Changed

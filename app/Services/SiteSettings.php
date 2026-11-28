@@ -22,6 +22,8 @@ class SiteSettings
         // Accent colour (#rrggbb; empty = violet).
         'brand_color' => '',
         'locale' => 'en',
+        // The look: streaming | midnight | classic (see Theme).
+        'theme' => 'streaming',
         'mail_enabled' => '0',
         'mail_host' => '',
         'mail_port' => '587',

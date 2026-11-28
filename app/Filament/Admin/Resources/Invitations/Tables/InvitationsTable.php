@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Invitations\Tables;
 
+use App\Filament\Admin\Concerns\CardsOrTable;
 use App\Filament\Admin\Resources\Invitations\InvitationResource;
 use App\Filament\Admin\Resources\Users\UserResource;
 use App\Integrations\Discord;
@@ -43,25 +44,25 @@ class InvitationsTable
 
     public static function configure(Table $table): Table
     {
-        return $table
+        return CardsOrTable::apply($table, [
+
+            TextColumn::make('label')->label(__('Note'))->searchable()->placeholder('—')
+                ->description(fn (Invitation $record) => $record->is_template ? __('Template') : ($record->code() ?? $record->code_hint.'…').($record->by_member && $record->creator ? ' · '.__('from :name', ['name' => $record->creator->name]) : '')),
+            TextColumn::make('mediaServers.name')->visibleFrom('sm')->label(__('Servers'))->badge(),
+            TextColumn::make('uses')->label(__('Used'))
+                ->state(fn (Invitation $record) => $record->uses.' / '.($record->max_uses ?? '∞')),
+            TextColumn::make('used_by')->visibleFrom('md')->label(__('Used by'))->badge()->color('gray')->placeholder('—')
+                ->state(fn (Invitation $record) => $record->accounts->pluck('user.name')->filter()->unique()->values()->all())
+                ->url(fn (Invitation $record) => ($u = $record->accounts->first()?->user) ? UserResource::getUrl('edit', ['record' => $u]) : null),
+            TextColumn::make('access_days')->visibleFrom('md')->label(__('Access'))
+                ->state(fn (Invitation $record) => $record->access_days ? __(':days days', ['days' => $record->access_days]) : __('No end')),
+            TextColumn::make('expires_at')->visibleFrom('lg')->label(__('Link valid until'))->dateTime('j M Y, H:i')->placeholder(__('No end'))->sortable(),
+            TextColumn::make('status')->label(__('Status'))->badge()
+                ->state(fn (Invitation $record) => $record->is_template ? __('Template') : ($record->problem() === null ? __('Open') : ($record->revoked_at ? __('Withdrawn') : ($record->awaiting_approval ? __('Waits for approval') : ($record->expires_at?->isPast() ? __('Expired') : ($record->max_uses !== null && $record->uses >= $record->max_uses ? __('Used up') : __('No servers')))))))
+                ->color(fn (Invitation $record) => $record->problem() === null ? 'success' : ($record->awaiting_approval && $record->revoked_at === null ? 'warning' : 'gray')),
+        ])
             ->defaultSort('created_at', 'desc')
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['mediaServers', 'accounts.user', 'creator']))
-            ->columns([
-                TextColumn::make('label')->label(__('Note'))->searchable()->placeholder('—')
-                    ->description(fn (Invitation $record) => $record->is_template ? __('Template') : ($record->code() ?? $record->code_hint.'…').($record->by_member && $record->creator ? ' · '.__('from :name', ['name' => $record->creator->name]) : '')),
-                TextColumn::make('mediaServers.name')->visibleFrom('sm')->label(__('Servers'))->badge(),
-                TextColumn::make('uses')->label(__('Used'))
-                    ->state(fn (Invitation $record) => $record->uses.' / '.($record->max_uses ?? '∞')),
-                TextColumn::make('used_by')->visibleFrom('md')->label(__('Used by'))->badge()->color('gray')->placeholder('—')
-                    ->state(fn (Invitation $record) => $record->accounts->pluck('user.name')->filter()->unique()->values()->all())
-                    ->url(fn (Invitation $record) => ($u = $record->accounts->first()?->user) ? UserResource::getUrl('edit', ['record' => $u]) : null),
-                TextColumn::make('access_days')->visibleFrom('md')->label(__('Access'))
-                    ->state(fn (Invitation $record) => $record->access_days ? __(':days days', ['days' => $record->access_days]) : __('No end')),
-                TextColumn::make('expires_at')->visibleFrom('lg')->label(__('Link valid until'))->dateTime('j M Y, H:i')->placeholder(__('No end'))->sortable(),
-                TextColumn::make('status')->label(__('Status'))->badge()
-                    ->state(fn (Invitation $record) => $record->is_template ? __('Template') : ($record->problem() === null ? __('Open') : ($record->revoked_at ? __('Withdrawn') : ($record->awaiting_approval ? __('Waits for approval') : ($record->expires_at?->isPast() ? __('Expired') : ($record->max_uses !== null && $record->uses >= $record->max_uses ? __('Used up') : __('No servers')))))))
-                    ->color(fn (Invitation $record) => $record->problem() === null ? 'success' : ($record->awaiting_approval && $record->revoked_at === null ? 'warning' : 'gray')),
-            ])
             ->filters([
                 Filter::make('awaiting')->label(__('Waits for approval'))->query(fn (Builder $query) => $query->where('awaiting_approval', true)->whereNull('revoked_at')),
                 TernaryFilter::make('open')->label(__('Open'))->queries(

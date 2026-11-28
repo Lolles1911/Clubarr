@@ -7,6 +7,7 @@ use App\Models\MediaServer;
 use App\Models\User;
 use App\Services\Branding;
 use App\Services\SiteSettings;
+use App\Services\Theme;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -28,12 +29,11 @@ class InvitationLink extends Notification
     public function toMail(object $notifiable): MailMessage
     {
         $site = (string) app(SiteSettings::class)->get('site_name');
-        $color = (string) app(SiteSettings::class)->get('brand_color');
         $data = [
             'site' => $site,
             'link' => $this->link,
             'logo' => Branding::logoUrl() !== null ? url(Branding::logoUrl()) : null,
-            'color' => preg_match('/^#[0-9a-fA-F]{6}$/', $color) ? $color : '#7c3aed',
+            'color' => Theme::accentHex(),
             'from' => $this->from?->is_admin === false ? $this->from->name : null,
             'greeting' => $this->invitation?->greeting,
             'servers' => $this->invitation?->mediaServers->filter(fn (MediaServer $s) => $s->is_enabled)->map(fn (MediaServer $s) => $s->name.' ('.$s->type->label().')')->values()->all() ?? [],

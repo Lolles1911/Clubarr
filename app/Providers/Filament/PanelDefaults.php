@@ -7,6 +7,7 @@ use App\Http\Middleware\ApplySiteLocale;
 use App\Services\Branding;
 use App\Services\SingleSignOn;
 use App\Services\SiteSettings;
+use App\Services\Theme;
 use App\Support\InitialsAvatar;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\Authenticate;
@@ -34,13 +35,19 @@ final class PanelDefaults
             ->colors(fn () => Branding::colors())
             ->brandLogo(fn () => Branding::logoUrl())
             ->brandLogoHeight('2.25rem')
-            ->darkMode(true)
+            ->darkMode(true, fn () => Theme::forcesDark())
+            ->font(fn () => Theme::font())
             ->favicon(asset('clubarr-icon.svg'))
             // QR codes and sharing for invitation links (made in the browser; see public/js).
             // Single sign-on button on the sign-in pages, when set up.
             ->renderHook(PanelsRenderHook::AUTH_LOGIN_FORM_BEFORE, fn () => SingleSignOn::enabled()
                 ? new HtmlString(Blade::render('<div style="margin-bottom:1.25rem"><x-filament::button tag="a" :href="$href" color="gray" icon="heroicon-m-key" class="w-full">{{ $label }}</x-filament::button></div>',
                     ['href' => route('filament.app.sso.redirect'), 'label' => SingleSignOn::label()])) : '')
+            // Streaming: posters drifting behind sign-in, invitation and other simple pages (only ones this visitor may see).
+            ->renderHook(PanelsRenderHook::SIMPLE_LAYOUT_START, fn () => Theme::backdrop())
+            // The theme's own stylesheet, after Filament's (see Theme).
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => ($sheet = Theme::stylesheet()) !== null
+                ? new HtmlString('<link rel="stylesheet" href="'.e($sheet).'">') : '')
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => new HtmlString(
                 '<script src="'.e(asset('js/qrcode.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'
                 .'<script src="'.e(asset('js/clubarr-share.js')).'?v='.e((string) config('clubarr.version')).'" defer></script>'))
